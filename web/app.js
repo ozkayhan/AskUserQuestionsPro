@@ -4,7 +4,7 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 function App() {
-  const questions = useLiveQuestions();
+  const { id, questions } = useLiveQuestions();
 
   if (!questions || questions.length === 0) {
     return (
@@ -13,7 +13,8 @@ function App() {
       </div>
     );
   }
-  return <Flow questions={questions} key={questions.map((q) => q.question).join("|")} />;
+  // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
+  return <Flow questions={questions} key={id == null ? "q" : "round-" + id} />;
 }
 
 function Flow({ questions }) {
@@ -30,6 +31,7 @@ function Flow({ questions }) {
   const [dir, setDir] = useState("right");
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [sendError, setSendError] = useState(false);
 
   const isSummary = current >= n;
   const ref = useRef({});
@@ -98,25 +100,46 @@ function Flow({ questions }) {
     const p = ref.current.popup;
     if (!p) return;
     const text = (p.draft || "").trim();
-    if (!text) return;
     setAnswers((prev) => {
       const a = prev[p.qid];
-      const sel = a.sel.includes(p.optIdx) ? a.sel : [...a.sel, p.optIdx];
-      return { ...prev, [p.qid]: { ...a, sel, customText: text, confirmed: false } };
+      const next = AnswerMap.savePopupState(a, p.optIdx, text); // boş metin = kaldır (B4)
+      return { ...prev, [p.qid]: { ...a, sel: next.sel, customText: next.customText, confirmed: false } };
     });
     setPopup(null);
   }, []);
 
-  const submit = useCallback(() => {
+  // Custom popup'tan "Remove": seçimi kaldır (B4 — multiSelect Other deselect).
+  const removeCustom = useCallback(() => {
+    const p = ref.current.popup;
+    if (!p) return;
+    setAnswers((prev) => {
+      const a = prev[p.qid];
+      const next = AnswerMap.savePopupState(a, p.optIdx, "");
+      return { ...prev, [p.qid]: { ...a, sel: next.sel, customText: next.customText, confirmed: false } };
+    });
+    setPopup(null);
+  }, []);
+
+  const mappedAnswers = useCallback(() => {
     const stateForMap = {};
     QUESTIONS.forEach((q) => {
       const a = ref.current.answers[q.question];
       stateForMap[q.question] = { sel: a.sel, customText: a.customText };
     });
-    const mapped = AnswerMap.mapAnswers(QUESTIONS, stateForMap);
-    setSubmitted(true);
-    postAnswers(mapped);
+    return AnswerMap.mapAnswers(QUESTIONS, stateForMap);
   }, [QUESTIONS]);
+
+  const submit = useCallback(() => {
+    if (ref.current.submitted) return;               // double-submit guard (B17)
+    const mapped = mappedAnswers();
+    if (Object.keys(mapped).length === 0) return;    // boş submit guard (B8)
+    setSendError(false);
+    setSubmitted(true);
+    postAnswers(mapped).catch(() => {                // B6: hata → kilidi aç, uyar
+      setSubmitted(false);
+      setSendError(true);
+    });
+  }, [mappedAnswers]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -135,7 +158,9 @@ function Flow({ questions }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [goTo, confirmCurrent, activate, goBack, submit]);
 
-  const answered = QUESTIONS.filter((q) => answers[q.question].confirmed).length;
+  // "answered" = en az bir şık seçili (sel) — gönderimle tutarlı (B16).
+  const answered = QUESTIONS.filter((q) => answers[q.question].sel.length > 0).length;
+  const canSubmit = answered > 0;
 
   return (
     <div className="app" data-panel="left" data-align="center">
@@ -147,7 +172,7 @@ function Flow({ questions }) {
           {isSummary ? (
             <Summary answers={answers} QUESTIONS={QUESTIONS}
                      onEdit={(i) => goTo(i, "left")} onBack={goBack}
-                     onSubmit={submit} submitted={submitted} />
+                     onSubmit={submit} submitted={submitted} canSubmit={canSubmit} />
           ) : (
             <QuestionCard key={QUESTIONS[current].question} q={QUESTIONS[current]}
                           qIndex={current} ans={answers[QUESTIONS[current].question]}
@@ -158,12 +183,16 @@ function Flow({ questions }) {
       </main>
       {popup && (
         <CustomPopup q={QUESTIONS.find((q) => q.question === popup.qid)} draft={popup.draft}
+                     selected={answers[popup.qid].sel.includes(popup.optIdx)}
                      inputRef={inputRef} onChange={(v) => setPopup((p) => ({ ...p, draft: v }))}
-                     onSave={savePopup} onCancel={() => setPopup(null)} />
+                     onSave={savePopup} onRemove={removeCustom} onCancel={() => setPopup(null)} />
       )}
       {submitted && (
         <div className="toast"><span className="ok"><Check c="var(--success)" /></span>
           Answers sent back to the agent.</div>
+      )}
+      {sendError && (
+        <div className="toast toast--err">Couldn't send — bridge unavailable. Press Enter to retry.</div>
       )}
     </div>
   );
