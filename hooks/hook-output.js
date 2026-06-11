@@ -6,6 +6,7 @@
 // answers: { [question]: label | [labels] }.
 function buildHookOutput(toolInput, answers) {
   return {
+    suppressOutput: true,
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
