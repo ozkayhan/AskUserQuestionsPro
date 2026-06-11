@@ -4,14 +4,22 @@ Claude Code her `AskUserQuestion` sorduğunda, yerleşik picker yerine bu projed
 AMOLED Geist tam ekran arayüzü otomatik açılır; cevabınız modele geri döner.
 Her şey **lokal** çalışır — sıfır bağımlılık, uzak servis yok.
 
-## Kurulum (npm)
+## Kurulum
+
+### Hızlı kurulum (tek satır)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ozkayhan/AskUserQuestionsPro/main/install.sh | bash
+```
+
+Yeni bir `claude` oturumu açın. Hepsi bu.
+
+### npm ile
 
 ```bash
 npm install -g claude-askui
 claude-askui install
 ```
-
-Yeni bir `claude` oturumu açın. Hepsi bu.
 
 ### CLI komutları
 
@@ -22,7 +30,7 @@ Yeni bir `claude` oturumu açın. Hepsi bu.
 | `claude-askui serve` | Köprüyü foreground çalıştırır (debug, port 4517) |
 | `claude-askui doctor` | Kurulum + köprü durumunu kontrol eder |
 
-### Alternatif: repo'dan (npm'siz)
+### Lokal repo'dan (npm'siz)
 
 ```bash
 ./install.sh
