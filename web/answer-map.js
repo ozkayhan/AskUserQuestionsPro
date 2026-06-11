@@ -59,5 +59,15 @@
     return { type: 'confirm' };
   }
 
-  return { mapAnswers: mapAnswers, decideActivate: decideActivate };
+  // Popup "kaydet" mantığı (saf): boş metin = custom seçimi kaldır, dolu = ekle/güncelle.
+  // a: { sel:number[], customText }, optIdx: custom indeksi, text: trim'lenmiş metin
+  function savePopupState(a, optIdx, text) {
+    if (!text) {
+      return { sel: a.sel.filter(function (i) { return i !== optIdx; }), customText: '' };
+    }
+    var sel = a.sel.indexOf(optIdx) === -1 ? a.sel.concat([optIdx]) : a.sel;
+    return { sel: sel, customText: text };
+  }
+
+  return { mapAnswers: mapAnswers, decideActivate: decideActivate, savePopupState: savePopupState };
 });

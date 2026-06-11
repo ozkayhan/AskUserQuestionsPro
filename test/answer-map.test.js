@@ -66,3 +66,18 @@ t2('multiSelect normal seçenek -> toggle ekler', () => {
   const a = { sel: [0], customText: '', confirmed: false };
   assert2.deepStrictEqual(AM.decideActivate(multiQ, a, 1), { type: 'toggle', sel: [0, 1] });
 });
+
+const AM2 = require('../web/answer-map.js');
+
+t2('savePopupState: bos metin custom secimi KALDIRIR (multiSelect deselect yolu)', () => {
+  const a = { sel: [0, 2], customText: 'eski' };
+  assert2.deepStrictEqual(AM2.savePopupState(a, 2, ''), { sel: [0], customText: '' });
+});
+t2('savePopupState: metin custom secimi EKLER/gunceller', () => {
+  const a = { sel: [0], customText: '' };
+  assert2.deepStrictEqual(AM2.savePopupState(a, 2, 'yeni'), { sel: [0, 2], customText: 'yeni' });
+});
+t2('savePopupState: zaten secili custom metin gunceller (cift eklemez)', () => {
+  const a = { sel: [2], customText: 'a' };
+  assert2.deepStrictEqual(AM2.savePopupState(a, 2, 'b'), { sel: [2], customText: 'b' });
+});
