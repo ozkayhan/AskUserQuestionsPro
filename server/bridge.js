@@ -1,9 +1,11 @@
 'use strict';
 
 // Tek-uçuş randevu: bir soru seti kaydedilir, cevap gelene dek promise açık tutulur.
+// Her tur monoton artan bir `id` taşır (UI'ın tur başına remount kararı için).
 class Bridge {
   constructor() {
-    this._pending = null; // { questions, resolve, reject }
+    this._pending = null; // { id, questions, resolve, reject }
+    this._seq = 0;
   }
 
   // Hook tarafı: soru setini kaydet, cevap promise'i al.
@@ -11,14 +13,20 @@ class Bridge {
     if (this._pending) {
       return Promise.reject(new Error('A question set is already pending'));
     }
+    const id = ++this._seq;
     return new Promise((resolve, reject) => {
-      this._pending = { questions, resolve, reject };
+      this._pending = { id, questions, resolve, reject };
     });
   }
 
-  // UI tarafı: o an bekleyen soru seti (yoksa null).
+  // UI tarafı: o an bekleyen soru seti (yoksa null) — yan etkisiz.
   getCurrent() {
     return this._pending ? this._pending.questions : null;
+  }
+
+  // UI tarafı: o an bekleyen { id, questions } (yoksa null).
+  peek() {
+    return this._pending ? { id: this._pending.id, questions: this._pending.questions } : null;
   }
 
   // UI tarafı: cevapları ver, bekleyen submitQuestions promise'ini resolve et.

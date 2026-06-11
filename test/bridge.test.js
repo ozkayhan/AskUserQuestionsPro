@@ -29,3 +29,17 @@ test('cancel bekleyen promise i reject eder', async () => {
   await assert.rejects(() => p, /timeout/);
   assert.strictEqual(b.getCurrent(), null);
 });
+
+test('her submit artan benzersiz id verir; peek {id,questions} doner', async () => {
+  const b = new Bridge();
+  assert.strictEqual(b.peek(), null);
+  const p1promise = b.submitQuestions([{ question: 'Q1' }]);
+  const p1 = b.peek();
+  assert.ok(typeof p1.id === 'number');
+  assert.deepStrictEqual(p1.questions, [{ question: 'Q1' }]);
+  b.cancel('x');
+  await p1promise.catch(() => {}); // handle rejection
+  b.submitQuestions([{ question: 'Q2' }]);
+  const p2 = b.peek();
+  assert.ok(p2.id > p1.id, 'id artmali');
+});
