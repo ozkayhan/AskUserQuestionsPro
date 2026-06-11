@@ -58,6 +58,7 @@ async function main() {
     });
     openBrowser();
     const r = await askPromise;
+    if (!r.ok) throw new Error(`bridge returned ${r.status}`); // 409/4xx/5xx → native fallback
     answers = (await r.json()).answers;
   } catch {
     clearTimeout(timer);
@@ -65,6 +66,7 @@ async function main() {
   }
   clearTimeout(timer);
 
+  if (answers == null) process.exit(0); // cevap gelmedi → native picker'a düş
   process.stdout.write(JSON.stringify(buildHookOutput(toolInput, answers)));
   process.exit(0);
 }

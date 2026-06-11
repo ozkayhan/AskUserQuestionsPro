@@ -21,10 +21,6 @@ class Bridge {
     return this._pending ? this._pending.questions : null;
   }
 
-  hasPending() {
-    return this._pending !== null;
-  }
-
   // UI tarafı: cevapları ver, bekleyen submitQuestions promise'ini resolve et.
   provideAnswers(answers) {
     if (!this._pending) throw new Error('No pending question set');

@@ -27,5 +27,37 @@
     return out;
   }
 
-  return { mapAnswers: mapAnswers };
+  // Bir seçeneğe basıldığında/tıklandığında ne yapılacağına karar verir (saf fonksiyon).
+  // q: { options, multiSelect }, a: { sel:number[], customText, confirmed }, optIdx: number
+  // döndürür action: { type, ... }
+  //   'noop'            — geçersiz indeks
+  //   'select'          — { sel } yeni tekli seçim (armed)
+  //   'toggle'          — { sel } çoklu seçim listesi güncellendi
+  //   'popup'           — { optIdx, draft } custom düzenleyiciyi aç
+  //   'confirm'         — onayla ve ilerle
+  function decideActivate(q, a, optIdx) {
+    var opts = q.options.concat([{ label: CUSTOM_LABEL, custom: true }]);
+    if (optIdx < 0 || optIdx >= opts.length) return { type: 'noop' };
+    var isCustom = !!opts[optIdx].custom;
+
+    if (q.multiSelect) {
+      var inSel = a.sel.indexOf(optIdx) !== -1;
+      if (inSel) {
+        if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText };
+        return { type: 'toggle', sel: a.sel.filter(function (i) { return i !== optIdx; }) };
+      }
+      // Yeni custom: metin kaydedilene dek seçimi işaretleme; iptal edilirse hayalet
+      // seçili "Other" kalmasın (savePopup metin gelince sel'e ekler).
+      if (isCustom && !a.customText) return { type: 'popup', optIdx: optIdx, draft: '' };
+      return { type: 'toggle', sel: a.sel.concat([optIdx]) };
+    }
+
+    var armed = a.sel[0] === optIdx;
+    if (!armed) return { type: 'select', sel: [optIdx] };
+    // armed: custom seçenekte her zaman düzenleyiciyi aç (ilk kez yaz veya mevcut metni düzenle)
+    if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText || '' };
+    return { type: 'confirm' };
+  }
+
+  return { mapAnswers: mapAnswers, decideActivate: decideActivate };
 });

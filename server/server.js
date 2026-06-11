@@ -21,6 +21,8 @@ function readBody(req) {
     req.on('data', (c) => { data += c; if (data.length > 1e6) req.destroy(); });
     req.on('end', () => resolve(data));
     req.on('error', reject);
+    // req.destroy() (boyut aşımı) yalnızca 'close' yayar; promise'in asılı kalmaması için.
+    req.on('close', () => { if (!req.readableEnded) reject(new Error('connection closed')); });
   });
 }
 
@@ -30,7 +32,8 @@ function broadcastCurrent() {
 }
 
 function serveStatic(req, res) {
-  const rel = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+  let rel = req.url.split('?')[0];
+  if (rel === '/' || rel === '') rel = '/index.html';
   const file = path.join(WEB_DIR, path.normalize(rel));
   if (!file.startsWith(WEB_DIR)) { res.writeHead(403); res.end(); return; }
   fs.readFile(file, (err, buf) => {
@@ -60,21 +63,37 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url === '/ask') {
-    const body = await readBody(req);
+    let body;
+    try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
     let questions;
     try { questions = JSON.parse(body).questions; } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    let answersPromise;
     try {
-      const answersPromise = bridge.submitQuestions(questions);
-      broadcastCurrent();
-      const answers = await answersPromise;
-      return sendJson(res, 200, { answers });
+      answersPromise = bridge.submitQuestions(questions);
     } catch (e) {
       return sendJson(res, 409, { error: e.message });
+    }
+    // Bu istek pending'i sahiplendi; istemci yanıttan önce giderse iptal et ki
+    // sonraki sorular kilitlenmesin (res 'close' istemci kopuşunun güvenilir sinyali).
+    let settled = false;
+    const onClose = () => { if (!settled) bridge.cancel('client disconnected'); };
+    res.on('close', onClose);
+    broadcastCurrent();
+    try {
+      const answers = await answersPromise;
+      settled = true;
+      return sendJson(res, 200, { answers });
+    } catch (e) {
+      settled = true;
+      return sendJson(res, 409, { error: e.message });
+    } finally {
+      res.off('close', onClose);
     }
   }
 
   if (req.method === 'POST' && url === '/answer') {
-    const body = await readBody(req);
+    let body;
+    try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
     let answers;
     try { answers = JSON.parse(body).answers; } catch { return sendJson(res, 400, { error: 'bad json' }); }
     try {
