@@ -40,3 +40,50 @@ test('GET / index.html serve eder', async () => {
   const body = await r.text();
   assert.match(body, /<div id="root">/);
 });
+
+test('/current ve /events payload {id, questions} icerir', async () => {
+  const questions = [{ question: 'QID?', options: [{ label: 'A' }], multiSelect: false }];
+  const askPromise = fetch(`${base}/ask`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questions }),
+  });
+  await new Promise((r) => setTimeout(r, 50));
+  const cur = await (await fetch(`${base}/current`)).json();
+  assert.ok(typeof cur.id === 'number', 'id alani olmali');
+  assert.deepStrictEqual(cur.questions, questions);
+  await fetch(`${base}/answer`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers: { 'QID?': 'A' } }),
+  });
+  await askPromise;
+});
+
+test('/ask gecersiz questions (dizi degil) -> 400', async () => {
+  const r = await fetch(`${base}/ask`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questions: 'oops' }),
+  });
+  assert.strictEqual(r.status, 400);
+});
+
+test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir)', async () => {
+  // SSE dinle
+  const sse = await fetch(`${base}/events`);
+  const reader = sse.body.getReader();
+  const dec = new TextDecoder();
+  const events = [];
+  (async () => { while (true) { const { value, done } = await reader.read(); if (done) break;
+    for (const l of dec.decode(value).split('\n')) if (l.startsWith('data:')) events.push(l.slice(5).trim()); } })();
+  await new Promise((r) => setTimeout(r, 30));
+  const ac = new AbortController();
+  const askP = fetch(`${base}/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questions: [{ question: 'BYE?', options: [{ label: 'A' }], multiSelect: false }] }),
+    signal: ac.signal }).catch(() => {});
+  await new Promise((r) => setTimeout(r, 50));
+  ac.abort();           // hook öldü
+  await askP;
+  await new Promise((r) => setTimeout(r, 80));
+  const last = events[events.length - 1];
+  assert.match(last, /"questions":null/, 'cancel sonrasi son SSE olayi null olmali');
+  reader.cancel().catch(() => {});
+});
