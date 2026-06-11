@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# curl | bash ile çalışması için: eğer lokal çalışırsa DIR = script dir,
+# curl'den çalışırsa GitHub'dan indir
+if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
+  DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+  # curl | bash: GitHub'dan indir ve temp dir'de kur
+  TMPDIR="$(mktemp -d)"
+  trap "rm -rf $TMPDIR" EXIT
+  echo "📥 AskUserQuestionsPro GitHub'dan indiriliyor..."
+  curl -fsSL "https://github.com/ozkayhan/AskUserQuestionsPro/archive/refs/heads/main.zip" -o "$TMPDIR/repo.zip"
+  unzip -q "$TMPDIR/repo.zip" -d "$TMPDIR"
+  DIR="$TMPDIR/AskUserQuestionsPro-main"
+fi
+
 SETTINGS="$HOME/.claude/settings.json"
 HOOK="$DIR/hooks/askuser-bridge.mjs"
 
