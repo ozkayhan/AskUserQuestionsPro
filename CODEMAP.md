@@ -17,8 +17,13 @@ konuşur) → **server** (köprü, RAM'de soru/cevap tutar) → **web** (UI).
 askuseroz/
 ├── CODEMAP.md                ◄── BURADASIN. Giriş haritası.
 ├── README.md                 Kurulum, klavye, sorun giderme (kullanıcıya dönük).
+├── LICENSE                    MIT lisansı.
 ├── install.sh                settings.json'a PreToolUse hook'unu ekler (jq ile).
 ├── package.json              Sıfır bağımlılık. scripts: test (node --test), serve.
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml            GitHub Actions: push/PR'de `npm test` (node --test).
 │
 ├── living_docs/              ◄── KAVRAMSAL DOKÜMANTASYON
 │   ├── PURPOSE.md              Ne işe yarar, hangi app ile (Claude Code), neden.
@@ -33,9 +38,12 @@ askuseroz/
 │   ├── server.js               HTTP + SSE uçları + statik web/ servisi. Süreç girişi.
 │   └── bridge.js               Bridge sınıfı — tek-uçuş randevu state machine (40 satır, kalp).
 │
-├── web/                      ◄── TARAYICI UI (build'siz, CDN React+Babel)
+├── web/                      ◄── TARAYICI UI (build'siz, yerel React+Babel)
+│   ├── vendor/                 [YEREL VENDOR] react / react-dom / babel min'leri
+│   │                            (CDN değil → offline çalışır; index.html buradan yükler).
+│   ├── themes.js               [SAF] Tema registry (5 tema) + KNOWN_TOKENS sözleşmesi. Test'li.
 │   ├── index.html              Mount noktası + script yükleme SIRASI (önemli).
-│   ├── styles.css              AMOLED Geist tasarımı (tek dosya, ~640 satır CSS).
+│   ├── styles.css              AMOLED Geist tasarımı + 5 tema token'ı (tek dosya, ~740 satır CSS).
 │   ├── answer-map.js           [SAF] decideActivate + mapAnswers — UI state ⇄ answers. Test'li.
 │   ├── ui-kit.js               İkonlar (Check, Kbd), sabitler, fullOptions(). Durumsuz JSX.
 │   ├── live.js                 useLiveQuestions (SSE) + postAnswers (POST). I/O katmanı.
@@ -46,7 +54,8 @@ askuseroz/
 │   ├── bridge.test.js          Randevu state machine.
 │   ├── server.test.js          HTTP uçları + round-trip.
 │   ├── hook-output.test.js     Hook payload sözleşmesi.
-│   └── answer-map.test.js      Saf UI karar mantığı (regresyonlar dahil).
+│   ├── answer-map.test.js      Saf UI karar mantığı (regresyonlar dahil).
+│   └── themes.test.js          Tema registry + styles.css :root ↔ KNOWN_TOKENS eşleşmesi.
 │
 └── design-reference/         ◄── Orijinal Claude Design handoff (KAYNAK, çalışmaz kod).
     ├── project/                app.jsx, styles.css, AskUserQuestions.html, ekran görüntüleri.

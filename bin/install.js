@@ -9,7 +9,9 @@ const MATCHER = 'AskUserQuestion';
 const TIMEOUT = 360;
 
 function hookCommand(hookAbsPath) {
-  return `node ${hookAbsPath}`;
+  // Yolu çift tırnakla sar: "Application Support" gibi boşluk içeren yollarda
+  // node'un "Cannot find module" hatasını önler (B7).
+  return `node "${hookAbsPath}"`;
 }
 
 function ourEntry(hookAbsPath) {

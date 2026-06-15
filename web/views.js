@@ -1,4 +1,4 @@
-/* global React, Check, Kbd, fullOptions, Themes */
+/* global React, Check, Kbd, Brand, fullOptions, Themes */
 /* askuseroz · views — saf sunum bileşenleri (durumu prop ile alır, callback ile bildirir) */
 const { useEffect: useEffectView, useState: useStateView } = React;
 
@@ -44,11 +44,7 @@ function Sidebar({ QUESTIONS, answers, current, n, answered, isSummary, submitte
     <aside className="sidebar">
       <div className="sidebar__head">
         <div className="brand">
-          <span className="brand__mark">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 1.5L18.5 17H1.5L10 1.5z" fill="var(--fg)" />
-            </svg>
-          </span>
+          <span className="brand__mark"><Brand s={20} /></span>
           <span className="brand__name">Agent <span>· clarify</span></span>
         </div>
         <div className="progress__label">
@@ -99,7 +95,7 @@ function Hints({ q }) {
   return (
     <footer className="hints">
       <span className="hint">
-        <span className="kbd-group"><Kbd>1</Kbd>–<Kbd>{fullOptions(q).length}</Kbd></span> Select
+        <span className="kbd-group"><Kbd>1</Kbd>–<Kbd>{Math.min(9, fullOptions(q).length)}</Kbd></span> Select
       </span>
       <span className="hint">
         {q.multiSelect
@@ -159,13 +155,14 @@ function QuestionCard({ q, qIndex, ans, motion, dir, onActivate }) {
 }
 
 /* ─────────────────── custom popup (referans birebir) ─────────────────── */
-function CustomPopup({ q, draft, inputRef, onChange, onSave, onCancel }) {
+function CustomPopup({ q, draft, selected, inputRef, onChange, onSave, onRemove, onCancel }) {
   const autosize = (el) => {
     if (!el) return;
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
   };
   useEffectView(() => { autosize(inputRef.current); }, [draft]);
+  const trimmed = (draft || "").trim();
   return (
     <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="popup">
@@ -182,8 +179,11 @@ function CustomPopup({ q, draft, inputRef, onChange, onSave, onCancel }) {
         <div className="popup__foot">
           <span className="popup__hint"><Kbd>↵</Kbd> Save · <Kbd>⇧↵</Kbd> New line · <Kbd>esc</Kbd> Cancel</span>
           <div className="popup__actions">
+            {selected && <button className="btn btn--danger" onClick={onRemove}>Remove</button>}
             <button className="btn" onClick={onCancel}>Cancel</button>
-            <button className="btn btn--primary" onClick={onSave} disabled={!draft.trim()}>Save answer</button>
+            <button className="btn btn--primary" onClick={onSave} disabled={!selected && !trimmed}>
+              {trimmed ? "Save answer" : "Remove"}
+            </button>
           </div>
         </div>
       </div>
@@ -192,7 +192,7 @@ function CustomPopup({ q, draft, inputRef, onChange, onSave, onCancel }) {
 }
 
 /* ─────────────────── summary (q.question anahtarı) ─────────────────── */
-function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted }) {
+function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canSubmit }) {
   const allDone = QUESTIONS.every((q) => answers[q.question].confirmed);
   return (
     <div className="summary">
@@ -227,8 +227,8 @@ function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted }) {
         <button className="btn btn--lg btn--ghost" onClick={onBack}>
           <Kbd>B</Kbd> Back{allDone ? "" : " to unanswered"}
         </button>
-        <button className="btn btn--lg btn--primary" onClick={onSubmit}>
-          {submitted ? "Submitted ✓" : <>Submit answers <Kbd>↵</Kbd></>}
+        <button className="btn btn--lg btn--primary" onClick={onSubmit} disabled={!canSubmit || submitted}>
+          {submitted ? "Submitted ✓" : canSubmit ? <>Submit answers <Kbd>↵</Kbd></> : "Answer at least one"}
         </button>
       </div>
     </div>

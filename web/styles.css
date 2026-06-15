@@ -15,10 +15,10 @@
   --fg-subtle: #6e6e6e;
   --fg-faint: #4a4a4a;
 
-  --accent: #0070f3;
+  --accent: #4d8dff;
   --accent-fg: #ffffff;
-  --accent-soft: rgba(0, 112, 243, 0.14);
-  --accent-line: rgba(0, 112, 243, 0.55);
+  --accent-soft: rgba(77, 141, 255, 0.14);
+  --accent-line: rgba(77, 141, 255, 0.55);
 
   --success: #1ed760;
   --success-soft: rgba(30, 215, 96, 0.12);
@@ -42,7 +42,7 @@
   --overlay-bg: rgba(0, 0, 0, 0.66);
   --overlay-blur: 3px;
   --surface-blur: none;
-  --texture: radial-gradient(circle at 78% 12%, rgba(0, 112, 243, 0.05), transparent 42%);
+  --texture: radial-gradient(circle at 78% 12%, rgba(77, 141, 255, 0.05), transparent 42%);
   --selection-bg: var(--accent-soft);
   --sidebar-bg: linear-gradient(180deg, var(--surface-1), var(--bg) 65%);
   --opt-bg-sel: linear-gradient(180deg, var(--accent-soft), transparent);
@@ -560,6 +560,30 @@ button { font-family: inherit; cursor: pointer; }
 .btn--primary:hover { filter: brightness(1.12); }
 .btn--primary:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
 
+/* destructive / delete action */
+.btn--danger {
+  background: rgba(244, 63, 63, 0.12);
+  border-color: rgba(244, 63, 63, 0.45);
+  color: #ff6b6b;
+}
+.btn--danger .kbd {
+  background: rgba(244, 63, 63, 0.18);
+  border-color: rgba(244, 63, 63, 0.4);
+  color: #ff8c8c;
+  box-shadow: none;
+}
+.btn--danger:hover {
+  background: #f43f3f;
+  border-color: #f43f3f;
+  color: #fff;
+}
+.btn--danger:hover .kbd {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #fff;
+}
+.btn--danger:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+
 /* ───────────────────────── summary / done ───────────────────────── */
 
 .summary { width: 100%; max-width: clamp(560px, 50vw, 720px); }
@@ -610,6 +634,15 @@ button { font-family: inherit; cursor: pointer; }
 }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .toast .ok { color: var(--success); display: grid; place-items: center; }
+
+/* error toast — red warning box */
+.toast--err {
+  background: rgba(244, 63, 63, 0.14);
+  border-color: rgba(244, 63, 63, 0.5);
+  color: #ffd5d5;
+}
+.toast--err .ok,
+.toast--err .err { color: #ff6b6b; display: grid; place-items: center; }
 
 /* ── tablet: keep both panels, tighten gutters ── */
 @media (max-width: 1024px) {

@@ -1,8 +1,17 @@
 {
   "name": "claude-askui",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Claude Code AskUserQuestion için özel AMOLED tam ekran arayüz — yerleşik picker yerine lokal köprü ile açılır.",
   "type": "commonjs",
+  "author": "oğuz kerem ayhan <oguzkeremayhan@hotmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ozkayhan/AskUserQuestionsPro.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ozkayhan/AskUserQuestionsPro/issues"
+  },
+  "homepage": "https://github.com/ozkayhan/AskUserQuestionsPro#readme",
   "bin": {
     "claude-askui": "bin/cli.js"
   },
@@ -12,7 +21,8 @@
     "server/",
     "web/",
     "install.sh",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "test": "node --test",

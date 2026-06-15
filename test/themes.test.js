@@ -1,8 +1,20 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
 const Themes = require('../web/themes.js');
 
 const KNOWN = new Set(Themes.KNOWN_TOKENS);
+
+// styles.css :root bloğundaki CSS custom property anahtarlarını çıkar.
+function rootTokens() {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'styles.css'), 'utf8');
+  // Kapanışı satır-başı '}'a sabitle: :root içinde nested brace yok varsayımı
+  // (varsa non-greedy ilk '}'da kesilip token kaçırmasın diye anchor güvenli).
+  const block = /:root\s*\{([\s\S]*?)^}/m.exec(css);
+  assert.ok(block, 'styles.css içinde :root bloğu bulunmalı');
+  return [...block[1].matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1]);
+}
 
 test('5 tema var, hepsi benzersiz id', () => {
   assert.strictEqual(Themes.list.length, 5);
@@ -58,4 +70,26 @@ test('apply node ortamında (document yok) çökmeden id döndürür', () => {
   assert.strictEqual(Themes.apply('phosphor'), 'phosphor');
   assert.strictEqual(Themes.current(), 'phosphor');
   assert.strictEqual(Themes.apply('yok'), 'amoled');
+});
+
+// B18: styles.css :root defaultları ↔ KNOWN_TOKENS sözleşmesi senkron.
+// :root'taki her token KNOWN_TOKENS'ta olmalı (kaçak default yok), ve
+// KNOWN_TOKENS'taki her anahtarın bir :root defaultu olmalı (eksik default yok).
+test('styles.css :root tokenları KNOWN_TOKENS sözleşmesiyle birebir eşleşir', () => {
+  const root = rootTokens();
+  assert.ok(root.length > 0, ':root en az bir token içermeli');
+
+  // benzersizlik — aynı token iki kez tanımlanmamalı
+  assert.strictEqual(new Set(root).size, root.length, ':root tokenları benzersiz olmalı');
+
+  const rootSet = new Set(root);
+
+  const extraInCss = root.filter((t) => !KNOWN.has(t));
+  assert.deepStrictEqual(extraInCss, [], `styles.css :root'ta sözleşme dışı token: ${extraInCss.join(', ')}`);
+
+  const missingInCss = Themes.KNOWN_TOKENS.filter((t) => !rootSet.has(t));
+  assert.deepStrictEqual(missingInCss, [], `KNOWN_TOKENS'ta olup :root defaultu olmayan: ${missingInCss.join(', ')}`);
+
+  // bidirectional eşitlik → aynı boyut
+  assert.strictEqual(rootSet.size, KNOWN.size);
 });

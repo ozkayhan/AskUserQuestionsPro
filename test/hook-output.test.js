@@ -10,4 +10,6 @@ test('allow kararı + updatedInput içinde answers üretir', () => {
   assert.strictEqual(hso.permissionDecision, 'allow');
   assert.deepStrictEqual(hso.updatedInput.answers, { 'Q?': 'A' });
   assert.deepStrictEqual(hso.updatedInput.questions, toolInput.questions);
+  assert.strictEqual(out.suppressOutput, true, 'JSON payload transcripte yansimasin');
+  assert.strictEqual(hso.hookEventName, 'PreToolUse');
 });

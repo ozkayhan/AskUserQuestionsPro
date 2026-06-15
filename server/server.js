@@ -8,7 +8,7 @@ const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
 const bridge = new Bridge();
 const sseClients = new Set();
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.woff2': 'font/woff2', '.map': 'application/json' };
 
 function sendJson(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json' });
@@ -26,8 +26,14 @@ function readBody(req) {
   });
 }
 
+// Soru setinin temel şekil doğrulaması (kötü/eksik girdiyi 400'le geri çevir).
+function validQuestions(q) {
+  return Array.isArray(q) && q.length > 0 && q.every((it) =>
+    it && typeof it.question === 'string' && Array.isArray(it.options));
+}
+
 function broadcastCurrent() {
-  const payload = JSON.stringify({ questions: bridge.getCurrent() });
+  const payload = JSON.stringify(bridge.peek() || { id: null, questions: null });
   for (const res of sseClients) res.write(`data: ${payload}\n\n`);
 }
 
@@ -35,7 +41,8 @@ function serveStatic(req, res) {
   let rel = req.url.split('?')[0];
   if (rel === '/' || rel === '') rel = '/index.html';
   const file = path.join(WEB_DIR, path.normalize(rel));
-  if (!file.startsWith(WEB_DIR)) { res.writeHead(403); res.end(); return; }
+  // Sınır duyarlı kontrol: WEB_DIR'in kendisi veya altı olmalı.
+  if (file !== WEB_DIR && !file.startsWith(WEB_DIR + path.sep)) { res.writeHead(403); res.end(); return; }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
@@ -48,7 +55,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && url === '/health') return sendJson(res, 200, { ok: true });
   if (req.method === 'GET' && url === '/current')
-    return sendJson(res, 200, { questions: bridge.getCurrent() });
+    return sendJson(res, 200, bridge.peek() || { id: null, questions: null });
 
   if (req.method === 'GET' && url === '/events') {
     res.writeHead(200, {
@@ -56,9 +63,11 @@ const server = http.createServer(async (req, res) => {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     });
-    res.write(`data: ${JSON.stringify({ questions: bridge.getCurrent() })}\n\n`);
+    res.write(`data: ${JSON.stringify(bridge.peek() || { id: null, questions: null })}\n\n`);
+    // 25 sn'de bir yorum-ping: bağlantı/proxy timeout'una karşı keepalive.
+    const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* yok say */ } }, 25000);
     sseClients.add(res);
-    req.on('close', () => sseClients.delete(res));
+    req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
     return;
   }
 
@@ -67,6 +76,7 @@ const server = http.createServer(async (req, res) => {
     try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
     let questions;
     try { questions = JSON.parse(body).questions; } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    if (!validQuestions(questions)) return sendJson(res, 400, { error: 'invalid questions' });
     let answersPromise;
     try {
       answersPromise = bridge.submitQuestions(questions);
@@ -74,9 +84,9 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 409, { error: e.message });
     }
     // Bu istek pending'i sahiplendi; istemci yanıttan önce giderse iptal et ki
-    // sonraki sorular kilitlenmesin (res 'close' istemci kopuşunun güvenilir sinyali).
+    // sonraki sorular kilitlenmesin. Cancel sonrası UI'ı da bilgilendir (broadcast).
     let settled = false;
-    const onClose = () => { if (!settled) bridge.cancel('client disconnected'); };
+    const onClose = () => { if (!settled) { bridge.cancel('client disconnected'); broadcastCurrent(); } };
     res.on('close', onClose);
     broadcastCurrent();
     try {
@@ -96,6 +106,8 @@ const server = http.createServer(async (req, res) => {
     try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
     let answers;
     try { answers = JSON.parse(body).answers; } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    if (answers === null || typeof answers !== 'object' || Array.isArray(answers))
+      return sendJson(res, 400, { error: 'invalid answers' });
     try {
       bridge.provideAnswers(answers);
       broadcastCurrent();
@@ -107,6 +119,12 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET') return serveStatic(req, res);
   res.writeHead(404); res.end();
+});
+
+// Daemon olarak başlatılırken port doluysa (eşzamanlı spawn yarışı) sessizce çekil.
+server.on('error', (e) => {
+  if (e && e.code === 'EADDRINUSE') process.exit(0);
+  throw e;
 });
 
 if (require.main === module) {

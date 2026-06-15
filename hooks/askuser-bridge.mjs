@@ -13,11 +13,16 @@ const PORT = process.env.ASKUSER_PORT || "4517";
 const BASE = `http://127.0.0.1:${PORT}`;
 const TIMEOUT_MS = 5 * 60 * 1000;
 
+// Her beklenmedik hata native picker'a düşmeli (ARCHITECTURE §7 değişmezi).
+process.on("uncaughtException", () => process.exit(0));
+process.on("unhandledRejection", () => process.exit(0));
+
 function readStdin() {
   return new Promise((resolve) => {
     let d = "";
     process.stdin.on("data", (c) => (d += c));
     process.stdin.on("end", () => resolve(d));
+    process.stdin.on("error", () => resolve(d));
   });
 }
 
@@ -30,13 +35,28 @@ async function ensureServer() {
   const child = spawn(process.execPath, [path.join(HERE, "..", "server", "server.js")], {
     detached: true, stdio: "ignore", env: process.env,
   });
+  child.on("error", () => {}); // spawn başarısızsa aşağıdaki poll false döner
   child.unref();
   for (let i = 0; i < 30; i++) { if (await isUp()) return true; await delay(100); }
   return false;
 }
 
+// Tarayıcıyı platforma uygun komutla aç; başarısızlık AKIŞI BOZMASIN.
 function openBrowser() {
-  spawn("open", [BASE], { stdio: "ignore", detached: true }).unref();
+  const plat = process.platform;
+  const cmd = plat === "darwin" ? "open" : plat === "win32" ? "cmd" : "xdg-open";
+  const args = plat === "win32" ? ["/c", "start", "", BASE] : [BASE];
+  try {
+    const c = spawn(cmd, args, { stdio: "ignore", detached: true });
+    c.on("error", () => {}); // 'open'/'xdg-open' yoksa unhandled 'error' ile çökmesin
+    c.unref();
+  } catch { /* yok say — kullanıcı sekmeyi elle açabilir */ }
+}
+
+// stdout'u flush ederek çık: process.exit() bekleyen pipe yazımını kesebilir (B5).
+function writeAndExit(payload) {
+  process.exitCode = 0;
+  process.stdout.write(payload, () => process.exit(0));
 }
 
 async function main() {
@@ -66,9 +86,11 @@ async function main() {
   }
   clearTimeout(timer);
 
-  if (answers == null) process.exit(0); // cevap gelmedi → native picker'a düş
-  process.stdout.write(JSON.stringify(buildHookOutput(toolInput, answers)));
-  process.exit(0);
+  // Cevap yok ya da hiçbir soru cevaplanmamış ({}) → native picker'a düş.
+  if (answers == null || (typeof answers === "object" && Object.keys(answers).length === 0)) {
+    process.exit(0);
+  }
+  writeAndExit(JSON.stringify(buildHookOutput(toolInput, answers)));
 }
 
-main();
+main().catch(() => process.exit(0)); // her sapma → native fallback

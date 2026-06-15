@@ -6,7 +6,7 @@ set -euo pipefail
 if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
   DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
-  # curl | bash: GitHub'dan indir ve temp dir'de kur
+  # curl | bash: GitHub'dan indir ve temp dir'de aç (temp betik bitince silinir)
   TMPDIR="$(mktemp -d)"
   trap "rm -rf $TMPDIR" EXIT
   echo "📥 AskUserQuestionsPro GitHub'dan indiriliyor..."
@@ -15,27 +15,41 @@ else
   DIR="$TMPDIR/AskUserQuestionsPro-main"
 fi
 
+# Hook ve web dosyalarını KALICI bir konuma kopyala. $DIR temp dir olabilir
+# (curl | bash) ve betik bitince silinir; bu yüzden hook'un kalıcı bir yolu olmalı.
+INSTALL_DIR="$HOME/.local/share/claude-askui"
+mkdir -p "$INSTALL_DIR"
+# Re-run'da bayat dosya kalmasın diye hedefi önce temizle (içerik idempotency).
+rm -rf "$INSTALL_DIR/hooks" "$INSTALL_DIR/web"
+cp -R "$DIR/hooks" "$INSTALL_DIR/"
+[ -d "$DIR/web" ] && cp -R "$DIR/web" "$INSTALL_DIR/"
+
 SETTINGS="$HOME/.claude/settings.json"
-HOOK="$DIR/hooks/askuser-bridge.mjs"
+HOOK="$INSTALL_DIR/hooks/askuser-bridge.mjs"
+CMD="node \"$HOOK\""
 
 mkdir -p "$HOME/.claude"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 
-# AskUserQuestion için zaten bir PreToolUse hook var mı uyar (issue #15897).
+# AskUserQuestion için zaten bizim olmayan bir PreToolUse hook var mı uyar (issue #15897).
 if grep -q '"AskUserQuestion"' "$SETTINGS" 2>/dev/null; then
   echo "UYARI: settings.json içinde zaten 'AskUserQuestion' geçiyor — tek PreToolUse hook olmalı. Elle kontrol edin."
 fi
 
-# jq ile hook'u ekle (jq yoksa elle ekleme talimatı bas).
+# jq ile hook'u idempotent ekle: aynı komut zaten varsa TEKRAR EKLEME.
 if command -v jq >/dev/null 2>&1; then
   tmp="$(mktemp)"
-  jq --arg cmd "node $HOOK" '
+  jq --arg cmd "$CMD" '
     .hooks //= {} |
     .hooks.PreToolUse //= [] |
-    .hooks.PreToolUse += [{ "matcher": "AskUserQuestion",
-      "hooks": [{ "type": "command", "command": $cmd, "timeout": 360 }] }]
+    if any(.hooks.PreToolUse[]?; .hooks[]?.command == $cmd) then
+      .
+    else
+      .hooks.PreToolUse += [{ "matcher": "AskUserQuestion",
+        "hooks": [{ "type": "command", "command": $cmd, "timeout": 360 }] }]
+    end
   ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-  echo "Hook eklendi → $SETTINGS"
+  echo "Hook eklendi (idempotent) → $SETTINGS"
 else
   cat <<EOF
 jq bulunamadı. $SETTINGS dosyasına elle ekleyin:
@@ -43,7 +57,7 @@ jq bulunamadı. $SETTINGS dosyasına elle ekleyin:
   "hooks": {
     "PreToolUse": [
       { "matcher": "AskUserQuestion",
-        "hooks": [{ "type": "command", "command": "node $HOOK", "timeout": 360 }] }
+        "hooks": [{ "type": "command", "command": "$CMD", "timeout": 360 }] }
     ]
   }
 EOF
