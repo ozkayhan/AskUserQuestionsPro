@@ -1,8 +1,9 @@
 # askuseroz — Ne işe yarar, hangi app ile çalışır
 
 > **Tek cümle:** Claude Code'un sıradan `AskUserQuestion` picker'ını, AMOLED Geist
-> temalı tam ekran bir web arayüzüyle değiştiren; tamamen yerel, sıfır-bağımlılık,
-> sıfır-build bir köprü.
+> temalı tam ekran bir web arayüzüyle değiştiren; **tek seferde sınırsız soru
+> sorabilme** yeteneği kazandıran; tamamen yerel, sıfır-bağımlılık, sıfır-build
+> bir köprü.
 
 ---
 
@@ -48,10 +49,14 @@ Yerleşik `AskUserQuestion` picker'ı işlevseldir ama dardır:
 | Tek tek soru | Tüm soru seti + ilerleme çubuğu + kenar çubuğu |
 | Geri dön/düzenle kısıtlı | Review ekranı: gönder öncesi her cevabı düzenle |
 | Klavye sınırlı | `1–4` seç · tekrar bas onayla · `← →` gezin |
+| **En fazla 4 soru/çağrı** (native araç sözleşmesi) | **Sınırsız soru** — `mcp__askui__ask` ile onlarca/yüzlerce soru tek UI oturumunda |
 
 **Amaç:** Claude Code'un netleştirme sorularını cevaplamayı hızlı, görsel ve
 keyifli hale getirmek — kullanıcının akışını bozmadan, modelin sözleşmesini
-(`questions`/`answers` şekli) birebir koruyarak.
+(`questions`/`answers` şekli) birebir koruyarak. Küçük soru setleri (≤4) mevcut
+`AskUserQuestion` hook yoluyla sorunsuz akar; büyük soru setleri (>4) yeni MCP
+aracı `mcp__askui__ask` üzerinden tek UI oturumunda sunulur. Her iki yol da aynı
+bridge ve web arayüzünü kullanır.
 
 ---
 
@@ -66,9 +71,9 @@ picker'ı** gösterir. Yani askuseroz hiçbir zaman Claude Code'u kilitlemez; en
 kötü ihtimalle "yokmuş gibi" davranır. Her hata yolu native picker'a düşer.
 
 ### Kural 2 — "Sıfır kurulum yükü"
-- **Sıfır npm bağımlılığı** — sadece Node çekirdeği (`http`, `fs`, `child_process`).
-- **Sıfır build adımı** — tarayıcıda React + Babel CDN'den, JSX runtime'da derlenir.
-- **Tek dosya kurulum** — `./install.sh` settings.json'a bir hook satırı ekler, biter.
+- **Sıfır npm bağımlılığı** — sadece Node çekirdeği (`http`, `fs`, `child_process`). MCP sunucusu da sıfır-bağımlılık, elle JSON-RPC 2.0 stdio ile çalışır.
+- **Sıfır build adımı** — tarayıcıda React + Babel yerel vendor dosyalarından, JSX runtime'da derlenir.
+- **Tek dosya kurulum** — `./install.sh` settings.json'a hook satırını ekler, `claude mcp add` ile MCP sunucusunu kaydeder, biter.
 
 ---
 
@@ -88,7 +93,11 @@ kötü ihtimalle "yokmuş gibi" davranır. Her hata yolu native picker'a düşer
 - **Tek-uçuş:** Köprü aynı anda yalnızca **bir** soru setini tutar. İkinci bir
   set gelirse reddedilir (409) ve o ikincisi native picker'a düşer. Bu kasıtlı
   basitleştirmedir — `AskUserQuestion` için tek bir `PreToolUse` hook olmalıdır
-  (Claude Code issue #15897).
+  (Claude Code issue #15897). `mcp__askui__ask` de bu kısıtı paylaşır: MCP çağrısı
+  409 alırsa model hatayı tool-result olarak görür ve native `AskUserQuestion`'a
+  düşmesi için yönlendirilir.
+- **Soru sayısı:** Native `AskUserQuestion` 1–4 soruda kalır (modelin sözleşmesi);
+  >4 soru için `mcp__askui__ask` kullanılır — bu MCP aracında üst sınır yoktur.
 - **Yalnızca yerel:** Server `127.0.0.1`'e bağlanır; ağ üzerinden erişilemez.
 - **macOS varsayımı:** Tarayıcıyı `open` komutuyla açar (kurulum scripti `bash`/`jq`).
 

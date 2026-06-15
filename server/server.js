@@ -18,10 +18,10 @@ function sendJson(res, code, obj) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 1e6) req.destroy(); });
+    req.on('data', (c) => { data += c; if (data.length > 8e6) req.destroy(); });
     req.on('end', () => resolve(data));
     req.on('error', reject);
-    // req.destroy() (boyut aşımı) yalnızca 'close' yayar; promise'in asılı kalmaması için.
+    // req.destroy() (8 MB boyut aşımı) yalnızca 'close' yayar; promise'in asılı kalmaması için.
     req.on('close', () => { if (!req.readableEnded) reject(new Error('connection closed')); });
   });
 }

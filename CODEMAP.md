@@ -6,8 +6,11 @@
 > amaç için → [`living_docs/PURPOSE.md`](living_docs/PURPOSE.md).
 
 **Ne yapar (tek cümle):** Claude Code'un `AskUserQuestion` picker'ını yerel,
-sıfır-bağımlılık bir web arayüzüyle değiştirir. Üç parça: **hook** (Claude ile
-konuşur) → **server** (köprü, RAM'de soru/cevap tutar) → **web** (UI).
+sıfır-bağımlılık bir web arayüzüyle değiştirir; `mcp__askui__ask` MCP aracıyla
+sınırsız soru desteği ekler. Dört parça: **hook** (≤4 soruluk native çağrılar
+için) → **MCP server** (sınırsız soru için) → **server** (köprü, RAM'de
+soru/cevap tutar) → **web** (UI). Hook ve MCP server **lib/bridge-client.mjs**'i
+ortak kullanır.
 
 ---
 
@@ -18,8 +21,9 @@ askuseroz/
 ├── CODEMAP.md                ◄── BURADASIN. Giriş haritası.
 ├── README.md                 Kurulum, klavye, sorun giderme (kullanıcıya dönük).
 ├── LICENSE                    MIT lisansı.
-├── install.sh                settings.json'a PreToolUse hook'unu ekler (jq ile).
+├── install.sh                Hook + MCP sunucusu kurulumu (jq + claude CLI).
 ├── package.json              Sıfır bağımlılık. scripts: test (node --test), serve.
+├── .mcp.json                 Proje-kapsamlı MCP kaydı (askui → askui-mcp.mjs, timeout:3600000).
 │
 ├── .github/
 │   └── workflows/
@@ -29,13 +33,24 @@ askuseroz/
 │   ├── PURPOSE.md              Ne işe yarar, hangi app ile (Claude Code), neden.
 │   └── ARCHITECTURE.md         Tam teknik anlatım + ASCII diyagramlar + veri akışı.
 │
+├── lib/                      ◄── PAYLAŞILAN ESM KÜTÜPHANESİ
+│   └── bridge-client.mjs       ensureServer() + openBrowser() + askBridge().
+│                                Hem hook hem MCP server tarafından import edilir (DRY).
+│
 ├── hooks/                    ◄── CLAUDE CODE ↔ KÖPRÜ ELÇİSİ (kısa ömürlü süreç)
 │   ├── askuser-bridge.mjs      [GİRİŞ NOKTASI] PreToolUse hook. stdin→/ask→stdout.
+│   │                            lib/bridge-client.mjs import eder.
 │   │                            Tüm hata yolları exit(0) → native picker fallback.
 │   └── hook-output.js          buildHookOutput() — saf payload üreticisi (allow+updatedInput).
 │
+├── mcp-server/               ◄── MCP SUNUCUSU (sınırsız soru kapısı)
+│   └── askui-mcp.mjs           Sıfır-bağımlılık stdio JSON-RPC 2.0 MCP sunucusu.
+│                                Tek araç: ask (mcp__askui__ask). maxItems kısıtı yok.
+│                                lib/bridge-client.mjs import eder.
+│
 ├── server/                   ◄── KÖPRÜ DAEMON (uzun ömürlü, port 4517)
 │   ├── server.js               HTTP + SSE uçları + statik web/ servisi. Süreç girişi.
+│   │                            Gövde sınırı 8 MB (büyük soru setleri için).
 │   └── bridge.js               Bridge sınıfı — tek-uçuş randevu state machine (40 satır, kalp).
 │
 ├── web/                      ◄── TARAYICI UI (build'siz, yerel React+Babel)
@@ -49,13 +64,16 @@ askuseroz/
 │   ├── live.js                 useLiveQuestions (SSE) + postAnswers (POST). I/O katmanı.
 │   ├── views.js                Saf sunum bileşenleri: Waiting/Sidebar/Hints/QuestionCard/CustomPopup/Summary.
 │   └── app.js                  [DURUM MAKİNESİ] App + Flow: akış, klavye, gönderim, mount.
+│                                N>8 soruda: accordion gruplar, arama kutusu, "u" atla, toplu atlama.
 │
-├── test/                     ◄── node --test, sıfır bağımlılık
+├── test/                     ◄── node --test, sıfır bağımlılık (47 test)
 │   ├── bridge.test.js          Randevu state machine.
 │   ├── server.test.js          HTTP uçları + round-trip.
 │   ├── hook-output.test.js     Hook payload sözleşmesi.
 │   ├── answer-map.test.js      Saf UI karar mantığı (regresyonlar dahil).
-│   └── themes.test.js          Tema registry + styles.css :root ↔ KNOWN_TOKENS eşleşmesi.
+│   ├── themes.test.js          Tema registry + styles.css :root ↔ KNOWN_TOKENS eşleşmesi.
+│   ├── mcp-server.test.js      JSON-RPC initialize + tools/list; maxItems yokluğu doğrulanır.
+│   └── bridge-client.test.js   ensureServer() + askBridge() entegrasyon testi.
 │
 └── design-reference/         ◄── Orijinal Claude Design handoff (KAYNAK, çalışmaz kod).
     ├── project/                app.jsx, styles.css, AskUserQuestions.html, ekran görüntüleri.
@@ -78,7 +96,11 @@ askuseroz/
 | **Yeni HTTP ucu** veya SSE davranışı | `server/server.js` |
 | Soru/cevap **randevu mantığı** (eşzamanlılık, iptal) | `server/bridge.js` |
 | Hook'un **Claude ile sözleşmesi**, fallback davranışı | `hooks/askuser-bridge.mjs` + `hooks/hook-output.js` |
-| **Kurulum** akışı, port, settings.json | `install.sh` (port: `ASKUSER_PORT`, vsayılan 4517) |
+| **MCP aracının şeması** veya araç açıklaması | `mcp-server/askui-mcp.mjs` |
+| **Sunucu başlatma / tarayıcı açma** (hook ve MCP arasında ortak) | `lib/bridge-client.mjs` |
+| **MCP proje kaydı** (timeout, path) | `.mcp.json` |
+| **ASKUI_FORCE_MCP** davranışı (deny → MCP yönlendirmesi) | `hooks/askuser-bridge.mjs` |
+| **Kurulum** akışı, port, settings.json, MCP kaydı | `install.sh` (port: `ASKUSER_PORT`, varsayılan 4517) |
 | Yeni script eklersen **yükleme sırası** | `web/index.html` (ui-kit → live → views → app sırası şart) |
 
 ---
@@ -86,10 +108,12 @@ askuseroz/
 ## Değişiklik yaparken bilmen gereken 5 kural
 
 1. **UI/UX'i bozma.** Tasarım `design-reference/`'tan birebir port edilmiştir;
-   görsel davranış korunmalı.
+   görsel davranış korunmalı. N ≤ 8 soruda ek UI özellikleri görünmemeli.
 2. **Sıfır bağımlılık, sıfır build.** `package.json`'a dependency ekleme; web
-   tarafında build adımı yok (Babel runtime'da derler).
-3. **Güvenli fallback değişmez.** Hook'taki her hata yolu `exit(0)` olmalı →
+   tarafında build adımı yok (Babel runtime'da derler); MCP sunucusu da sıfır-bağımlılık
+   (JSON-RPC elle yönetilir, MCP SDK kullanılmaz).
+3. **Güvenli fallback değişmez.** Hook'taki her hata yolu `exit(0)` olmalı;
+   MCP sunucusundaki her hata yolu `isError: true` tool-result döndürmeli →
    asla Claude Code'u kilitleme (bkz. ARCHITECTURE §7).
 4. **Saf mantığı saf tut.** `answer-map.js`, `bridge.js`, `hook-output.js` I/O'suz
    ve test'li; mantık eklerken aynı dosyada kal ve `test/`'e test yaz.
