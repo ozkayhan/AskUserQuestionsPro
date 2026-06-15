@@ -96,7 +96,8 @@ Aynı anda yalnızca **bir** `_pending` randevu tutar.
 | Metot | Çağıran | Etki |
 |-------|---------|------|
 | `submitQuestions(qs)` | server `/ask` | `_pending` yoksa kaydeder, cevap promise'i döner. Varsa reject. |
-| `getCurrent()` | server `/current`, `/events` | Bekleyen soruları döner (yoksa `null`). Yan etkisiz peek. |
+| `getCurrent()` | (içsel) | Bekleyen soruları döner (yoksa `null`). Yan etkisiz peek. |
+| `peek()` | server `/current`, `/events` | Bekleyen turu `{id, questions}` olarak döner (yoksa `null`). Her tur monoton artan `id` taşır → UI tur başına remount kararı verir (B10). |
 | `provideAnswers(a)` | server `/answer` | `_pending`'i resolve eder, boşaltır. |
 | `cancel(reason)` | server (istemci kopuşu) | `_pending`'i reject eder, boşaltır. |
 
@@ -113,7 +114,7 @@ Saf Node `http` — framework yok. ~115 satır. Tüm uçlar:
 ```
    ┌─────────────────────────────────────────────────────────────────────┐
    │ GET  /health            → {ok:true}            (hook ayakta mı bakar) │
-   │ GET  /current           → {questions|null}     (anlık peek)           │
+   │ GET  /current           → {id, questions}|null (anlık peek)           │
    │ GET  /events            → text/event-stream     (SSE: canlı push)     │
    │ POST /ask    {questions}→ 200 {answers} | 409   (HOOK long-poll)      │
    │ POST /answer {answers}  → 200 {ok}     | 409    (UI cevabı verir)     │
@@ -198,14 +199,15 @@ atlamasını sağlayan sözleşmedir:
 
 ## 5. Web arayüzü — katmanlı modüller (`web/`)
 
-Tarayıcı tarafı **build'siz**: React + ReactDOM + Babel CDN'den yüklenir, JSX
-runtime'da derlenir. Mantık **4 katmana** ayrılmıştır; `index.html` script'leri
+Tarayıcı tarafı **build'siz**: React + ReactDOM + Babel **yerel `web/vendor/`**
+dizininden yüklenir (CDN değil → tamamen offline çalışır), JSX runtime'da
+derlenir. Mantık **4 katmana** ayrılmıştır; `index.html` script'leri
 **bağımlılık sırasına göre** yükler (üstteki alttakine bağlı değil):
 
 ```
-   index.html yükleme sırası          sorumluluk                     bağımlılık
+   index.html yükleme sırası            sorumluluk                     bağımlılık
    ─────────────────────────────────────────────────────────────────────────────
-   1) react / react-dom / babel  (CDN)  runtime                        —
+   1) vendor/react / react-dom / babel  runtime (yerel, offline)       —
    2) answer-map.js   (UMD, saf)        UI state ⇄ answers eşlemesi    —  (saf, test'li)
    3) ui-kit.js       (JSX)             ikonlar, sabitler, fullOptions  React
    4) live.js         (JSX)             SSE alımı + cevap POST'u        React
@@ -321,8 +323,10 @@ Sonra yeni bir `claude` oturumu: artık her `AskUserQuestion` özel arayüzde a�
 | `bridge.test.js` | Randevu state machine: resolve / çift-submit reddi / cancel |
 | `server.test.js` | HTTP uçları: `/health`, `/ask`↔`/answer` round-trip, statik servis |
 | `hook-output.test.js` | `buildHookOutput` sözleşmesi (allow + updatedInput) |
-| `answer-map.test.js` | `mapAnswers` + `decideActivate` saf mantığı (regresyon dahil) |
+| `answer-map.test.js` | `mapAnswers` + `decideActivate` + `savePopupState` saf mantığı (regresyon dahil) |
+| `themes.test.js` | Tema registry sözleşmesi + **styles.css `:root` ↔ KNOWN_TOKENS birebir eşleşmesi** (`fs` ile `:root` parse edilir; fazla/eksik token CI'da yakalanır — B18) |
 
 UI render'ı testlere dahil değildir (build'siz/tarayıcı bağımlı); ama tüm
-**karar mantığı** (`answer-map.js`) ve **köprü** saf/test edilebilir tutulmuştur.
-Render doğrulaması manuel/headless yapılır.
+**karar mantığı** (`answer-map.js`), **köprü** ve **tema/token sözleşmesi**
+saf/test edilebilir tutulmuştur. Render doğrulaması manuel/headless yapılır.
+Toplam **44 test** geçer (`npm test`).

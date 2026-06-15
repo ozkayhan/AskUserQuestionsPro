@@ -1,10 +1,14 @@
 # askuseroz — Kapsamlı Hata Raporu
 
-> Tarih: 2026-06-11 · Yöntem: tüm kaynak kod statik inceleme + hedefli dinamik
-> doğrulama (`node --test`, izole portta server, hook payload simülasyonu, jq
-> idempotency simülasyonu, spawn ENOENT testi). Mevcut test seti **36/36 geçiyor**;
-> aşağıdaki hataların hiçbiri o testlerle yakalanmıyor — çoğu test edilmeyen
-> entegrasyon/UI/kurulum yollarında.
+> Tarih: 2026-06-11 (ilk rapor) · Güncelleme: 2026-06-15 · Yöntem: tüm kaynak kod
+> statik inceleme + hedefli dinamik doğrulama (`node --test`, izole portta server,
+> hook payload simülasyonu, jq idempotency simülasyonu, spawn ENOENT testi). Test
+> seti şu an **44/44 geçiyor** (B18 ile styles.css ↔ KNOWN_TOKENS testi eklendi).
+>
+> **Güncel durum (2026-06-15):** Aşağıdaki bulguların çoğu çözüldü — durum
+> sütununa bak. Çözülenler: B4, B6, B7, B8, B10, B13, B14, B16, B17, B18 (ve hook
+> tarafı B5/B9). Açık kalan düşük öncelikliler: B1/B2 (install.sh curl yolu),
+> B11, B12, B15.
 
 ## Şiddet özeti
 
@@ -13,21 +17,21 @@
 | B1 | 🔴 MAJOR | install.sh | `curl \| bash` kurulumu hook'u silinen temp dizine yazar → kurulum anında bozuk | Kod-aşikâr |
 | B2 | 🔴 MAJOR | install.sh | Idempotent değil; her çalıştırmada bir kopya daha → çift/çakışan hook (#15897) | **Doğrulandı** |
 | B3 | 🔴 MAJOR | server / web | Hook kopması/timeout sonrası SSE'ye `null` push edilmez → tarayıcı ölü soruyu gösterir | **Doğrulandı** |
-| B4 | 🔴 MAJOR | web (answer-map) | multiSelect'te "Other" bir kez kaydedilince geri alınamaz (deselect yolu yok) | **Doğrulandı** |
+| B4 | 🔴 MAJOR | web (answer-map) | multiSelect'te "Other" bir kez kaydedilince geri alınamaz (deselect yolu yok) | ✅ **Çözüldü** (savePopupState: boş metin → custom kaldırılır) |
 | B5 | 🟠 MEDIUM | hook | `process.exit(0)` stdout'u flush etmeden keser → büyük payload yarım gider | **Doğrulandı** |
 | B6 | 🟠 MEDIUM | web (live/app) | `postAnswers` HTTP yanıtını/hatasını yutar + iyimser "submitted" → sessiz veri kaybı | Kod-aşikâr |
-| B7 | 🟠 MEDIUM | install | Hook komutu tırnaksız (`node /yol/...`) → kurulum yolunda boşluk varsa çalışmaz | Kod-aşikâr |
-| B8 | 🟠 MEDIUM | web (app/views) | Boş/eksik cevapla "Submit" serbest → Claude'a `answers: {}` gider | Kod-aşikâr |
+| B7 | 🟠 MEDIUM | install | Hook komutu tırnaksız (`node /yol/...`) → kurulum yolunda boşluk varsa çalışmaz | ✅ **Çözüldü** (`bin/install.js`: `node "${hook}"`) |
+| B8 | 🟠 MEDIUM | web (app/views) | Boş/eksik cevapla "Submit" serbest → Claude'a `answers: {}` gider | ✅ **Çözüldü** (boş submit guard + `canSubmit`/`disabled`) |
 | B9 | 🟠 MEDIUM | hook | Linux/Windows'ta `open` yok → unhandled `error` → hook çöker (exit 1) | **Doğrulandı** |
 | B10 | 🟠 MEDIUM | web (app) | Aynı metinli ardışık soru seti → React remount olmaz → eski "submitted" + klavye kilidi | Kod-aşikâr |
 | B11 | 🟡 MINOR | web (app/views) | Aynı `question` metnine sahip iki soru → state çakışması + tekrar eden React key | Kod-aşikâr |
-| B12 | 🟡 MINOR | web (app) | 9'dan fazla seçenekli soruda "Other" (ve 10.+ şık) klavyeden seçilemez | Kod-aşikâr |
+| B12 | 🟡 MINOR | web (app) | 9'dan fazla seçenekli soruda "Other" (ve 10.+ şık) klavyeden seçilemez | ⚠️ Açık (düşük öncelik — pratikte <9 şık; rakam kısayolu hâlâ 1–9) |
 | B13 | 🟡 MINOR | hook | `main()` üst seviye `catch` yok → beklenmedik hata "her zaman exit(0)" değişmezini kırar | Kod-aşikâr |
 | B14 | 🟡 MINOR | web (live) | SSE reconnect: unmount sırasında `setTimeout` iptal edilmez → orphan EventSource | Kod-aşikâr |
 | B15 | 🟡 MINOR | server | Statik servis `startsWith(WEB_DIR)` sınır kontrolü zayıf (kardeş-dizin prefix) | Kod-aşikâr |
 | B16 | 🟡 MINOR | web (app) | "confirmed" gönderim için kozmetik; armed ama onaylanmamış seçim de gönderilir | Kod-aşikâr |
-| B17 | 🟡 MINOR | web (views) | Summary "Submit" butonu submitted sonrası da tıklanabilir (klavye korumalı, buton değil) | Kod-aşikâr |
-| B18 | 🟡 MINOR | docs | ARCHITECTURE §9 "test styles.css ↔ KNOWN_TOKENS eşleşmesini doğrular" — böyle test yok | Kod-aşikâr |
+| B17 | 🟡 MINOR | web (views) | Summary "Submit" butonu submitted sonrası da tıklanabilir (klavye korumalı, buton değil) | ✅ **Çözüldü** (`disabled={!canSubmit || submitted}` + submit double-guard) |
+| B18 | 🟡 MINOR | docs/test | ARCHITECTURE §9 "test styles.css ↔ KNOWN_TOKENS eşleşmesini doğrular" — böyle test yoktu | ✅ **Çözüldü** (`test/themes.test.js`'e gerçek `:root` ↔ KNOWN_TOKENS birebir eşleşme testi eklendi) |
 
 ---
 
@@ -183,6 +187,11 @@ temizler.
 ---
 
 ## B4 — multiSelect'te "Other" kaydedildikten sonra **geri alınamaz**
+
+> ✅ **Çözüldü (2026-06-15).** `answer-map.js` `savePopupState` saf helper'ı
+> eklendi: popup'ta metin boş bırakılıp Save edilince custom şık `sel`'den çıkar
+> ve `customText` temizlenir → "Other" geri alınabilir. Regresyon testi
+> `test/answer-map.test.js`'te.
 
 **Dosya:** `web/answer-map.js:44-47`
 **Şiddet:** MAJOR — kullanıcı yanlış girdiği serbest-metin cevabını listeden
@@ -346,6 +355,11 @@ Not: `install.test.js`'teki `CMD = \`node ${HOOK}\`` beklentisi de güncellenmel
 
 ## B8 — Boş/eksik cevapla "Submit" serbest → Claude'a `answers: {}` gider
 
+> ✅ **Çözüldü (2026-06-15).** `app.js`'te `submit()` başında boş submit guard
+> (`if (Object.keys(mapped).length === 0) return`) + `canSubmit = answered > 0`.
+> `views.js` Summary butonu `disabled={!canSubmit || submitted}` ve "Answer at
+> least one" etiketi gösterir.
+
 **Dosya:** `web/app.js:110-119`, `web/views.js:230-232` (buton hep aktif),
 `web/answer-map.js:15` (cevaplanmamış soru atlanır)
 **Şiddet:** MEDIUM.
@@ -506,6 +520,10 @@ Tutarsız zihinsel model.
 `sel.length>0`'a göre hesapla — ikisini tek doğruluk kaynağında birleştir.
 
 ## B17 — Summary "Submit" butonu submitted sonrası tekrar tıklanabilir
+> ✅ **Çözüldü (2026-06-15).** `views.js` Summary butonu artık
+> `disabled={!canSubmit || submitted}`; `app.js` `submit()` başında double-submit
+> guard. Buton submitted sonrası "Submitted ✓" gösterir ve tıklanamaz.
+
 **Dosya:** `web/views.js:230-232`, `web/app.js:159-167`
 Klavye `submitted`'da kilitli ama `onSubmit` butonu değil; tekrar tıklama yeni bir
 `/answer` POST'u atar (bridge boş → 409, yutulur). Zararsıza yakın ama gereksiz.
@@ -513,11 +531,18 @@ Klavye `submitted`'da kilitli ama `onSubmit` butonu değil; tekrar tıklama yeni
 `if (ref.current.submitted) return`.
 
 ## B18 — Doküman: "test styles.css ↔ KNOWN_TOKENS eşleşmesini doğrular" iddiası yanlış
+> ✅ **Çözüldü (2026-06-15).** `test/themes.test.js`'e gerçek test eklendi:
+> styles.css `:root` bloğu `fs` ile okunur, `--token:` anahtarları regex ile
+> çıkarılır, KNOWN_TOKENS ile **birebir** (iki yönlü) karşılaştırılır — `:root`'ta
+> fazla token (sözleşme dışı) ve KNOWN_TOKENS'ta olup defaultu olmayan token
+> ayrı ayrı yakalanır. Bir token silinir/yanlış yazılırsa CI kırılır. Şu an
+> 37↔37 birebir eşleşiyor; test geçiyor.
+
 **Dosya:** `living_docs/ARCHITECTURE.md §9` / `web/themes.js:9-10` yorum
 Yorum/dokümanda KNOWN_TOKENS'ın styles.css `:root` ile birebir aynı olduğunu
 "test doğrular" deniyor; `test/themes.test.js` yalnızca tema tokenlarının
-KNOWN_TOKENS **alt kümesi** olduğunu kontrol eder — styles.css'i hiç okumaz. Bir
-token `:root`'tan silinse veya yanlış yazılsa test yakalamaz.
+KNOWN_TOKENS **alt kümesi** olduğunu kontrol ederdi — styles.css'i hiç okumazdı. Bir
+token `:root`'tan silinse veya yanlış yazılsa test yakalamazdı.
 **Çözüm:** styles.css `:root`'u parse edip her KNOWN_TOKEN'ın tanımlı olduğunu (ve
 fazlalık olmadığını) doğrulayan bir test ekle; veya doküman iddiasını düzelt.
 

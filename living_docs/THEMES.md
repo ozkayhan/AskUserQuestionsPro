@@ -48,7 +48,9 @@ registry, bir seçici.
 5. **Test** (`test/themes.test.js`, `node --test`): 5 tema, benzersiz id, amoled
    base sözleşmesi (tokens boş), kaçak token anahtarı yok, non-base temalar
    çekirdek renkleri override eder, font şekli, bilinmeyen id → default, node'da
-   (document yok) çökme yok. **36/36 geçti** (mevcut testler dahil).
+   (document yok) çökme yok. **Sonradan eklenen (B18):** styles.css `:root` bloğu
+   `fs` ile okunup `--token:` anahtarları KNOWN_TOKENS ile **birebir** karşılaştırılır
+   (fazla/eksik token CI'da kırar). Tüm test seti **44/44 geçer**.
 
 ## Yol boyunca karşılaşılan engeller
 
@@ -69,6 +71,21 @@ Beş tema da headless Chrome ile screenshot alınıp incelendi: AMOLED (siyah/ma
 keskin), Paper (kağıt/serif/terracotta/flat), Phosphor (CRT yeşil/mono/glow/kare),
 Dusk (kömür/amber/yuvarlak/yumuşak), Aurora (indigo glass/mor/gradient/büyük
 radius). Switcher her temada görünür, aktif tema vurgulu.
+
+## Sonradan eklenen tema-dışı stiller (2026-06-15)
+
+Hata kurtarma/yıkıcı eylem UX'i için iki yeni stil sınıfı `styles.css`'e eklendi.
+Bunlar **kasıtlı olarak token'lanmamıştır** (semantik kırmızı her temada aynı
+"tehlike/hata" anlamını taşımalı, accent'e bağlanmamalı):
+
+- **`.btn--danger`** — yıkıcı/iptal eylem butonu (kırmızı zemin, hover'da dolu
+  kırmızı). `.btn--primary` ile aynı iskelet, kırmızı paletli varyant.
+- **`.toast--err`** — başarısız gönderim (B6) için hata toast'u; `.ok`/`.err`
+  ikonları kırmızıya (`#ff6b6b`) boyanır. Sessiz "submitted" yerine gerçek hata
+  geri bildirimi verir.
+
+5 tema (AMOLED, Paper, Phosphor, Dusk, Aurora) bu sınıfları override etmez; tek
+tip kalmaları istenir.
 
 ## Yeni tema nasıl eklenir
 
