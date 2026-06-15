@@ -13,12 +13,15 @@
   },
   "homepage": "https://github.com/ozkayhan/AskUserQuestionsPro#readme",
   "bin": {
-    "claude-askui": "bin/cli.js"
+    "claude-askui": "bin/cli.js",
+    "claude-askui-mcp": "mcp-server/askui-mcp.mjs"
   },
   "files": [
     "bin/",
     "hooks/",
     "server/",
+    "lib/",
+    "mcp-server/",
     "web/",
     "install.sh",
     "README.md",
@@ -27,6 +30,7 @@
   "scripts": {
     "test": "node --test",
     "serve": "node server/server.js",
+    "mcp": "node mcp-server/askui-mcp.mjs",
     "install-hook": "node bin/cli.js install"
   },
   "engines": {

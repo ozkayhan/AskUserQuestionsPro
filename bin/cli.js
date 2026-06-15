@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 'use strict';
 // claude-askui — CLI giriş noktası.
-//   install    hook'u ~/.claude/settings.json'a bağla
+//   install    hook'u ~/.claude/settings.json'a bağla + MCP sunucusunu kaydet
 //   uninstall  hook'u kaldır
 //   serve      yerel köprüyü foreground çalıştır (debug)
+//   mcp        MCP sunucusunu foreground çalıştır (stdio, debug)
 //   doctor     kurulum + health kontrol
 //   help       kullanım
 
 const path = require('node:path');
 const os = require('node:os');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { addHook, removeHook, readSettings, writeSettings } = require('./install.js');
 
 const PKG_ROOT = path.join(__dirname, '..');
 const HOOK_ABS = path.join(PKG_ROOT, 'hooks', 'askuser-bridge.mjs');
 const SERVER_ABS = path.join(PKG_ROOT, 'server', 'server.js');
+const MCP_ABS = path.join(PKG_ROOT, 'mcp-server', 'askui-mcp.mjs');
 const SETTINGS = path.join(os.homedir(), '.claude', 'settings.json');
 const PORT = process.env.ASKUSER_PORT || '4517';
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -23,9 +25,10 @@ function usage() {
   process.stdout.write(`claude-askui — AskUserQuestion için özel AMOLED arayüz
 
 Kullanım:
-  claude-askui install     Hook'u Claude Code'a bağla (~/.claude/settings.json)
+  claude-askui install     Hook'u Claude Code'a bağla + MCP sunucusunu kaydet
   claude-askui uninstall   Hook'u kaldır
   claude-askui serve       Yerel köprüyü foreground çalıştır (debug, port ${PORT})
+  claude-askui mcp         MCP stdio sunucusunu foreground çalıştır (debug)
   claude-askui doctor      Kurulum ve köprü durumunu kontrol et
   claude-askui help        Bu mesaj
 
@@ -52,6 +55,27 @@ function cmdInstall() {
     `Hook eklendi → ${SETTINGS}\n` +
     `Yeni bir 'claude' oturumu açın; AskUserQuestion artık özel arayüzde açılır.\n`
   );
+
+  // MCP sunucusunu claude CLI'ya global kaydet (varsa; yoksa ipucu ver).
+  const claudeCheck = spawnSync('claude', ['--version'], { stdio: 'ignore' });
+  if (claudeCheck.error && claudeCheck.error.code === 'ENOENT') {
+    process.stdout.write(
+      `İpucu: claude CLI bulunamadı. MCP aracını elle kaydetmek için:\n` +
+      `  claude mcp add --scope user askui -- node "${MCP_ABS}"\n`
+    );
+  } else {
+    // Önce kaldır (idempotent), sonra ekle.
+    spawnSync('claude', ['mcp', 'remove', 'askui'], { stdio: 'ignore' });
+    const add = spawnSync('claude', ['mcp', 'add', '--scope', 'user', 'askui', '--', 'node', MCP_ABS], { stdio: 'ignore' });
+    if (add.status === 0) {
+      process.stdout.write(`MCP aracı (mcp__askui__ask) kaydedildi\n`);
+    } else {
+      process.stdout.write(
+        `MCP kaydı başarısız oldu. Elle kaydetmek için:\n` +
+        `  claude mcp add --scope user askui -- node "${MCP_ABS}"\n`
+      );
+    }
+  }
 }
 
 function cmdUninstall() {
@@ -67,6 +91,12 @@ function cmdUninstall() {
 
 function cmdServe() {
   const child = spawn(process.execPath, [SERVER_ABS], { stdio: 'inherit', env: process.env });
+  child.on('exit', (code) => process.exit(code || 0));
+}
+
+// MCP stdio sunucusunu foreground'da çalıştır (debug / manuel test için).
+function cmdMcp() {
+  const child = spawn(process.execPath, [MCP_ABS], { stdio: 'inherit', env: process.env });
   child.on('exit', (code) => process.exit(code || 0));
 }
 
@@ -98,6 +128,18 @@ async function cmdDoctor() {
   } catch {
     process.stdout.write(`· Köprü şu an kapalı (normal — AskUserQuestion'da otomatik başlar)\n`);
   }
+  // 4. MCP aracı kayıtlı mı? (bilgi amaçlı — başarısızlık ok'u false yapmaz)
+  const mcpList = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8' });
+  if (mcpList.error && mcpList.error.code === 'ENOENT') {
+    process.stdout.write(`· claude CLI bulunamadı — MCP durumu kontrol edilemedi\n`);
+  } else if (mcpList.stdout && mcpList.stdout.includes('askui')) {
+    process.stdout.write(`✓ MCP aracı kayıtlı\n`);
+  } else {
+    process.stdout.write(
+      `· MCP aracı kayıtlı değil — 'claude-askui install' veya manuel ` +
+      `'claude mcp add' çalıştırın\n`
+    );
+  }
   process.exit(ok ? 0 : 1);
 }
 
@@ -107,6 +149,7 @@ async function main() {
     case 'install': return cmdInstall();
     case 'uninstall': return cmdUninstall();
     case 'serve': return cmdServe();
+    case 'mcp': return cmdMcp();
     case 'doctor': return cmdDoctor();
     case 'help': case '--help': case '-h': case undefined: return usage();
     default:

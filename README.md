@@ -65,12 +65,82 @@ claude-askui install
 
 | Command | What it does |
 |---------|--------------|
-| `claude-askui install` | Adds the hook to `~/.claude/settings.json` |
+| `claude-askui install` | Adds the hook to `~/.claude/settings.json` and registers the MCP server |
 | `claude-askui uninstall` | Removes the hook |
 | `claude-askui serve` | Runs the bridge in the foreground for debugging (port 4517) |
-| `claude-askui doctor` | Checks hook installation, hook file, and bridge health |
+| `claude-askui mcp` | Starts the MCP server manually (for debugging or manual registration) |
+| `claude-askui doctor` | Checks hook installation, hook file, bridge health, and MCP registration |
 
 The same `serve` step is available via `npm run serve`, and `npm run install-hook` runs `claude-askui install`.
+
+## Asking many questions at once
+
+Claude Code's built-in `AskUserQuestion` tool is hard-capped at 1–4 questions per call by the model's own contract. `claude-askui` lifts that limit entirely with a companion MCP tool.
+
+### How it works
+
+When Claude needs to ask a large set of questions (more than 4), it calls `mcp__askui__ask` instead of `AskUserQuestion`. The MCP tool accepts a `questions` array with no upper limit and routes everything through the same bridge, server, and web UI you already use.
+
+```
+   Small set (≤ 4 questions)          Large set (> 4 questions)
+   ─────────────────────────          ─────────────────────────
+   AskUserQuestion (native)     →     mcp__askui__ask (MCP tool)
+   PreToolUse hook intercepts   →     MCP server handles directly
+         │                                      │
+         └──────────── same bridge + web UI ────┘
+                        (127.0.0.1:4517)
+```
+
+Answers come back to the model as a normal tool-result. The routing guidance lives in the MCP tool's own description, so no extra configuration is needed on your side.
+
+### Installation and registration
+
+`install.sh` (and `claude-askui install`) register the MCP server automatically:
+
+- If the `claude` CLI is present: `claude mcp add --scope user askui -- node <path/to/askui-mcp.mjs>`
+- Otherwise it prints the command for manual registration.
+
+A repo-root `.mcp.json` provides project-scoped registration for development use:
+
+```json
+{ "mcpServers": { "askui": { "command": "node", "args": ["mcp-server/askui-mcp.mjs"],
+                              "timeout": 3600000 } } }
+```
+
+The `claude-askui doctor` command reports whether the MCP server is registered.
+
+### Session timeout (`MCP_TOOL_TIMEOUT`)
+
+The MCP tool blocks until you finish answering. Claude Code's default per-tool timeout is effectively unlimited (~28 hours), so long answering sessions work out of the box. The `.mcp.json` registration sets `timeout: 3600000` (1 hour) as an additional project-level safeguard.
+
+### Fallback if the MCP tool fails
+
+If the bridge is down, a question set is already pending (409), or any other error occurs, the MCP tool returns an `isError` result that tells the model to fall back to the native `AskUserQuestion` tool. The bridge-is-locked invariant holds: claude-askui never blocks the model.
+
+### `ASKUI_FORCE_MCP` — optional redirect
+
+By default, small sets flow through the native `AskUserQuestion` hook. If you want the hook to actively redirect the model toward `mcp__askui__ask` instead:
+
+```bash
+ASKUI_FORCE_MCP=1 claude
+```
+
+When set, the `PreToolUse` hook returns a `permissionDecision: "deny"` with a message steering the model to use `mcp__askui__ask`. Unset (the default), the hook behaves exactly as before. This is fully opt-in.
+
+### Large-set UI (more than 8 questions)
+
+When a question set has more than 8 questions, the UI activates additional navigation features automatically. At 8 or fewer questions, the UI is visually unchanged.
+
+| Feature | Description |
+|---------|-------------|
+| **Accordion sections** | The sidebar groups questions by their `header` field into collapsible sections, each showing an answered/total count. |
+| **Search + filter** | A text filter box searches question text; a "show only unanswered" toggle narrows the list. |
+| **Jump to next unanswered** | Press `u` (or the sidebar button) to jump instantly to the next question without an answer. |
+| **Skip remaining & review** | A bulk button goes straight to the Review screen without stepping through every remaining question. |
+
+No new dependencies, no build step, no new CSS design tokens.
+
+---
 
 ## Usage
 
@@ -111,6 +181,7 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
 | `Esc` in text area | Cancel |
 | `←` / `→` | Navigate between questions |
 | `B` | (Review screen) Go back to unanswered questions |
+| `U` | (Large sets, N > 8) Jump to the next unanswered question |
 
 ## Configuration
 
@@ -139,7 +210,9 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
 - **The native picker shows up instead of the browser UI.** This is the safe fallback — it means the bridge was down, timed out, or returned an error. Check the bridge with `curl http://127.0.0.1:4517/health` (expects `{"ok":true}`), or run `claude-askui doctor` for a full status check.
 - **The UI doesn't open at all.** Start the bridge manually with `claude-askui serve` (or `node server/server.js`) and open `http://127.0.0.1:4517` in your browser.
 - **Spaces in the install path** (for example `Application Support`). The hook command is written with the path wrapped in double quotes, so paths with spaces work. If you hand-edited `settings.json`, make sure the `node "<path>"` command keeps those quotes.
-- **Two questions at once.** The bridge holds exactly one question set at a time; a second concurrent set is rejected (409) and falls back to the native picker. There must be only one `PreToolUse` hook for `AskUserQuestion` (Claude Code issue #15897) — `claude-askui doctor` flags conflicts.
+- **Two questions at once.** The bridge holds exactly one question set at a time. A second concurrent set — whether from the hook or from `mcp__askui__ask` — is rejected (409) and falls back to the native picker. There must be only one `PreToolUse` hook for `AskUserQuestion` (Claude Code issue #15897) — `claude-askui doctor` flags conflicts.
+- **`mcp__askui__ask` is not available.** Run `claude-askui doctor` to check MCP registration. If the server is not registered, run `claude-askui install` again or manually execute `claude mcp add --scope user askui -- node ~/.local/share/claude-askui/mcp-server/askui-mcp.mjs`.
+- **The MCP tool times out before you finish answering.** The default MCP tool timeout in Claude Code is effectively unlimited. If you've set `MCP_TOOL_TIMEOUT` explicitly, make sure it's at least as long as your longest expected answering session (e.g., `MCP_TOOL_TIMEOUT=3600000` for 1 hour).
 - **Offline / air-gapped.** No internet is required at runtime: React, ReactDOM, and Babel are served from local vendored files under `web/vendor/`. (Web fonts are loaded from Google Fonts for styling only; the UI works without them.)
 
 ## Tests

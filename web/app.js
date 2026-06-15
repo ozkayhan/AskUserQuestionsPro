@@ -33,6 +33,11 @@ function Flow({ questions }) {
   const [submitted, setSubmitted] = useState(false);
   const [sendError, setSendError] = useState(false);
 
+  // Büyük soru seti: arama + filtre durumu (N > 8)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showUnanswered, setShowUnanswered] = useState(false);
+  const searchInputRef = useRef(null);
+
   const isSummary = current >= n;
   const ref = useRef({});
   ref.current = { answers, current, popup, n, isSummary, submitted };
@@ -120,6 +125,17 @@ function Flow({ questions }) {
     setPopup(null);
   }, []);
 
+  // "u" kısayolu: yanıtlanmamış ilk soruya atla; hepsi yanıtlanmışsa Summary'ye git.
+  const jumpToNextUnanswered = useCallback(() => {
+    const idx = QUESTIONS.findIndex((q) => ref.current.answers[q.question].sel.length === 0);
+    goTo(idx === -1 ? n : idx, idx === -1 || idx > ref.current.current ? "right" : "left");
+  }, [QUESTIONS, goTo, n]);
+
+  // "Skip remaining & review": doğrudan Summary ekranına geç.
+  const skipAll = useCallback(() => {
+    goTo(n, "right");
+  }, [goTo, n]);
+
   const mappedAnswers = useCallback(() => {
     const stateForMap = {};
     QUESTIONS.forEach((q) => {
@@ -145,18 +161,35 @@ function Flow({ questions }) {
     const onKey = (e) => {
       const R = ref.current;
       if (R.popup || R.submitted) return;
+      // Metin alanında (input, textarea) tuş yönlendirmesi: sadece ok tuşlarını ve Escape'i engelle.
+      const inTextField = document.activeElement &&
+        (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA");
       if (e.key === "ArrowRight") { e.preventDefault(); goTo(Math.min(R.n, R.current + 1), "right"); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); goTo(Math.max(0, R.current - 1), "left"); }
       else if (e.key === "Enter") {
+        // Arama inputundayken Enter ile onay yok (input formu kontrolü).
+        if (inTextField) return;
         e.preventDefault();
         if (R.isSummary) { submit(); return; }
         confirmCurrent();
-      } else if (R.isSummary && (e.key === "b" || e.key === "B")) { e.preventDefault(); goBack(); }
-      else if (!R.isSummary && /^[1-9]$/.test(e.key)) { e.preventDefault(); activate(R.current, parseInt(e.key, 10) - 1); }
+      } else if (R.isSummary && (e.key === "b" || e.key === "B")) {
+        if (inTextField) return;
+        e.preventDefault();
+        goBack();
+      } else if (!R.isSummary && /^[1-9]$/.test(e.key)) {
+        if (inTextField) return;
+        e.preventDefault();
+        activate(R.current, parseInt(e.key, 10) - 1);
+      } else if (!R.isSummary && (e.key === "u" || e.key === "U")) {
+        // "u": yanıtlanmamış ilk soruya atla (sadece büyük N için Hints gösterilir ama kısayol her zaman çalışır).
+        if (inTextField) return;
+        e.preventDefault();
+        jumpToNextUnanswered();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goTo, confirmCurrent, activate, goBack, submit]);
+  }, [goTo, confirmCurrent, activate, goBack, submit, jumpToNextUnanswered]);
 
   // "answered" = en az bir şık seçili (sel) — gönderimle tutarlı (B16).
   const answered = QUESTIONS.filter((q) => answers[q.question].sel.length > 0).length;
@@ -166,7 +199,11 @@ function Flow({ questions }) {
     <div className="app" data-panel="left" data-align="center">
       <Sidebar QUESTIONS={QUESTIONS} answers={answers} current={current} n={n}
                answered={answered} isSummary={isSummary} submitted={submitted}
-               goTo={goTo} />
+               goTo={goTo}
+               searchQuery={searchQuery} onSearch={setSearchQuery}
+               showUnanswered={showUnanswered} onToggleUnanswered={() => setShowUnanswered((v) => !v)}
+               onJumpUnanswered={jumpToNextUnanswered} onSkipAll={skipAll}
+               searchRef={searchInputRef} />
       <main className="inspector">
         <div className="stage">
           {isSummary ? (
