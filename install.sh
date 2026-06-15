@@ -19,6 +19,8 @@ fi
 # (curl | bash) ve betik bitince silinir; bu yüzden hook'un kalıcı bir yolu olmalı.
 INSTALL_DIR="$HOME/.local/share/claude-askui"
 mkdir -p "$INSTALL_DIR"
+# Re-run'da bayat dosya kalmasın diye hedefi önce temizle (içerik idempotency).
+rm -rf "$INSTALL_DIR/hooks" "$INSTALL_DIR/web"
 cp -R "$DIR/hooks" "$INSTALL_DIR/"
 [ -d "$DIR/web" ] && cp -R "$DIR/web" "$INSTALL_DIR/"
 

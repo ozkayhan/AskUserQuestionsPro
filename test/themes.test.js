@@ -9,7 +9,9 @@ const KNOWN = new Set(Themes.KNOWN_TOKENS);
 // styles.css :root bloğundaki CSS custom property anahtarlarını çıkar.
 function rootTokens() {
   const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'styles.css'), 'utf8');
-  const block = /:root\s*\{([\s\S]*?)\}/.exec(css);
+  // Kapanışı satır-başı '}'a sabitle: :root içinde nested brace yok varsayımı
+  // (varsa non-greedy ilk '}'da kesilip token kaçırmasın diye anchor güvenli).
+  const block = /:root\s*\{([\s\S]*?)^}/m.exec(css);
   assert.ok(block, 'styles.css içinde :root bloğu bulunmalı');
   return [...block[1].matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1]);
 }
