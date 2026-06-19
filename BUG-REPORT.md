@@ -52,11 +52,11 @@ TMPDIR="$(mktemp -d)"
 trap "rm -rf $TMPDIR" EXIT            # ← script ÇIKINCA temp dizini siler
 ...
 DIR="$TMPDIR/AskUserQuestionsPro-main"
-HOOK="$DIR/hooks/askuser-bridge.mjs" # ← hook yolu temp dizinin İÇİNDE
+HOOK="$DIR/hooks/askuserquestionspro-bridge.mjs" # ← hook yolu temp dizinin İÇİNDE
 ```
 
 Sonra `settings.json`'a `command: "node $HOOK"` yazılır; yani
-`node /var/folders/.../AskUserQuestionsPro-main/hooks/askuser-bridge.mjs`. Script
+`node /var/folders/.../AskUserQuestionsPro-main/hooks/askuserquestionspro-bridge.mjs`. Script
 başarıyla bitince `trap ... EXIT` tetiklenir ve **bütün temp dizini (hook dahil)
 silinir**. Geriye `settings.json` içinde **var olmayan bir dosyaya** işaret eden
 bir hook kalır.
@@ -66,7 +66,7 @@ bir hook kalır.
 curl -fsSL https://raw.githubusercontent.com/ozkayhan/AskUserQuestionsPro/main/install.sh | bash
 # kurulum "Bitti" der. Şimdi:
 jq -r '.hooks.PreToolUse[] | select(.matcher=="AskUserQuestion") | .hooks[0].command' ~/.claude/settings.json
-# → node /var/folders/xx/.../AskUserQuestionsPro-main/hooks/askuser-bridge.mjs
+# → node /var/folders/xx/.../AskUserQuestionsPro-main/hooks/askuserquestionspro-bridge.mjs
 ls -l "$(... yukarıdaki yol ...)"   # → No such file or directory
 ```
 Yeni bir `claude` oturumunda her `AskUserQuestion`'da hook `node ENOENT` ile
@@ -82,13 +82,13 @@ Kalıcı bir kurulum dizinine kopyala ve hook'u oradan kaydet:
 
 ```bash
 # curl | bash dalında:
-INSTALL_DIR="$HOME/.local/share/claude-askui"   # veya ~/.claude/askui
+INSTALL_DIR="$HOME/.local/share/askuserquestionspro"   # veya ~/.claude/askuserquestionspro
 rm -rf "$INSTALL_DIR"; mkdir -p "$INSTALL_DIR"
 cp -R "$TMPDIR/AskUserQuestionsPro-main/." "$INSTALL_DIR/"
 DIR="$INSTALL_DIR"                                # trap yalnızca TMPDIR'i siler
 ```
-`HOOK="$DIR/hooks/askuser-bridge.mjs"` artık kalıcı. (En sağlamı: `curl | bash`
-yöntemini bırakıp README'de `npm i -g claude-askui && claude-askui install`'i
+`HOOK="$DIR/hooks/askuserquestionspro-bridge.mjs"` artık kalıcı. (En sağlamı: `curl | bash`
+yöntemini bırakıp README'de `npm i -g askuserquestionspro && askuserquestionspro install`'i
 birincil yapmak — npm global yolu kalıcıdır.)
 
 ---
@@ -240,7 +240,7 @@ etkileşim (tekrar tıklama) her zaman düzenlemeye gider.
 
 ## B5 — `process.exit(0)` stdout'u flush etmeden keser (büyük payload kaybı)
 
-**Dosya:** `hooks/askuser-bridge.mjs:70-71`
+**Dosya:** `hooks/askuserquestionspro-bridge.mjs:70-71`
 **Şiddet:** MEDIUM (latent — yalnızca büyük payload'larda).
 
 ### Nasıl oluşuyor
@@ -339,7 +339,7 @@ olarak çalıştırır; `node` ilk parçayı dosya, gerisini argüman sanır →
 module '/yol'`.
 
 ### Nasıl denenir
-`claude-askui`'yi yolu boşluk içeren bir dizine kur, `claude-askui install`,
+`askuserquestionspro`'yi yolu boşluk içeren bir dizine kur, `askuserquestionspro install`,
 sonra AskUserQuestion tetikle → hook "module not found" ile düşer.
 
 ### Önerilen çözüm
@@ -391,7 +391,7 @@ etkilemiyor (bkz. B16).
 
 ## B9 — Linux/Windows'ta `open` yok → unhandled `error` → hook çöker
 
-**Dosya:** `hooks/askuser-bridge.mjs:38-40`
+**Dosya:** `hooks/askuserquestionspro-bridge.mjs:38-40`
 **Şiddet:** MEDIUM (macOS dışı platformlarda her çağrıda).
 
 ### Nasıl oluşuyor
@@ -483,7 +483,7 @@ seçenek + Other = 10 şık → 10. (Other) ve 9.'dan sonrası klavyeyle erişil
 tuş (örn. `0` veya `o`) atamak ve hint'i buna göre güncellemek.
 
 ## B13 — Hook `main()` üst seviye `catch` yok → "her zaman exit(0)" garantisi kırılabilir
-**Dosya:** `hooks/askuser-bridge.mjs:74` (`main();`)
+**Dosya:** `hooks/askuserquestionspro-bridge.mjs:74` (`main();`)
 `try/catch` yalnızca fetch bloğunu sarar. Beklenmedik bir senkron/promise hatası
 (örn. B9, ya da ileride eklenecek kod) yakalanmaz → unhandled rejection → non-zero
 exit. ARCHITECTURE §7'deki "hiçbir koşulda Claude'u kilitleme / her sapma exit(0)"

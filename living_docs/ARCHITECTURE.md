@@ -25,9 +25,9 @@ Sistem dört ayrı çalışma birimi üzerine kuruludur. Hepsi `127.0.0.1`'de ya
 
    ┌──────────────────┐      ┌──────────────────────┐
    │   4) MCP SERVER   │      │   lib/bridge-client   │
-   │   askui-mcp.mjs   │      │   (paylaşılan ESM     │
+   │   askuserquestionspro-mcp.mjs   │      │   (paylaşılan ESM     │
    │   stdio JSON-RPC  │◄────►│    modülü)            │
-   │   mcp__askui__ask │ HTTP │   ensureServer()      │
+   │   mcp__askuserquestionspro__ask │ HTTP │   ensureServer()      │
    │   (≤sınırsız soru)│      │   openBrowser()       │
    │                   │      │   askBridge()         │
    └──────────────────┘      └──────────────────────┘
@@ -37,10 +37,10 @@ Sistem dört ayrı çalışma birimi üzerine kuruludur. Hepsi `127.0.0.1`'de ya
 
 | Süreç | Dosya(lar) | Ömür | Görevi |
 |-------|-----------|------|--------|
-| **Hook** | `hooks/askuser-bridge.mjs`, `hooks/hook-output.js` | Soru başına saniyeler | Claude Code ↔ köprü arası elçi. ≤4 soruluk `AskUserQuestion` çağrılarını yakalar; soruyu köprüye verir, cevabı stdout'tan `updatedInput` ile Claude'a basar. |
+| **Hook** | `hooks/askuserquestionspro-bridge.mjs`, `hooks/hook-output.js` | Soru başına saniyeler | Claude Code ↔ köprü arası elçi. ≤4 soruluk `AskUserQuestion` çağrılarını yakalar; soruyu köprüye verir, cevabı stdout'tan `updatedInput` ile Claude'a basar. |
 | **Server** | `server/server.js`, `server/bridge.js` | İlk soruda doğar, açık kalır | HTTP köprüsü + statik UI servisi. Soru/cevap randevusunu RAM'de tutar. |
 | **Web** | `web/*` | Tarayıcı sekmesi açık olduğu sürece | Soruyu SSE ile alır, kullanıcı etkileşimini yönetir, cevabı POST eder. |
-| **MCP Server** | `mcp-server/askui-mcp.mjs` | Claude Code MCP istemcisi tarafından yönetilir | `mcp__askui__ask` aracını sunar — sınırsız soruluk `questions` dizisi alır, cevapları doğrudan tool-result olarak modele döndürür. |
+| **MCP Server** | `mcp-server/askuserquestionspro-mcp.mjs` | Claude Code MCP istemcisi tarafından yönetilir | `mcp__askuserquestionspro__ask` aracını sunar — sınırsız soruluk `questions` dizisi alır, cevapları doğrudan tool-result olarak modele döndürür. |
 | **Bridge İstemci** | `lib/bridge-client.mjs` | — (kütüphane modülü) | `ensureServer()`, `openBrowser()`, `askBridge()` fonksiyonlarını export eder. Hem hook hem MCP server bu modülü kullanır (DRY). |
 
 ---
@@ -84,12 +84,12 @@ yazıp çıkar.
 
 ---
 
-## 1b. MCP akışı — `mcp__askui__ask` (sınırsız soru, mutlu yol)
+## 1b. MCP akışı — `mcp__askuserquestionspro__ask` (sınırsız soru, mutlu yol)
 
 ```
  Claude Code        MCP Server           lib/bridge-client    Server (4517)   Tarayıcı (UI)
-     │              (askui-mcp.mjs)             │                   │               │
-     │ mcp__askui__ask                          │                   │               │
+     │              (askuserquestionspro-mcp.mjs)             │                   │               │
+     │ mcp__askuserquestionspro__ask                          │                   │               │
      │ {questions:[...N...]} ─────────────────► │                   │               │
      │                                          │ ensureServer() ──►│               │
      │                                          │◄── 200 ───────────│               │
@@ -114,7 +114,7 @@ yazıp çıkar.
 
 ## 1c. Hibrit yönlendirme (kitapçık çözüm #7)
 
-`AskUserQuestion` 1–4 soruluk sabit bir model sözleşmesiyle gelir. `mcp__askui__ask`
+`AskUserQuestion` 1–4 soruluk sabit bir model sözleşmesiyle gelir. `mcp__askuserquestionspro__ask`
 şemasında `maxItems` yoktur — gerçek anlamda sınırsız. Hibrit model bu ikisini
 şeffaf biçimde birleştirir:
 
@@ -124,19 +124,19 @@ yazıp çıkar.
               ┌───────────┴────────────┐
          ≤4 soru?                   >4 soru?
               │                         │
-   AskUserQuestion (native)      mcp__askui__ask
+   AskUserQuestion (native)      mcp__askuserquestionspro__ask
               │                         │
         PreToolUse hook            MCP server
-        (hooks/askuser-bridge.mjs) (mcp-server/askui-mcp.mjs)
+        (hooks/askuserquestionspro-bridge.mjs) (mcp-server/askuserquestionspro-mcp.mjs)
               └──────────┬──────────────┘
                          │   ikisi de lib/bridge-client.mjs kullanır
                          ▼
               Aynı Server(4517) + Bridge + Web UI
 ```
 
-Model hangi aracı kullanacağını `mcp__askui__ask`'ın araç açıklamasındaki
+Model hangi aracı kullanacağını `mcp__askuserquestionspro__ask`'ın araç açıklamasındaki
 yönlendirmeye göre seçer: küçük setlerde `AskUserQuestion` doğaldır; büyük
-setlerde açıklama modeli `mcp__askui__ask`'a yönlendirir.
+setlerde açıklama modeli `mcp__askuserquestionspro__ask`'a yönlendirir.
 
 **Geriye dönük uyum:** ≤4 soruluk tüm mevcut davranış **değişmeden** korunur.
 
@@ -153,7 +153,7 @@ paylaştığından bu kod `lib/bridge-client.mjs`'e çıkarılmıştır (DRY).
 | `openBrowser()` | `open http://127.0.0.1:PORT` ile tarayıcıyı açar (macOS). |
 | `askBridge(questions, {timeoutMs})` | `POST /ask` long-poll'ü gerçekleştirir; `{answers}` ile resolve olur. |
 
-Hook (`hooks/askuser-bridge.mjs`) bu modülü import ederek kullanır; gözlemlenebilir
+Hook (`hooks/askuserquestionspro-bridge.mjs`) bu modülü import ederek kullanır; gözlemlenebilir
 davranışı değişmemiştir. MCP server da aynı modülü kullanır.
 
 ---
@@ -162,7 +162,7 @@ davranışı değişmemiştir. MCP server da aynı modülü kullanır.
 
 Varsayılan olarak **kapalı**. Bu ortam değişkeni truthy değer taşıdığında PreToolUse
 hook, `AskUserQuestion` çağrısını `permissionDecision:"deny"` ile reddeder ve modele
-`mcp__askui__ask` kullanması için bir mesaj döndürür. Modeli kesinlikle MCP aracına
+`mcp__askuserquestionspro__ask` kullanması için bir mesaj döndürür. Modeli kesinlikle MCP aracına
 yönlendirmek isteyenler için opsiyonel bir "yapıştırıcı" katmanıdır.
 
 ```
@@ -240,7 +240,7 @@ ve `/answer` (soru çözüldü → null) sonrası tüm sekmelere anlık durum pu
 ```
 
 ### Önemli sağlamlık ayrıntıları (kod yorumlarında da işaretli)
-- **Boyut koruması:** `readBody` **8 MB**'ı aşan gövdede `req.destroy()` eder. (Büyük soru setlerini (`mcp__askui__ask`) karşılamak için 1 MB → 8 MB artırıldı.)
+- **Boyut koruması:** `readBody` **8 MB**'ı aşan gövdede `req.destroy()` eder. (Büyük soru setlerini (`mcp__askuserquestionspro__ask`) karşılamak için 1 MB → 8 MB artırıldı.)
 - **Asılı kalmayı önleme:** `req.destroy()` yalnızca `'close'` yayar; promise
   `'close'` dinleyicisiyle reject edilir (`server.js:25`).
 - **İstemci kopuşu = iptal:** `/ask` long-poll'ünde tarayıcı/hook giderse
@@ -252,7 +252,7 @@ ve `/answer` (soru çözüldü → null) sonrası tüm sekmelere anlık durum pu
 
 ## 4. Hook — Claude Code ile sözleşme (`hooks/`)
 
-### 4a. `askuser-bridge.mjs` (yürütülebilir hook)
+### 4a. `askuserquestionspro-bridge.mjs` (yürütülebilir hook)
 `PreToolUse` olayında Claude Code bu scripti çalıştırır; stdin'e tool çağrı
 JSON'unu verir, stdout'tan karar bekler. `ensureServer()`, `openBrowser()`,
 `askBridge()` fonksiyonlarını artık `lib/bridge-client.mjs`'den import eder.
@@ -303,13 +303,13 @@ atlamasını sağlayan sözleşmedir:
 
 ---
 
-### 4c. `mcp-server/askui-mcp.mjs` (MCP sunucusu)
+### 4c. `mcp-server/askuserquestionspro-mcp.mjs` (MCP sunucusu)
 
 Sıfır-bağımlılık, yalnızca Node çekirdeği. `stdio` üzerinden JSON-RPC 2.0 MCP
 protokolünü konuşur. Tek bir araç sunar:
 
 ```
-   araç adı    : ask   (Claude Code'un bunu mcp__askui__ask olarak görür)
+   araç adı    : ask   (Claude Code'un bunu mcp__askuserquestionspro__ask olarak görür)
    inputSchema : { questions: [ {question, header?, multiSelect?, options?:[{label,description?}]} ] }
                  — maxItems kısıtı YOK (gerçek anlamda sınırsız)
 ```
@@ -317,7 +317,7 @@ protokolünü konuşur. Tek bir araç sunar:
 MCP sunucu başlatma akışı:
 
 ```
-   Claude Code  ──initialize──►  askui-mcp.mjs
+   Claude Code  ──initialize──►  askuserquestionspro-mcp.mjs
                 ◄──capabilities─
                 ──tools/list──►
                 ◄──[{name:"ask",...}]─
@@ -392,7 +392,7 @@ derlenir. Mantık **4 katmana** ayrılmıştır; `index.html` script'leri
 
 ### 5a. Büyük soru seti için UI ölçekleme (N > 8)
 
-Soru sayısı 8'i aştığında (genellikle `mcp__askui__ask` yoluyla gelen büyük
+Soru sayısı 8'i aştığında (genellikle `mcp__askuserquestionspro__ask` yoluyla gelen büyük
 setler) UI otomatik olarak ek özellikler sunar. **8 veya daha az soruda görsel
 herhangi bir fark yoktur.**
 
@@ -470,12 +470,12 @@ değişmez hem hook hem MCP yolu için geçerlidir.
         ├─ "AskUserQuestion" zaten geçiyorsa UYAR (tek hook olmalı, #15897)
         ├─ jq ile PreToolUse'a hook satırı ekle:
         │    { matcher:"AskUserQuestion",
-        │      hooks:[{ type:"command", command:"node …/askuser-bridge.mjs", timeout:360 }] }
+        │      hooks:[{ type:"command", command:"node …/askuserquestionspro-bridge.mjs", timeout:360 }] }
         │  (jq yoksa elle ekleme talimatını basar)
         ├─ server/, lib/, mcp-server/ dizinlerini install dizinine kopyala
         │  (önceden yalnızca hooks/ + web/ kopyalanıyordu — eksiklik giderildi)
         └─ claude CLI varsa:
-             claude mcp add --scope user askui -- node <path/to/askui-mcp.mjs>
+             claude mcp add --scope user askuserquestionspro -- node <path/to/askuserquestionspro-mcp.mjs>
            yoksa elle ekleme komutunu basar
 ```
 
@@ -483,12 +483,12 @@ Repo kökündeki `.mcp.json` bu projeye özgü MCP kaydını sağlar (geliştirm
 ortamı için):
 
 ```json
-{ "mcpServers": { "askui": { "command": "node", "args": ["mcp-server/askui-mcp.mjs"],
+{ "mcpServers": { "askuserquestionspro": { "command": "node", "args": ["mcp-server/askuserquestionspro-mcp.mjs"],
                               "timeout": 3600000 } } }
 ```
 
 Sonra yeni bir `claude` oturumu: artık her `AskUserQuestion` özel arayüzde açılır
-ve `mcp__askui__ask` büyük soru setleri için kullanılabilir olur.
+ve `mcp__askuserquestionspro__ask` büyük soru setleri için kullanılabilir olur.
 
 ---
 

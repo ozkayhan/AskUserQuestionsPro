@@ -17,7 +17,7 @@ fi
 
 # Hook ve web dosyalarını KALICI bir konuma kopyala. $DIR temp dir olabilir
 # (curl | bash) ve betik bitince silinir; bu yüzden hook'un kalıcı bir yolu olmalı.
-INSTALL_DIR="$HOME/.local/share/claude-askui"
+INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
 mkdir -p "$INSTALL_DIR"
 # Re-run'da bayat dosya kalmasın diye hedefi önce temizle (içerik idempotency).
 rm -rf "$INSTALL_DIR/hooks" "$INSTALL_DIR/web" "$INSTALL_DIR/server" "$INSTALL_DIR/lib" "$INSTALL_DIR/mcp-server"
@@ -28,7 +28,7 @@ cp -R "$DIR/hooks" "$INSTALL_DIR/"
 [ -d "$DIR/mcp-server" ] && cp -R "$DIR/mcp-server" "$INSTALL_DIR/"
 
 SETTINGS="$HOME/.claude/settings.json"
-HOOK="$INSTALL_DIR/hooks/askuser-bridge.mjs"
+HOOK="$INSTALL_DIR/hooks/askuserquestionspro-bridge.mjs"
 CMD="node \"$HOOK\""
 
 mkdir -p "$HOME/.claude"
@@ -66,18 +66,18 @@ jq bulunamadı. $SETTINGS dosyasına elle ekleyin:
 EOF
 fi
 # MCP sunucusunu claude CLI'ya global olarak kaydet (idempotent: önce kaldır, sonra ekle).
-MCP_ENTRY="$INSTALL_DIR/mcp-server/askui-mcp.mjs"
+MCP_ENTRY="$INSTALL_DIR/mcp-server/askuserquestionspro-mcp.mjs"
 if command -v claude >/dev/null 2>&1; then
-  claude mcp remove askui >/dev/null 2>&1 || true
-  claude mcp add --scope user askui -- node "$MCP_ENTRY" || true
-  echo "MCP aracı (mcp__askui__ask) kullanıcı kapsamında kaydedildi → askui"
+  claude mcp remove askuserquestionspro >/dev/null 2>&1 || true
+  claude mcp add --scope user askuserquestionspro -- node "$MCP_ENTRY" || true
+  echo "MCP aracı (mcp__askuserquestionspro__ask) kullanıcı kapsamında kaydedildi → askuserquestionspro"
 else
   echo "claude CLI bulunamadı. MCP aracını elle kaydetmek için:"
-  echo "  claude mcp add --scope user askui -- node \"$MCP_ENTRY\""
+  echo "  claude mcp add --scope user askuserquestionspro -- node \"$MCP_ENTRY\""
 fi
 
 echo ""
 echo "Bitti. Yeni bir 'claude' oturumu açın."
 echo "  • Az soru (≤4): AskUserQuestion hook'u yerel AMOLED arayüzü açar."
-echo "  • Çok soru: model mcp__askui__ask aracını kullanır (sınırsız, tek ekran)."
+echo "  • Çok soru: model mcp__askuserquestionspro__ask aracını kullanır (sınırsız, tek ekran)."
 echo "Çok uzun anketlerde gerekirse \`MCP_TOOL_TIMEOUT\` artırılabilir (varsayılan pratikte sınırsızdır)."

@@ -210,12 +210,12 @@ Rubrik detayları → [Ek](#-ek-puanlama-rubriği).
 ### 🥈 #1 — Özel MCP Aracı (`ask_many`) — *tetikleyiciyi değiştir*
 
 **Fikir:** Küçük bir yerel MCP stdio sunucusu yaz; tek bir araç sunsun:
-`mcp__askui__ask` → `inputSchema = { questions: [...] }` (**üst sınır yok**).
+`mcp__askuserquestionspro__ask` → `inputSchema = { questions: [...] }` (**üst sınır yok**).
 Araç handler'ı mevcut `/ask` köprüsüne POST eder, `/answer` gelene kadar bloklar,
 cevabı MCP tool result olarak modele döndürür. Model `AskUserQuestion` yerine bunu çağırır.
 
 ```
-   Model ──"mcp__askui__ask({questions:[...300...]})"──► MCP server (stdio)
+   Model ──"mcp__askuserquestionspro__ask({questions:[...300...]})"──► MCP server (stdio)
                                                               │
                                                     POST /ask │ (mevcut bridge!)
                                                               ▼
@@ -227,11 +227,11 @@ cevabı MCP tool result olarak modele döndürür. Model `AskUserQuestion` yerin
 ```
 
 **Nasıl çalışır (adımlar):**
-1. `mcp-server/askui-mcp.mjs` — saf Node, MCP SDK ya da elle JSON-RPC (sıfır-bağımlılık tutulabilir).
+1. `mcp-server/askuserquestionspro-mcp.mjs` — saf Node, MCP SDK ya da elle JSON-RPC (sıfır-bağımlılık tutulabilir).
 2. Araç şeması: `questions` dizisi (her biri `{question, header, multiSelect, options[]}`), **maxItems yok**.
 3. Handler: `ensureServer()` (mevcut spawn mantığı) → `POST /ask` long-poll → cevap → `return { content: answers }`.
-4. Kayıt: `.mcp.json` ya da `claude mcp add askui -- node .../askui-mcp.mjs`.
-5. Yönlendirme: araç açıklaması + `CLAUDE.md` → "Kullanıcıya çok sayıda (özellikle >4) soru sorман gerekiyorsa `mcp__askui__ask` kullan."
+4. Kayıt: `.mcp.json` ya da `claude mcp add askuserquestionspro -- node .../askuserquestionspro-mcp.mjs`.
+5. Yönlendirme: araç açıklaması + `CLAUDE.md` → "Kullanıcıya çok sayıda (özellikle >4) soru sorман gerekiyorsa `mcp__askuserquestionspro__ask` kullan."
 
 **✅ Artılar:**
 - 🚀 **Gerçekten sınırsız** — 1 ya da 1000 soru, fark etmez (tasarımın doğal sonucu).
@@ -243,7 +243,7 @@ cevabı MCP tool result olarak modele döndürür. Model `AskUserQuestion` yerin
 - 🧭 **Model yönlendirmesi şart** — model içgüdüsel `AskUserQuestion`'a uzanır; iyi bir `description` + `CLAUDE.md` olmadan yeni aracı es geçebilir. *(En büyük risk.)*
 - 🔌 **MCP kaydı** — kullanıcı bir kez `claude mcp add` / `.mcp.json` adımı yapmalı (install.sh otomatikleştirebilir).
 - ⏱️ **Uzun bekleme** — kullanıcı 300 soruyu cevaplarken araç bloklar; `MCP_TIMEOUT` / araç timeout'u yeterli ayarlanmalı (5 dk+).
-- 🕶️ **"Görünmezlik" azalır** — native hook'ta model farkı anlamıyordu; MCP'de model açıkça "askui aracını" çağırır (zaten cevabı görmesi gerektiğinden bu pratikte sorun değil).
+- 🕶️ **"Görünmezlik" azalır** — native hook'ta model farkı anlamıyordu; MCP'de model açıkça "askuserquestionspro aracını" çağırır (zaten cevabı görmesi gerektiğinden bu pratikte sorun değil).
 
 **📐 Puan kırılımı:** Kapsay.5 · Sağlam.5 · Model3 · Kolay4 · Mimari5 · Bakım5 · UX4 · Sıfır-kur.3 → **56.5**
 
@@ -255,7 +255,7 @@ cevabı MCP tool result olarak modele döndürür. Model `AskUserQuestion` yerin
 
 **Fikir:** #1'i çekirdek al, **mevcut PreToolUse hook'u da koru.** Yönlendirme kuralı:
 küçük setler (≤4) eski yolla (native AskUserQuestion → hook → UI) sorunsuz aksın;
-büyük setler (>4) `mcp__askui__ask` ile gelsin. İkisi de **aynı bridge/UI'yı** besler.
+büyük setler (>4) `mcp__askuserquestionspro__ask` ile gelsin. İkisi de **aynı bridge/UI'yı** besler.
 
 ```
                     Model soru soracak
@@ -263,7 +263,7 @@ büyük setler (>4) `mcp__askui__ask` ile gelsin. İkisi de **aynı bridge/UI'y�
               ┌───────────┴────────────┐
          ≤4 soru?                   >4 soru?
               │                         │
-   AskUserQuestion (native)      mcp__askui__ask
+   AskUserQuestion (native)      mcp__askuserquestionspro__ask
               │                         │
         PreToolUse hook            MCP server
               └──────────┬──────────────┘
@@ -290,13 +290,13 @@ büyük setler (>4) `mcp__askui__ask` ile gelsin. İkisi de **aynı bridge/UI'y�
 
 ### 🥉 #6 — Skill + CLI (Bash köprüsü) — *MCP'siz tetikleyici*
 
-**Fikir:** MCP yerine, küçük bir CLI komutu (`claude-askui ask --file q.json`) bridge'e
+**Fikir:** MCP yerine, küçük bir CLI komutu (`askuserquestionspro ask --file q.json`) bridge'e
 bloklayarak bağlanıp cevabı **stdout'a** bassın. Bir **skill** modele şunu öğretsin:
 "Çok soru sorman gerekince soruları bir dosyaya yaz, sonra bu komutu Bash ile çalıştır,
 çıktıdaki cevapları oku." Skill'ler model tarafından çağrılabilir.
 
 ```
-   Model ──(skill tetiklenir)──► Write q.json ──► Bash: claude-askui ask --file q.json
+   Model ──(skill tetiklenir)──► Write q.json ──► Bash: askuserquestionspro ask --file q.json
                                                           │ (bloklar)
                                                   POST /ask → Bridge → UI → /answer
                                                           │
@@ -321,14 +321,14 @@ bloklayarak bağlanıp cevabı **stdout'a** bassın. Bir **skill** modele şunu 
 
 ### #9 — Dosya-İzleme Tetikleyici (Write/Read protokolü) — *en saf, en MCP'siz*
 
-**Fikir:** Hiç hook/MCP/araç yok. Bir daemon `.askui/pending.json`'ı izler. Model
+**Fikir:** Hiç hook/MCP/araç yok. Bir daemon `.askuserquestionspro/pending.json`'ı izler. Model
 `Write` ile N soruyu oraya bırakır → UI açılır → kullanıcı cevaplar → daemon
-`.askui/answers.json` yazar → model `Read` ile cevapları okur.
+`.askuserquestionspro/answers.json` yazar → model `Read` ile cevapları okur.
 
 ```
-   Model ─Write→ .askui/pending.json ─watch→ Server → UI
+   Model ─Write→ .askuserquestionspro/pending.json ─watch→ Server → UI
                                                         │ kullanıcı seçer
-   Model ◄Read─ .askui/answers.json ◄write─ Server ◄────┘
+   Model ◄Read─ .askuserquestionspro/answers.json ◄write─ Server ◄────┘
 ```
 
 **✅ Artılar:**
@@ -401,7 +401,7 @@ PreToolUse hook sentinel'i tanır, dosyayı okur, **N soruyu** bridge'e verir, c
 ### #8 — PreToolUse "deny + yönlendir" (eklenti) — *yalnız değil, zorlayıcı katman*
 
 **Fikir:** Hook, model `AskUserQuestion`'ı (özellikle çok soru bağlamında) çağırınca
-`permissionDecision:"deny"` + `systemMessage:"Bunun yerine mcp__askui__ask kullan"`
+`permissionDecision:"deny"` + `systemMessage:"Bunun yerine mcp__askuserquestionspro__ask kullan"`
 döner. Modeli doğru tetikleyiciye **zorlar.** Tek başına bir şey çözmez — #1/#6'nın
 benimsenme riskini düşüren bir **yapıştırıcıdır.**
 
@@ -526,7 +526,7 @@ altında ama büyük `description`'larla sınıra yaklaşabilir → gerekirse li
    FAZ 0  Doğrulama spike'ı
           └─ Küçük MCP aracı + 50 soru ile uçtan uca kanıt (bridge dokunmadan)
    FAZ 1  #1 çekirdek
-          ├─ mcp-server/askui-mcp.mjs (sıfır-bağımlılık)
+          ├─ mcp-server/askuserquestionspro-mcp.mjs (sıfır-bağımlılık)
           ├─ install.sh: claude mcp add / .mcp.json otomasyonu
           └─ CLAUDE.md + tool description yönlendirmesi
    FAZ 2  UI ölçekleme (ortak iş)

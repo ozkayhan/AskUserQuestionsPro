@@ -1,4 +1,4 @@
-# claude-askui
+# askuserquestionspro
 
 > A beautiful, fully local web UI for Claude Code's `AskUserQuestion` tool — answer the model's questions in a full-screen, keyboard-driven interface instead of the built-in terminal picker.
 
@@ -10,7 +10,7 @@
 
 When Claude Code wants to ask you a multiple-choice clarifying question, it calls its built-in `AskUserQuestion` tool — which normally opens a compact picker inside your terminal.
 
-`claude-askui` installs a `PreToolUse` hook that intercepts that call and instead opens a full-screen interactive UI in your browser: clean question cards, a sidebar with progress, single- and multi-select options, a growing text area for free-form "Other" answers, and a review screen where you can edit anything before submitting. Your answer flows straight back to Claude Code, which continues exactly as if you had used the native picker.
+`askuserquestionspro` installs a `PreToolUse` hook that intercepts that call and instead opens a full-screen interactive UI in your browser: clean question cards, a sidebar with progress, single- and multi-select options, a growing text area for free-form "Other" answers, and a review screen where you can edit anything before submitting. Your answer flows straight back to Claude Code, which continues exactly as if you had used the native picker.
 
 Everything runs on `127.0.0.1` — there is no remote service, no telemetry, and no npm runtime dependencies (Node core only). React, ReactDOM, and Babel are served from local vendored files, so the UI works fully offline.
 
@@ -22,7 +22,7 @@ If anything goes wrong — the bridge is down, the request times out, the data i
   │                                                                          │
   │  Claude Code ──"need to ask"──► AskUserQuestion tool                      │
   │      │                                                                   │
-  │      │  PreToolUse hook intercepts (hooks/askuser-bridge.mjs)            │
+  │      │  PreToolUse hook intercepts (hooks/askuserquestionspro-bridge.mjs)            │
   │      ▼                                                                   │
   │  local bridge (server/server.js, :4517) ──SSE push──► Browser UI         │
   │      ▲                                          │                         │
@@ -44,13 +44,13 @@ If anything goes wrong — the bridge is down, the request times out, the data i
 curl -fsSL https://raw.githubusercontent.com/ozkayhan/AskUserQuestionsPro/main/install.sh | bash
 ```
 
-This downloads the project, copies the hook and `web/` assets to `~/.local/share/claude-askui`, and adds an idempotent `AskUserQuestion` `PreToolUse` hook to `~/.claude/settings.json`. Then start a new `claude` session — that's it.
+This downloads the project, copies the hook and `web/` assets to `~/.local/share/askuserquestionspro`, and adds an idempotent `AskUserQuestion` `PreToolUse` hook to `~/.claude/settings.json`. Then start a new `claude` session — that's it.
 
 ### With npm
 
 ```bash
-npm install -g claude-askui
-claude-askui install
+npm install -g askuserquestionspro
+askuserquestionspro install
 ```
 
 ### From a local clone (no npm)
@@ -59,32 +59,32 @@ claude-askui install
 ./install.sh
 ```
 
-`./install.sh` and `claude-askui install` write the same idempotent hook entry, so they are interchangeable.
+`./install.sh` and `askuserquestionspro install` write the same idempotent hook entry, so they are interchangeable.
 
 ### CLI commands
 
 | Command | What it does |
 |---------|--------------|
-| `claude-askui install` | Adds the hook to `~/.claude/settings.json` and registers the MCP server |
-| `claude-askui uninstall` | Removes the hook |
-| `claude-askui serve` | Runs the bridge in the foreground for debugging (port 4517) |
-| `claude-askui mcp` | Starts the MCP server manually (for debugging or manual registration) |
-| `claude-askui doctor` | Checks hook installation, hook file, bridge health, and MCP registration |
+| `askuserquestionspro install` | Adds the hook to `~/.claude/settings.json` and registers the MCP server |
+| `askuserquestionspro uninstall` | Removes the hook |
+| `askuserquestionspro serve` | Runs the bridge in the foreground for debugging (port 4517) |
+| `askuserquestionspro mcp` | Starts the MCP server manually (for debugging or manual registration) |
+| `askuserquestionspro doctor` | Checks hook installation, hook file, bridge health, and MCP registration |
 
-The same `serve` step is available via `npm run serve`, and `npm run install-hook` runs `claude-askui install`.
+The same `serve` step is available via `npm run serve`, and `npm run install-hook` runs `askuserquestionspro install`.
 
 ## Asking many questions at once
 
-Claude Code's built-in `AskUserQuestion` tool is hard-capped at 1–4 questions per call by the model's own contract. `claude-askui` lifts that limit entirely with a companion MCP tool.
+Claude Code's built-in `AskUserQuestion` tool is hard-capped at 1–4 questions per call by the model's own contract. `askuserquestionspro` lifts that limit entirely with a companion MCP tool.
 
 ### How it works
 
-When Claude needs to ask a large set of questions (more than 4), it calls `mcp__askui__ask` instead of `AskUserQuestion`. The MCP tool accepts a `questions` array with no upper limit and routes everything through the same bridge, server, and web UI you already use.
+When Claude needs to ask a large set of questions (more than 4), it calls `mcp__askuserquestionspro__ask` instead of `AskUserQuestion`. The MCP tool accepts a `questions` array with no upper limit and routes everything through the same bridge, server, and web UI you already use.
 
 ```
    Small set (≤ 4 questions)          Large set (> 4 questions)
    ─────────────────────────          ─────────────────────────
-   AskUserQuestion (native)     →     mcp__askui__ask (MCP tool)
+   AskUserQuestion (native)     →     mcp__askuserquestionspro__ask (MCP tool)
    PreToolUse hook intercepts   →     MCP server handles directly
          │                                      │
          └──────────── same bridge + web UI ────┘
@@ -95,19 +95,19 @@ Answers come back to the model as a normal tool-result. The routing guidance liv
 
 ### Installation and registration
 
-`install.sh` (and `claude-askui install`) register the MCP server automatically:
+`install.sh` (and `askuserquestionspro install`) register the MCP server automatically:
 
-- If the `claude` CLI is present: `claude mcp add --scope user askui -- node <path/to/askui-mcp.mjs>`
+- If the `claude` CLI is present: `claude mcp add --scope user askuserquestionspro -- node <path/to/askuserquestionspro-mcp.mjs>`
 - Otherwise it prints the command for manual registration.
 
 A repo-root `.mcp.json` provides project-scoped registration for development use:
 
 ```json
-{ "mcpServers": { "askui": { "command": "node", "args": ["mcp-server/askui-mcp.mjs"],
+{ "mcpServers": { "askuserquestionspro": { "command": "node", "args": ["mcp-server/askuserquestionspro-mcp.mjs"],
                               "timeout": 3600000 } } }
 ```
 
-The `claude-askui doctor` command reports whether the MCP server is registered.
+The `askuserquestionspro doctor` command reports whether the MCP server is registered.
 
 ### Session timeout (`MCP_TOOL_TIMEOUT`)
 
@@ -115,17 +115,17 @@ The MCP tool blocks until you finish answering. Claude Code's default per-tool t
 
 ### Fallback if the MCP tool fails
 
-If the bridge is down, a question set is already pending (409), or any other error occurs, the MCP tool returns an `isError` result that tells the model to fall back to the native `AskUserQuestion` tool. The bridge-is-locked invariant holds: claude-askui never blocks the model.
+If the bridge is down, a question set is already pending (409), or any other error occurs, the MCP tool returns an `isError` result that tells the model to fall back to the native `AskUserQuestion` tool. The bridge-is-locked invariant holds: askuserquestionspro never blocks the model.
 
 ### `ASKUI_FORCE_MCP` — optional redirect
 
-By default, small sets flow through the native `AskUserQuestion` hook. If you want the hook to actively redirect the model toward `mcp__askui__ask` instead:
+By default, small sets flow through the native `AskUserQuestion` hook. If you want the hook to actively redirect the model toward `mcp__askuserquestionspro__ask` instead:
 
 ```bash
 ASKUI_FORCE_MCP=1 claude
 ```
 
-When set, the `PreToolUse` hook returns a `permissionDecision: "deny"` with a message steering the model to use `mcp__askui__ask`. Unset (the default), the hook behaves exactly as before. This is fully opt-in.
+When set, the `PreToolUse` hook returns a `permissionDecision: "deny"` with a message steering the model to use `mcp__askuserquestionspro__ask`. Unset (the default), the hook behaves exactly as before. This is fully opt-in.
 
 ### Large-set UI (more than 8 questions)
 
@@ -195,7 +195,7 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
         {
           "matcher": "AskUserQuestion",
           "hooks": [
-            { "type": "command", "command": "node \"/path/to/askuser-bridge.mjs\"", "timeout": 360 }
+            { "type": "command", "command": "node \"/path/to/askuserquestionspro-bridge.mjs\"", "timeout": 360 }
           ]
         }
       ]
@@ -207,11 +207,11 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
 
 ## Troubleshooting
 
-- **The native picker shows up instead of the browser UI.** This is the safe fallback — it means the bridge was down, timed out, or returned an error. Check the bridge with `curl http://127.0.0.1:4517/health` (expects `{"ok":true}`), or run `claude-askui doctor` for a full status check.
-- **The UI doesn't open at all.** Start the bridge manually with `claude-askui serve` (or `node server/server.js`) and open `http://127.0.0.1:4517` in your browser.
+- **The native picker shows up instead of the browser UI.** This is the safe fallback — it means the bridge was down, timed out, or returned an error. Check the bridge with `curl http://127.0.0.1:4517/health` (expects `{"ok":true}`), or run `askuserquestionspro doctor` for a full status check.
+- **The UI doesn't open at all.** Start the bridge manually with `askuserquestionspro serve` (or `node server/server.js`) and open `http://127.0.0.1:4517` in your browser.
 - **Spaces in the install path** (for example `Application Support`). The hook command is written with the path wrapped in double quotes, so paths with spaces work. If you hand-edited `settings.json`, make sure the `node "<path>"` command keeps those quotes.
-- **Two questions at once.** The bridge holds exactly one question set at a time. A second concurrent set — whether from the hook or from `mcp__askui__ask` — is rejected (409) and falls back to the native picker. There must be only one `PreToolUse` hook for `AskUserQuestion` (Claude Code issue #15897) — `claude-askui doctor` flags conflicts.
-- **`mcp__askui__ask` is not available.** Run `claude-askui doctor` to check MCP registration. If the server is not registered, run `claude-askui install` again or manually execute `claude mcp add --scope user askui -- node ~/.local/share/claude-askui/mcp-server/askui-mcp.mjs`.
+- **Two questions at once.** The bridge holds exactly one question set at a time. A second concurrent set — whether from the hook or from `mcp__askuserquestionspro__ask` — is rejected (409) and falls back to the native picker. There must be only one `PreToolUse` hook for `AskUserQuestion` (Claude Code issue #15897) — `askuserquestionspro doctor` flags conflicts.
+- **`mcp__askuserquestionspro__ask` is not available.** Run `askuserquestionspro doctor` to check MCP registration. If the server is not registered, run `askuserquestionspro install` again or manually execute `claude mcp add --scope user askuserquestionspro -- node ~/.local/share/askuserquestionspro/mcp-server/askuserquestionspro-mcp.mjs`.
 - **The MCP tool times out before you finish answering.** The default MCP tool timeout in Claude Code is effectively unlimited. If you've set `MCP_TOOL_TIMEOUT` explicitly, make sure it's at least as long as your longest expected answering session (e.g., `MCP_TOOL_TIMEOUT=3600000` for 1 hour).
 - **Offline / air-gapped.** No internet is required at runtime: React, ReactDOM, and Babel are served from local vendored files under `web/vendor/`. (Web fonts are loaded from Google Fonts for styling only; the UI works without them.)
 

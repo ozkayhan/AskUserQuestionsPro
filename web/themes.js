@@ -202,7 +202,7 @@
   ];
 
   var DEFAULT_ID = 'amoled';
-  var STORAGE_KEY = 'askui_theme';
+  var STORAGE_KEY = 'askuserquestionspro_theme';
 
   var BY_ID = {};
   LIST.forEach(function (t) { BY_ID[t.id] = t; });
@@ -240,7 +240,7 @@
   // Google Fonts <link>'ini tema fontuna göre enjekte/değiştir/kaldır.
   function swapFont(font) {
     if (typeof document === 'undefined') return;
-    var id = 'askui-theme-font';
+    var id = 'askuserquestionspro-theme-font';
     var link = document.getElementById(id);
     if (!font) { if (link) link.remove(); return; }
     var href = 'https://fonts.googleapis.com/css2?family=' + font + '&display=swap';

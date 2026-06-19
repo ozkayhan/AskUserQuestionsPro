@@ -1,5 +1,5 @@
 {
-  "name": "claude-askui",
+  "name": "askuserquestionspro",
   "version": "1.0.0",
   "description": "Claude Code AskUserQuestion için özel AMOLED tam ekran arayüz — yerleşik picker yerine lokal köprü ile açılır.",
   "type": "commonjs",
@@ -13,8 +13,8 @@
   },
   "homepage": "https://github.com/ozkayhan/AskUserQuestionsPro#readme",
   "bin": {
-    "claude-askui": "bin/cli.js",
-    "claude-askui-mcp": "mcp-server/askui-mcp.mjs"
+    "askuserquestionspro": "bin/cli.js",
+    "askuserquestionspro-mcp": "mcp-server/askuserquestionspro-mcp.mjs"
   },
   "files": [
     "bin/",
@@ -30,7 +30,7 @@
   "scripts": {
     "test": "node --test",
     "serve": "node server/server.js",
-    "mcp": "node mcp-server/askui-mcp.mjs",
+    "mcp": "node mcp-server/askuserquestionspro-mcp.mjs",
     "install-hook": "node bin/cli.js install"
   },
   "engines": {

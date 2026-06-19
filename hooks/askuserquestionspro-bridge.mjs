@@ -33,7 +33,7 @@ async function main() {
   const toolInput = input.tool_input || {};
   if (!toolInput.questions) process.exit(0);
 
-  // ASKUI_FORCE_MCP etkinse modeli mcp__askui__ask aracını kullanmaya yönlendir.
+  // ASKUI_FORCE_MCP etkinse modeli mcp__askuserquestionspro__ask aracını kullanmaya yönlendir.
   // Varsayılan davranışı değiştirmez — yalnızca açıkça etkinleştirildiğinde çalışır.
   if (process.env.ASKUI_FORCE_MCP) {
     writeAndExit(JSON.stringify({
@@ -41,7 +41,7 @@ async function main() {
         hookEventName: "PreToolUse",
         permissionDecision: "deny",
         permissionDecisionReason:
-          "Use the mcp__askui__ask tool instead — it can ask unlimited questions in one rich UI.",
+          "Use the mcp__askuserquestionspro__ask tool instead — it can ask unlimited questions in one rich UI.",
       },
     }));
     return;

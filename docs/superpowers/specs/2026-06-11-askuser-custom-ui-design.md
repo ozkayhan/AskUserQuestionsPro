@@ -61,7 +61,7 @@ Claude model → AskUserQuestion(questions)
    → Claude Code yerleşik picker'ı atlar, model answers'ı alır
 ```
 
-### 4.1 PreToolUse Hook Script (`hooks/askuser-bridge.mjs`)
+### 4.1 PreToolUse Hook Script (`hooks/askuserquestionspro-bridge.mjs`)
 
 - `~/.claude/settings.json`'da `PreToolUse` → matcher `AskUserQuestion`.
 - stdin'den `{ tool_name, tool_input: { questions }, ... }` okur.
@@ -116,7 +116,7 @@ askuseroz/
   web/index.html
   web/app.js                    # app.jsx'ten port, canlı veri
   web/styles.css                # tasarımdan
-  hooks/askuser-bridge.mjs      # PreToolUse hook
+  hooks/askuserquestionspro-bridge.mjs      # PreToolUse hook
   install.sh                    # settings.json'ı bağlar, talimat basar
   design-reference/             # orijinal handoff bundle (kaynak referans)
   docs/superpowers/specs/...    # bu doküman

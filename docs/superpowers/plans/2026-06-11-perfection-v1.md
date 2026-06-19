@@ -1,4 +1,4 @@
-# claude-askui — "Mükemmelleştirme v1" Uygulama Planı
+# askuserquestionspro — "Mükemmelleştirme v1" Uygulama Planı
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Her task BAĞIMSIZ ve kendi kendine yeterlidir; subagent yalnızca task metnini + adı geçen dosyaları okur. Gereksiz dosya taramayın — token tasarrufu.
 
@@ -18,7 +18,7 @@
 |-------|-------|------------------------|
 | `server/bridge.js` | Modify | Tur kimliği (`id`) eklenir; `peek()` `{id,questions}` döner |
 | `server/server.js` | Modify | cancel'da broadcast; SSE'de `id`; input validation; EADDRINUSE; SSE heartbeat; statik sınır sertleştirme |
-| `hooks/askuser-bridge.mjs` | Modify | stdout flush; cross-platform openBrowser + error yutma; top-level catch; uncaught guard |
+| `hooks/askuserquestionspro-bridge.mjs` | Modify | stdout flush; cross-platform openBrowser + error yutma; top-level catch; uncaught guard |
 | `hooks/hook-output.js` | Modify | `suppressOutput:true` eklenir |
 | `web/answer-map.js` | Modify | `savePopupState` saf helper (custom kaldırma); değişiklik yok diğer mantık |
 | `web/live.js` | Modify | `useLiveQuestions` `{id,questions}` döner; reconnect timeout temizliği; `postAnswers` hata fırlatır |
@@ -453,9 +453,9 @@ git commit -m "feat(hook-output): suppressOutput ile transcript temizligi"
 ## Task 4: Hook — stdout flush (B5), cross-platform openBrowser + error yutma (B9), top-level catch (B13)
 
 **Files:**
-- Modify: `hooks/askuser-bridge.mjs`
+- Modify: `hooks/askuserquestionspro-bridge.mjs`
 
-- [ ] **Step 1: `hooks/askuser-bridge.mjs`'i tam olarak şu içerikle değiştir**
+- [ ] **Step 1: `hooks/askuserquestionspro-bridge.mjs`'i tam olarak şu içerikle değiştir**
 
 ```js
 #!/usr/bin/env node
@@ -560,7 +560,7 @@ main().catch(() => process.exit(0)); // her sapma → native fallback
 
 Run:
 ```bash
-printf '' | node hooks/askuser-bridge.mjs; echo "exit=$?"
+printf '' | node hooks/askuserquestionspro-bridge.mjs; echo "exit=$?"
 ```
 Expected: `exit=0`, stdout boş (bozuk/boş JSON → native fallback).
 
@@ -568,14 +568,14 @@ Expected: `exit=0`, stdout boş (bozuk/boş JSON → native fallback).
 
 Run:
 ```bash
-printf '{"tool_name":"Bash","tool_input":{}}' | node hooks/askuser-bridge.mjs; echo "exit=$?"
+printf '{"tool_name":"Bash","tool_input":{}}' | node hooks/askuserquestionspro-bridge.mjs; echo "exit=$?"
 ```
 Expected: `exit=0`, stdout boş.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add hooks/askuser-bridge.mjs
+git add hooks/askuserquestionspro-bridge.mjs
 git commit -m "fix(hook): stdout flush (B5), cross-platform+guvenli openBrowser (B9), top-level catch + uncaught guard (B13)"
 ```
 
@@ -1254,7 +1254,7 @@ git commit -m "fix(install): hook yolu tirnaklandi — bosluklu kurulum yolu (B7
 set -euo pipefail
 
 # Kalıcı kurulum dizini (curl | bash dalında repo buraya kopyalanır; hook buradan çalışır).
-INSTALL_DIR="${ASKUSER_HOME:-$HOME/.local/share/claude-askui}"
+INSTALL_DIR="${ASKUSER_HOME:-$HOME/.local/share/askuserquestionspro}"
 
 # Lokal çalıştırma: DIR = script dizini. curl | bash: GitHub'dan indir → kalıcı dizine kopyala.
 if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
@@ -1262,7 +1262,7 @@ if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
 else
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
-  echo "📥 claude-askui indiriliyor…"
+  echo "📥 askuserquestionspro indiriliyor…"
   curl -fsSL "https://github.com/ozkayhan/AskUserQuestionsPro/archive/refs/heads/main.zip" -o "$TMP/repo.zip"
   unzip -q "$TMP/repo.zip" -d "$TMP"
   SRC="$TMP/AskUserQuestionsPro-main"
@@ -1273,7 +1273,7 @@ else
 fi
 
 SETTINGS="$HOME/.claude/settings.json"
-HOOK="$DIR/hooks/askuser-bridge.mjs"
+HOOK="$DIR/hooks/askuserquestionspro-bridge.mjs"
 CMD="node \"$HOOK\""
 
 mkdir -p "$HOME/.claude"
@@ -1286,13 +1286,13 @@ if command -v jq >/dev/null 2>&1; then
     .hooks //= {} | .hooks.PreToolUse //= [] |
     if any(.hooks.PreToolUse[]?; (.hooks // [])[]?.command == $cmd) then .
     elif any(.hooks.PreToolUse[]?; .matcher == "AskUserQuestion") then
-      ( . + { "_askui_conflict": true } )
+      ( . + { "_askuserquestionspro_conflict": true } )
     else
       .hooks.PreToolUse += [{ "matcher": "AskUserQuestion",
         "hooks": [{ "type": "command", "command": $cmd, "timeout": 360 }] }]
     end
   ' "$SETTINGS" > "$tmp"
-  if grep -q '"_askui_conflict"' "$tmp"; then
+  if grep -q '"_askuserquestionspro_conflict"' "$tmp"; then
     echo "UYARI: settings.json'da BAŞKA bir AskUserQuestion PreToolUse hook'u var."
     echo "Tek hook olmalı (issue #15897). Elle kontrol edin: $SETTINGS — değişiklik YAPILMADI."
     rm -f "$tmp"
@@ -1331,7 +1331,7 @@ Expected: `syntax OK`; kalıcı kopya + idempotent jq satırları görünür.
 Run:
 ```bash
 T="$(mktemp)"; echo '{}' > "$T"
-CMD='node "/x/hooks/askuser-bridge.mjs"'
+CMD='node "/x/hooks/askuserquestionspro-bridge.mjs"'
 applyonce() { tmp="$(mktemp)"; jq --arg cmd "$CMD" '
   .hooks //= {} | .hooks.PreToolUse //= [] |
   if any(.hooks.PreToolUse[]?; (.hooks // [])[]?.command == $cmd) then .
@@ -1362,12 +1362,12 @@ git commit -m "fix(install.sh): curl|bash kalici dizine kopyalar (B1), idempoten
 
 ```json
 {
-  "name": "claude-askui",
+  "name": "askuserquestionspro",
   "version": "1.0.0",
   "description": "A calm, full-screen local UI for Claude Code's AskUserQuestion — replaces the built-in picker via a zero-dependency local bridge. Offline, themeable, keyboard-first.",
   "type": "commonjs",
   "bin": {
-    "claude-askui": "bin/cli.js"
+    "askuserquestionspro": "bin/cli.js"
   },
   "files": [
     "bin/",
@@ -1511,7 +1511,7 @@ git commit -m "ci: node --test matrisi (18/20/22)"
 ````markdown
 <div align="center">
 
-# claude-askui
+# askuserquestionspro
 
 **A calm, full-screen local UI for Claude Code's `AskUserQuestion`.**
 Answer the agent's clarifying questions in a beautiful AMOLED interface instead of the cramped terminal picker — fully local, zero-dependency, keyboard-first.
@@ -1523,7 +1523,7 @@ Answer the agent's clarifying questions in a beautiful AMOLED interface instead 
 ---
 
 When Claude Code needs to ask you a multiple-choice question, it calls its built-in
-`AskUserQuestion` tool, which opens a small terminal picker. **claude-askui** quietly
+`AskUserQuestion` tool, which opens a small terminal picker. **askuserquestionspro** quietly
 intercepts that picker and opens a rich full-screen UI in your browser instead. You
 pick there; the answer flows back to the model — it never notices the difference.
 
@@ -1539,14 +1539,14 @@ Code silently falls back to its native picker — **it can never lock you up.**
 curl -fsSL https://raw.githubusercontent.com/ozkayhan/AskUserQuestionsPro/main/install.sh | bash
 ```
 
-Installs into `~/.local/share/claude-askui` and wires the hook into
+Installs into `~/.local/share/askuserquestionspro` and wires the hook into
 `~/.claude/settings.json`. Open a new `claude` session — that's it.
 
 ### With npm
 
 ```bash
-npm install -g claude-askui
-claude-askui install
+npm install -g askuserquestionspro
+askuserquestionspro install
 ```
 
 ### From a local clone
@@ -1563,10 +1563,10 @@ All three are **idempotent** — safe to re-run.
 
 | Command | What it does |
 |---------|--------------|
-| `claude-askui install` | Wire the hook into `~/.claude/settings.json` |
-| `claude-askui uninstall` | Remove the hook |
-| `claude-askui serve` | Run the bridge in the foreground (debug, port 4517) |
-| `claude-askui doctor` | Check install + bridge health |
+| `askuserquestionspro install` | Wire the hook into `~/.claude/settings.json` |
+| `askuserquestionspro uninstall` | Remove the hook |
+| `askuserquestionspro serve` | Run the bridge in the foreground (debug, port 4517) |
+| `askuserquestionspro doctor` | Check install + bridge health |
 
 ## How it works
 
@@ -1576,13 +1576,13 @@ Claude Code ──PreToolUse hook──► local bridge (port 4517) ──SSE─
      └───────────────── answers (permissionDecision: allow) ◄──────────┘
 ```
 
-- A `PreToolUse` hook (`hooks/askuser-bridge.mjs`) catches `AskUserQuestion`.
+- A `PreToolUse` hook (`hooks/askuserquestionspro-bridge.mjs`) catches `AskUserQuestion`.
 - The local bridge (`server/server.js`, zero-dependency) pushes the questions to the
   `web/` UI over Server-Sent Events.
 - Your answer is returned via `permissionDecision: "allow"` + `updatedInput`, so the
   native picker never appears.
 
-Three processes, one invariant: **claude-askui never blocks Claude Code.** Every error
+Three processes, one invariant: **askuserquestionspro never blocks Claude Code.** Every error
 path falls back to the native picker.
 
 ## Themes
@@ -1616,13 +1616,13 @@ Add `?theme=phosphor` to the URL to preview a theme via a shareable link.
 
 ## Troubleshooting
 
-- **The UI didn't open.** Run `claude-askui doctor`. Open `http://127.0.0.1:4517`
+- **The UI didn't open.** Run `askuserquestionspro doctor`. Open `http://127.0.0.1:4517`
   manually; the bridge starts automatically on the first question.
 - **"Another AskUserQuestion hook exists."** Claude Code allows only one `PreToolUse`
   hook for `AskUserQuestion` (issue #15897). Open `~/.claude/settings.json` and keep
   just one.
 - **Nothing happens / native picker shows.** That's the safe fallback. Check
-  `claude-askui doctor` and that you started a **new** `claude` session after install.
+  `askuserquestionspro doctor` and that you started a **new** `claude` session after install.
 
 ## Development
 
@@ -1782,7 +1782,7 @@ Expected: status temiz; commit listesi tüm task'ları gösterir.
 Run:
 ```bash
 git checkout main
-git merge --no-ff perfect/v1 -m "release: claude-askui v1.0.0 — tum buglar giderildi, yerel runtime, de-Vercel, yayin cilasi"
+git merge --no-ff perfect/v1 -m "release: askuserquestionspro v1.0.0 — tum buglar giderildi, yerel runtime, de-Vercel, yayin cilasi"
 node --test 2>&1 | tail -4
 git log --oneline -1
 ```
