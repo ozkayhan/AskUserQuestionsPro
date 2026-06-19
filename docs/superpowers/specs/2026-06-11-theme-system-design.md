@@ -67,9 +67,9 @@ override'larını `setProperty` ile yazar. Böylece her tema diskte yalnızca
 farklılıkları kadar yer kaplar; yüzlerce tema saf veri olarak eklenebilir.
 
 **Font:** tema `font` alanı (Google Fonts query) verirse, `apply()` tek bir
-`<link id="askui-theme-font">` enjekte/değiştirir. Yoksa link kaldırılır.
+`<link id="askuserquestionspro-theme-font">` enjekte/değiştirir. Yoksa link kaldırılır.
 
-**Kalıcılık:** seçim `localStorage["askui_theme"]`'e yazılır. `themes.js` yüklenir
+**Kalıcılık:** seçim `localStorage["askuserquestionspro_theme"]`'e yazılır. `themes.js` yüklenir
 yüklenmez (React render'ından önce) kayıtlı tema uygulanır → açılışta flaş yok.
 
 ### 3. Switcher UI — sadece seçici (kullanıcı kararı)

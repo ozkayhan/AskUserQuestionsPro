@@ -21,7 +21,7 @@
 | `web/app.js` | UI: `app.jsx`'ten port; canlı veri (SSE), klavye modeli, popup, summary, submit |
 | `web/styles.css` | `design-reference/project/styles.css`'ten birebir |
 | `hooks/hook-output.js` | Saf: hook stdout payload'ı (`permissionDecision:allow` + `updatedInput`) üretir |
-| `hooks/askuser-bridge.mjs` | PreToolUse hook: stdin oku → köprüyü garanti et → `/ask` + tarayıcı aç → stdout |
+| `hooks/askuserquestionspro-bridge.mjs` | PreToolUse hook: stdin oku → köprüyü garanti et → `/ask` + tarayıcı aç → stdout |
 | `install.sh` | `~/.claude/settings.json`'a hook'u ekler, talimat basar |
 | `README.md` | Kurulum + çalıştırma + sorun giderme |
 
@@ -1095,14 +1095,14 @@ git commit -m "feat: live AskUserQuestion UI (SSE data, keyboard model, submit)"
 
 ---
 
-### Task 7: `hooks/askuser-bridge.mjs` — PreToolUse hook
+### Task 7: `hooks/askuserquestionspro-bridge.mjs` — PreToolUse hook
 
 **Files:**
-- Create: `hooks/askuser-bridge.mjs`
+- Create: `hooks/askuserquestionspro-bridge.mjs`
 
 - [ ] **Step 1: Hook scriptini yaz**
 
-`hooks/askuser-bridge.mjs`:
+`hooks/askuserquestionspro-bridge.mjs`:
 ```js
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
@@ -1185,7 +1185,7 @@ Run:
 # Köprüyü kapat (hook'un kendisi başlatsın)
 pkill -f "server/server.js" 2>/dev/null
 # AskUserQuestion'ın hook'a yolladığı stdin'i taklit et:
-echo '{"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Pick a DB","header":"Database","multiSelect":false,"options":[{"label":"Postgres","description":"Relational"},{"label":"SQLite","description":"Embedded"}]}]}}' | node hooks/askuser-bridge.mjs &
+echo '{"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Pick a DB","header":"Database","multiSelect":false,"options":[{"label":"Postgres","description":"Relational"},{"label":"SQLite","description":"Embedded"}]}]}}' | node hooks/askuserquestionspro-bridge.mjs &
 ```
 Expected: Köprü otomatik başlar, tarayıcı `localhost:4517` açılır, "Pick a DB" görünür. Cevapla → terminalde stdout şu şekilde basılır:
 `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"questions":[...],"answers":{"Pick a DB":"Postgres"}}}}`
@@ -1193,7 +1193,7 @@ Expected: Köprü otomatik başlar, tarayıcı `localhost:4517` açılır, "Pick
 - [ ] **Step 3: Commit**
 
 ```bash
-git add hooks/askuser-bridge.mjs
+git add hooks/askuserquestionspro-bridge.mjs
 git commit -m "feat: PreToolUse hook (intercept AskUserQuestion -> custom UI)"
 ```
 
@@ -1213,7 +1213,7 @@ git commit -m "feat: PreToolUse hook (intercept AskUserQuestion -> custom UI)"
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SETTINGS="$HOME/.claude/settings.json"
-HOOK="$DIR/hooks/askuser-bridge.mjs"
+HOOK="$DIR/hooks/askuserquestionspro-bridge.mjs"
 
 mkdir -p "$HOME/.claude"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
@@ -1252,7 +1252,7 @@ echo "Bitti. Yeni bir 'claude' oturumu açın; AskUserQuestion artık özel aray
 
 Run:
 ```bash
-chmod +x install.sh hooks/askuser-bridge.mjs
+chmod +x install.sh hooks/askuserquestionspro-bridge.mjs
 bash -n install.sh && echo "syntax ok"
 ```
 Expected: "syntax ok"
@@ -1273,7 +1273,7 @@ AMOLED Geist tam ekran arayüzü otomatik açılır; cevabınız modele geri dö
 Yeni bir `claude` oturumu açın. Hepsi bu.
 
 ## Nasıl çalışır
-- Bir `PreToolUse` hook (`hooks/askuser-bridge.mjs`) AskUserQuestion'ı yakalar.
+- Bir `PreToolUse` hook (`hooks/askuserquestionspro-bridge.mjs`) AskUserQuestion'ı yakalar.
 - Yerel köprü (`server/server.js`, port 4517, sıfır bağımlılık) soruları SSE ile
   `web/` arayüzüne push eder.
 - Cevap `permissionDecision:"allow"` + `updatedInput` ile modele verilir; native

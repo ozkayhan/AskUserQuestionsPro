@@ -1,28 +1,28 @@
-# claude-askui — Kullanım Kılavuzu
+# askuserquestionspro — Kullanım Kılavuzu
 
 > **Bu nedir (tek cümle):** Claude Code'un yerleşik `AskUserQuestion` çoktan-seçmeli
 > soru picker'ını, tarayıcıda açılan tam-ekran AMOLED bir arayüzle değiştiren;
 > tamamen yerel (`127.0.0.1`), sıfır-bağımlılık bir köprü. Yeni özellik: tek
-> seferde **sınırsız** soru (`mcp__askui__ask` MCP aracı).
+> seferde **sınırsız** soru (`mcp__askuserquestionspro__ask` MCP aracı).
 
 ---
 
 ## 1. Bu nedir / ne işe yarar
 
 Claude Code bir göreve devam etmeden önce sana çoktan seçmeli soru sorar. Normalde
-bu terminal içinde küçük bir picker açar. `claude-askui` bu picker'ı tamamen değiştirmez
+bu terminal içinde küçük bir picker açar. `askuserquestionspro` bu picker'ı tamamen değiştirmez
 — araya girer ve onun yerine tarayıcıda çok daha kullanışlı bir arayüz açar. Cevabın
 Claude Code'a döner; model hiçbir fark anlamaz, sadece cevabını alır.
 
 **Yerleşik picker ile aradaki fark:**
 
-| Yerleşik terminal picker | claude-askui arayüzü |
+| Yerleşik terminal picker | askuserquestionspro arayüzü |
 |--------------------------|----------------------|
 | Terminal içinde sıkışık | Tam ekran, AMOLED tarayıcı UI |
 | "Other" için kısa alan | Büyüyen textarea, uzun cevap yazılabilir |
 | Tek tek soru | Tüm soru seti + ilerleme + kenar çubuğu |
 | Geri dön / düzenle kısıtlı | Review ekranı: göndermeden önce her cevabı düzenle |
-| **En fazla 4 soru / çağrı** | **Sınırsız soru** — `mcp__askui__ask` ile onlarca/yüzlerce soru tek UI oturumunda |
+| **En fazla 4 soru / çağrı** | **Sınırsız soru** — `mcp__askuserquestionspro__ask` ile onlarca/yüzlerce soru tek UI oturumunda |
 
 Her şey `127.0.0.1` üzerinde çalışır. Dışarıya çıkan ağ trafiği yoktur, telemetri
 yoktur, `npm` bağımlılığı yoktur (yalnızca Node çekirdeği). React/ReactDOM/Babel
@@ -58,14 +58,14 @@ cd AskUserQuestionsPro
 `install.sh` tam olarak şunu yapar:
 
 1. `hooks/`, `web/`, `server/`, `lib/`, `mcp-server/` dizinlerini
-   `$HOME/.local/share/claude-askui` konumuna kopyalar (her çalıştırmada temiz
+   `$HOME/.local/share/askuserquestionspro` konumuna kopyalar (her çalıştırmada temiz
    kopya — idempotent).
 2. `~/.claude/settings.json` dosyasına `AskUserQuestion` için `PreToolUse` hook
    ekler. `jq` varsa idempotent ekler (aynı komut zaten varsa tekrar eklemez);
    yoksa elle ekleme talimatını yazar.
 3. `settings.json` içinde zaten başka bir `AskUserQuestion` hook'u varsa **UYARI**
    verir (Claude Code issue #15897 — tek hook olmalı).
-4. `claude` CLI PATH'te varsa `claude mcp add --scope user askui -- node <yol>`
+4. `claude` CLI PATH'te varsa `claude mcp add --scope user askuserquestionspro -- node <yol>`
    ile MCP aracını kullanıcı kapsamında global olarak kaydeder.
 
 Kurulum bitince terminalde şunu görürsün:
@@ -73,7 +73,7 @@ Kurulum bitince terminalde şunu görürsün:
 ```
 Bitti. Yeni bir 'claude' oturumu açın.
   • Az soru (≤4): AskUserQuestion hook'u yerel AMOLED arayüzü açar.
-  • Çok soru: model mcp__askui__ask aracını kullanır (sınırsız, tek ekran).
+  • Çok soru: model mcp__askuserquestionspro__ask aracını kullanır (sınırsız, tek ekran).
 ```
 
 **Yeni bir `claude` oturumu aç** — hook ve MCP yalnızca yeni oturumda devreye girer.
@@ -104,17 +104,17 @@ cd AskUserQuestionsPro
 npm install -g .
 ```
 
-Bu adımın ardından sisteminde `claude-askui` komutu kullanılabilir olur:
+Bu adımın ardından sisteminde `askuserquestionspro` komutu kullanılabilir olur:
 
 ```bash
-claude-askui install
+askuserquestionspro install
 ```
 
-> **Not:** `claude-askui` paketi npm registry'de yayınlanmış olarak doğrulanmamıştır.
-> `npm install -g claude-askui` komutu çalışmayabilir. Yukarıdaki komut yalnızca
+> **Not:** `askuserquestionspro` paketi npm registry'de yayınlanmış olarak doğrulanmamıştır.
+> `npm install -g askuserquestionspro` komutu çalışmayabilir. Yukarıdaki komut yalnızca
 > **yerel klondan** global kurulum içindir.
 
-`claude-askui install` çalıştırmak, `install.sh` ile aynı hook + MCP kayıt
+`askuserquestionspro install` çalıştırmak, `install.sh` ile aynı hook + MCP kayıt
 adımlarını gerçekleştirir.
 
 **Yeni bir `claude` oturumu aç.**
@@ -135,7 +135,7 @@ dosyasını bir metin editörüyle aç ve mevcut `{}` içine şunu ekle:
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/SENIN_KULLANICI_ADIN/.local/share/claude-askui/hooks/askuser-bridge.mjs\"",
+            "command": "node \"/Users/SENIN_KULLANICI_ADIN/.local/share/askuserquestionspro/hooks/askuserquestionspro-bridge.mjs\"",
             "timeout": 360
           }
         ]
@@ -146,7 +146,7 @@ dosyasını bir metin editörüyle aç ve mevcut `{}` içine şunu ekle:
 ```
 
 `SENIN_KULLANICI_ADIN` yerine kendi macOS kullanıcı adını yaz. Kurulumun doğru
-yolu `$HOME/.local/share/claude-askui/hooks/askuser-bridge.mjs`'dir.
+yolu `$HOME/.local/share/askuserquestionspro/hooks/askuserquestionspro-bridge.mjs`'dir.
 
 ---
 
@@ -155,7 +155,7 @@ yolu `$HOME/.local/share/claude-askui/hooks/askuser-bridge.mjs`'dir.
 Yeni `claude` oturumu açtıktan sonra:
 
 ```bash
-claude-askui doctor
+askuserquestionspro doctor
 ```
 
 veya (global CLI yoksa klondan):
@@ -168,7 +168,7 @@ Beklenen başarılı çıktı:
 
 ```
 ✓ Hook kurulu (/Users/sen/.claude/settings.json)
-✓ Hook dosyası mevcut (/Users/sen/.local/share/claude-askui/hooks/askuser-bridge.mjs)
+✓ Hook dosyası mevcut (/Users/sen/.local/share/askuserquestionspro/hooks/askuserquestionspro-bridge.mjs)
 · Köprü şu an kapalı (normal — AskUserQuestion'da otomatik başlar)
 ✓ MCP aracı kayıtlı
 ```
@@ -181,22 +181,22 @@ MCP kaydını ayrıca doğrulamak için:
 claude mcp list
 ```
 
-Çıktıda `askui` görünmelidir.
+Çıktıda `askuserquestionspro` görünmelidir.
 
 **Olası `doctor` mesajları ve anlamları:**
 
 | Mesaj | Ne yapmalı |
 |-------|------------|
-| `✗ Hook kurulu değil` | `claude-askui install` çalıştır |
+| `✗ Hook kurulu değil` | `askuserquestionspro install` çalıştır |
 | `✗ Çakışan AskUserQuestion hook'u var` | `settings.json` içindeki diğer hook'u elle temizle |
 | `✗ Hook dosyası bulunamadı` | Kurulumu tekrar çalıştır |
 | `· claude CLI bulunamadı` | MCP durumu kontrol edilemez; `claude mcp list` çalıştır |
-| `· MCP aracı kayıtlı değil` | `claude-askui install` veya aşağıdaki elle kayıt komutu |
+| `· MCP aracı kayıtlı değil` | `askuserquestionspro install` veya aşağıdaki elle kayıt komutu |
 
 **MCP'yi elle kaydetmek için:**
 
 ```bash
-claude mcp add --scope user askui -- node "$HOME/.local/share/claude-askui/mcp-server/askui-mcp.mjs"
+claude mcp add --scope user askuserquestionspro -- node "$HOME/.local/share/askuserquestionspro/mcp-server/askuserquestionspro-mcp.mjs"
 ```
 
 ---
@@ -229,7 +229,7 @@ bir şey yapmana gerek yok.
 ```
   Claude Code           MCP sunucusu        köprü (4517)       Tarayıcı
       │                   │                    │                  │
-      │  mcp__askui__ask  │                    │                  │
+      │  mcp__askuserquestionspro__ask  │                    │                  │
       │──────────────────►│                    │                  │
       │                   │──POST /ask────────►│                  │
       │                   │                    │──SSE push────────►│
@@ -245,10 +245,10 @@ Tarayıcı sekmesini açık tutarsan oturum boyunca sorular oraya gelmeye devam 
 ### Hook zaman aşımı
 
 Hook, köprüden cevap beklerken **5 dakika** timeout uygular
-(`hooks/askuser-bridge.mjs` içinde `TIMEOUT_MS = 5 * 60 * 1000`). 5 dakika
+(`hooks/askuserquestionspro-bridge.mjs` içinde `TIMEOUT_MS = 5 * 60 * 1000`). 5 dakika
 içinde cevap vermezsen native picker'a düşer.
 
-MCP yolu ise cevabı 30 dakika bekler (`mcp-server/askui-mcp.mjs` içinde
+MCP yolu ise cevabı 30 dakika bekler (`mcp-server/askuserquestionspro-mcp.mjs` içinde
 `timeoutMs: 30 * 60 * 1000`). Claude Code'un kendi MCP araç timeout'u pratikte
 ~28 saat olduğundan uzun anket oturumları sorunsuz çalışır.
 
@@ -307,14 +307,14 @@ http://127.0.0.1:4517?theme=paper
 ## 8. Cok soruyu zorlama — ASKUI_FORCE_MCP
 
 Varsayılan davranışta 1–4 soruluk setler hook yoluyla (`AskUserQuestion`) işlenir.
-Eğer hook'un her durumda modeli `mcp__askui__ask` aracına yönlendirmesini istiyorsan:
+Eğer hook'un her durumda modeli `mcp__askuserquestionspro__ask` aracına yönlendirmesini istiyorsan:
 
 ```bash
 ASKUI_FORCE_MCP=1 claude
 ```
 
 Bu değişken set edildiğinde hook, gelen `AskUserQuestion` çağrısını reddeder
-(`permissionDecision: "deny"`) ve modele `mcp__askui__ask` kullanması için mesaj
+(`permissionDecision: "deny"`) ve modele `mcp__askuserquestionspro__ask` kullanması için mesaj
 gönderir. Değişken **varsayılan olarak kapalıdır** — elle set etmediğin sürece
 davranış değişmez.
 
@@ -325,7 +325,7 @@ davranış değişmez.
 | Değişken | Varsayılan | Ne işe yarar |
 |----------|------------|--------------|
 | `ASKUSER_PORT` | `4517` | Köprü sunucusunun dinlediği port. Hook ve sunucu ikisi de bu değişkeni okur — değiştirirsen ikisine de yansıtılmış olur |
-| `ASKUI_FORCE_MCP` | (kapalı) | Truthy değer (örn. `1`) set edilirse hook, `AskUserQuestion` çağrısını reddedip modeli `mcp__askui__ask`'e yönlendirir |
+| `ASKUI_FORCE_MCP` | (kapalı) | Truthy değer (örn. `1`) set edilirse hook, `AskUserQuestion` çağrısını reddedip modeli `mcp__askuserquestionspro__ask`'e yönlendirir |
 | `MCP_TOOL_TIMEOUT` | ~28 saat (Claude Code varsayılanı) | MCP araç çağrısı zaman aşımı (ms). Çoğu durumda dokunmana gerek yoktur; pratikte sınırsız kabul edilebilir |
 | `MCP_TIMEOUT` | — | MCP sunucusu başlatma zaman aşımı. Proje düzeyinde `.mcp.json` içinde `timeout: 3600000` (1 saat) olarak ayarlıdır |
 
@@ -342,9 +342,9 @@ claude
 ```json
 {
   "mcpServers": {
-    "askui": {
+    "askuserquestionspro": {
       "command": "node",
-      "args": ["mcp-server/askui-mcp.mjs"],
+      "args": ["mcp-server/askuserquestionspro-mcp.mjs"],
       "timeout": 3600000
     }
   }
@@ -361,12 +361,12 @@ claude
 |-------|-------|
 | Yerel makine + tarayıcı açık | Sunucu `127.0.0.1:4517`'ye bağlanır; uzaktan erişilemez |
 | Node.js >= 18 kurulu | `node --version` ile kontrol et |
-| Hook ve MCP kurulu | `claude-askui doctor` ile doğrula |
+| Hook ve MCP kurulu | `askuserquestionspro doctor` ile doğrula |
 | Yeni `claude` oturumu açıldı | Hook ve MCP, eski oturumda devreye girmez |
 
 ### Güvenli fallback — asla kilitlemez (Kural 1)
 
-Aşağıdaki durumlarda `claude-askui` sessizce çekilir ve Claude Code **yerleşik
+Aşağıdaki durumlarda `askuserquestionspro` sessizce çekilir ve Claude Code **yerleşik
 native picker'ı** gösterir. Bu beklenen davranıştır, hata değildir:
 
 | Durum | Sonuç |
@@ -401,7 +401,7 @@ curl http://127.0.0.1:4517/health
 ```
 
 ```bash
-claude-askui doctor
+askuserquestionspro doctor
 ```
 
 **Tarayıcı hiç açılmadı**
@@ -409,7 +409,7 @@ claude-askui doctor
 Köprüyü elle başlat, sonra tarayıcıdan `http://127.0.0.1:4517` adresini aç:
 
 ```bash
-claude-askui serve
+askuserquestionspro serve
 # veya:
 node server/server.js
 ```
@@ -428,7 +428,7 @@ claude
 claude mcp list
 
 # Elle kaydet:
-claude mcp add --scope user askui -- node "$HOME/.local/share/claude-askui/mcp-server/askui-mcp.mjs"
+claude mcp add --scope user askuserquestionspro -- node "$HOME/.local/share/askuserquestionspro/mcp-server/askuserquestionspro-mcp.mjs"
 ```
 
 **jq yok, hook otomatik eklenmedi**
@@ -444,22 +444,22 @@ UI 1 saniye içinde yeniden bağlanır.
 **Çakışan hook uyarısı aldım**
 
 `~/.claude/settings.json` içinde `hooks.PreToolUse` dizisine bak. `AskUserQuestion`
-eşleşmeli başka bir hook varsa kaldır; yalnızca `claude-askui` hook'u kalmalı.
+eşleşmeli başka bir hook varsa kaldır; yalnızca `askuserquestionspro` hook'u kalmalı.
 
 ---
 
-## 12. `claude-askui` CLI komutları
+## 12. `askuserquestionspro` CLI komutları
 
 (Global kurulum: `npm install -g .` sonrası. Klondan: `node bin/cli.js <komut>`)
 
 | Komut | Ne yapar |
 |-------|----------|
-| `claude-askui install` | Hook'u `~/.claude/settings.json`'a ekler + MCP sunucusunu kaydeder |
-| `claude-askui uninstall` | Hook'u kaldırır |
-| `claude-askui serve` | Köprü sunucusunu ön planda başlatır (debug, port 4517) |
-| `claude-askui mcp` | MCP stdio sunucusunu ön planda başlatır (debug) |
-| `claude-askui doctor` | Hook kurulumu, hook dosyası, köprü durumu ve MCP kaydını kontrol eder |
-| `claude-askui help` | Kullanım bilgisini gösterir |
+| `askuserquestionspro install` | Hook'u `~/.claude/settings.json`'a ekler + MCP sunucusunu kaydeder |
+| `askuserquestionspro uninstall` | Hook'u kaldırır |
+| `askuserquestionspro serve` | Köprü sunucusunu ön planda başlatır (debug, port 4517) |
+| `askuserquestionspro mcp` | MCP stdio sunucusunu ön planda başlatır (debug) |
+| `askuserquestionspro doctor` | Hook kurulumu, hook dosyası, köprü durumu ve MCP kaydını kontrol eder |
+| `askuserquestionspro help` | Kullanım bilgisini gösterir |
 
 ---
 
@@ -468,19 +468,19 @@ eşleşmeli başka bir hook varsa kaldır; yalnızca `claude-askui` hook'u kalma
 Hook'u kaldır:
 
 ```bash
-claude-askui uninstall
+askuserquestionspro uninstall
 ```
 
 MCP sunucusunu kaldır:
 
 ```bash
-claude mcp remove askui
+claude mcp remove askuserquestionspro
 ```
 
 Kurulmuş dosyaları tamamen sil:
 
 ```bash
-rm -rf "$HOME/.local/share/claude-askui"
+rm -rf "$HOME/.local/share/askuserquestionspro"
 ```
 
 ---
@@ -492,5 +492,5 @@ Repo:     https://github.com/ozkayhan/AskUserQuestionsPro
 Sorunlar: https://github.com/ozkayhan/AskUserQuestionsPro/issues
 Port:     http://127.0.0.1:4517  (varsayılan)
 Kurulum:  curl -fsSL https://raw.githubusercontent.com/ozkayhan/AskUserQuestionsPro/main/install.sh | bash
-Tanı:     claude-askui doctor
+Tanı:     askuserquestionspro doctor
 ```

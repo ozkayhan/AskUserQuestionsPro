@@ -6,7 +6,7 @@
 > amaç için → [`living_docs/PURPOSE.md`](living_docs/PURPOSE.md).
 
 **Ne yapar (tek cümle):** Claude Code'un `AskUserQuestion` picker'ını yerel,
-sıfır-bağımlılık bir web arayüzüyle değiştirir; `mcp__askui__ask` MCP aracıyla
+sıfır-bağımlılık bir web arayüzüyle değiştirir; `mcp__askuserquestionspro__ask` MCP aracıyla
 sınırsız soru desteği ekler. Dört parça: **hook** (≤4 soruluk native çağrılar
 için) → **MCP server** (sınırsız soru için) → **server** (köprü, RAM'de
 soru/cevap tutar) → **web** (UI). Hook ve MCP server **lib/bridge-client.mjs**'i
@@ -23,7 +23,7 @@ askuseroz/
 ├── LICENSE                    MIT lisansı.
 ├── install.sh                Hook + MCP sunucusu kurulumu (jq + claude CLI).
 ├── package.json              Sıfır bağımlılık. scripts: test (node --test), serve.
-├── .mcp.json                 Proje-kapsamlı MCP kaydı (askui → askui-mcp.mjs, timeout:3600000).
+├── .mcp.json                 Proje-kapsamlı MCP kaydı (askuserquestionspro → askuserquestionspro-mcp.mjs, timeout:3600000).
 │
 ├── .github/
 │   └── workflows/
@@ -38,14 +38,14 @@ askuseroz/
 │                                Hem hook hem MCP server tarafından import edilir (DRY).
 │
 ├── hooks/                    ◄── CLAUDE CODE ↔ KÖPRÜ ELÇİSİ (kısa ömürlü süreç)
-│   ├── askuser-bridge.mjs      [GİRİŞ NOKTASI] PreToolUse hook. stdin→/ask→stdout.
+│   ├── askuserquestionspro-bridge.mjs      [GİRİŞ NOKTASI] PreToolUse hook. stdin→/ask→stdout.
 │   │                            lib/bridge-client.mjs import eder.
 │   │                            Tüm hata yolları exit(0) → native picker fallback.
 │   └── hook-output.js          buildHookOutput() — saf payload üreticisi (allow+updatedInput).
 │
 ├── mcp-server/               ◄── MCP SUNUCUSU (sınırsız soru kapısı)
-│   └── askui-mcp.mjs           Sıfır-bağımlılık stdio JSON-RPC 2.0 MCP sunucusu.
-│                                Tek araç: ask (mcp__askui__ask). maxItems kısıtı yok.
+│   └── askuserquestionspro-mcp.mjs           Sıfır-bağımlılık stdio JSON-RPC 2.0 MCP sunucusu.
+│                                Tek araç: ask (mcp__askuserquestionspro__ask). maxItems kısıtı yok.
 │                                lib/bridge-client.mjs import eder.
 │
 ├── server/                   ◄── KÖPRÜ DAEMON (uzun ömürlü, port 4517)
@@ -95,11 +95,11 @@ askuseroz/
 | **İkon** veya ortak sabit eklemek | `web/ui-kit.js` |
 | **Yeni HTTP ucu** veya SSE davranışı | `server/server.js` |
 | Soru/cevap **randevu mantığı** (eşzamanlılık, iptal) | `server/bridge.js` |
-| Hook'un **Claude ile sözleşmesi**, fallback davranışı | `hooks/askuser-bridge.mjs` + `hooks/hook-output.js` |
-| **MCP aracının şeması** veya araç açıklaması | `mcp-server/askui-mcp.mjs` |
+| Hook'un **Claude ile sözleşmesi**, fallback davranışı | `hooks/askuserquestionspro-bridge.mjs` + `hooks/hook-output.js` |
+| **MCP aracının şeması** veya araç açıklaması | `mcp-server/askuserquestionspro-mcp.mjs` |
 | **Sunucu başlatma / tarayıcı açma** (hook ve MCP arasında ortak) | `lib/bridge-client.mjs` |
 | **MCP proje kaydı** (timeout, path) | `.mcp.json` |
-| **ASKUI_FORCE_MCP** davranışı (deny → MCP yönlendirmesi) | `hooks/askuser-bridge.mjs` |
+| **ASKUI_FORCE_MCP** davranışı (deny → MCP yönlendirmesi) | `hooks/askuserquestionspro-bridge.mjs` |
 | **Kurulum** akışı, port, settings.json, MCP kaydı | `install.sh` (port: `ASKUSER_PORT`, varsayılan 4517) |
 | Yeni script eklersen **yükleme sırası** | `web/index.html` (ui-kit → live → views → app sırası şart) |
 

@@ -1,9 +1,3 @@
 {
-  "mcpServers": {
-    "askui": {
-      "command": "node",
-      "args": ["mcp-server/askui-mcp.mjs"],
-      "timeout": 3600000
-    }
-  }
+  "mcpServers": {}
 }

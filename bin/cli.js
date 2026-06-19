@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
-// claude-askui — CLI giriş noktası.
+// askuserquestionspro — CLI giriş noktası.
+//   init       install ile aynı (hook + MCP kurulumu) — kurulum için önerilen ad
 //   install    hook'u ~/.claude/settings.json'a bağla + MCP sunucusunu kaydet
 //   uninstall  hook'u kaldır
 //   serve      yerel köprüyü foreground çalıştır (debug)
@@ -14,23 +15,24 @@ const { spawn, spawnSync } = require('node:child_process');
 const { addHook, removeHook, readSettings, writeSettings } = require('./install.js');
 
 const PKG_ROOT = path.join(__dirname, '..');
-const HOOK_ABS = path.join(PKG_ROOT, 'hooks', 'askuser-bridge.mjs');
+const HOOK_ABS = path.join(PKG_ROOT, 'hooks', 'askuserquestionspro-bridge.mjs');
 const SERVER_ABS = path.join(PKG_ROOT, 'server', 'server.js');
-const MCP_ABS = path.join(PKG_ROOT, 'mcp-server', 'askui-mcp.mjs');
+const MCP_ABS = path.join(PKG_ROOT, 'mcp-server', 'askuserquestionspro-mcp.mjs');
 const SETTINGS = path.join(os.homedir(), '.claude', 'settings.json');
 const PORT = process.env.ASKUSER_PORT || '4517';
 const BASE = `http://127.0.0.1:${PORT}`;
 
 function usage() {
-  process.stdout.write(`claude-askui — AskUserQuestion için özel AMOLED arayüz
+  process.stdout.write(`askuserquestionspro — AskUserQuestion için özel AMOLED arayüz
 
 Kullanım:
-  claude-askui install     Hook'u Claude Code'a bağla + MCP sunucusunu kaydet
-  claude-askui uninstall   Hook'u kaldır
-  claude-askui serve       Yerel köprüyü foreground çalıştır (debug, port ${PORT})
-  claude-askui mcp         MCP stdio sunucusunu foreground çalıştır (debug)
-  claude-askui doctor      Kurulum ve köprü durumunu kontrol et
-  claude-askui help        Bu mesaj
+  askuserquestionspro init        Kurulum (install ile aynı) — hook + MCP kaydı
+  askuserquestionspro install     Hook'u Claude Code'a bağla + MCP sunucusunu kaydet
+  askuserquestionspro uninstall   Hook'u kaldır
+  askuserquestionspro serve       Yerel köprüyü foreground çalıştır (debug, port ${PORT})
+  askuserquestionspro mcp         MCP stdio sunucusunu foreground çalıştır (debug)
+  askuserquestionspro doctor      Kurulum ve köprü durumunu kontrol et
+  askuserquestionspro help        Bu mesaj
 
 Kurulumdan sonra yeni bir 'claude' oturumu açın.
 `);
@@ -61,18 +63,18 @@ function cmdInstall() {
   if (claudeCheck.error && claudeCheck.error.code === 'ENOENT') {
     process.stdout.write(
       `İpucu: claude CLI bulunamadı. MCP aracını elle kaydetmek için:\n` +
-      `  claude mcp add --scope user askui -- node "${MCP_ABS}"\n`
+      `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
     );
   } else {
     // Önce kaldır (idempotent), sonra ekle.
-    spawnSync('claude', ['mcp', 'remove', 'askui'], { stdio: 'ignore' });
-    const add = spawnSync('claude', ['mcp', 'add', '--scope', 'user', 'askui', '--', 'node', MCP_ABS], { stdio: 'ignore' });
+    spawnSync('claude', ['mcp', 'remove', 'askuserquestionspro'], { stdio: 'ignore' });
+    const add = spawnSync('claude', ['mcp', 'add', '--scope', 'user', 'askuserquestionspro', '--', 'node', MCP_ABS], { stdio: 'ignore' });
     if (add.status === 0) {
-      process.stdout.write(`MCP aracı (mcp__askui__ask) kaydedildi\n`);
+      process.stdout.write(`MCP aracı (mcp__askuserquestionspro__ask) kaydedildi\n`);
     } else {
       process.stdout.write(
         `MCP kaydı başarısız oldu. Elle kaydetmek için:\n` +
-        `  claude mcp add --scope user askui -- node "${MCP_ABS}"\n`
+        `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
       );
     }
   }
@@ -108,10 +110,10 @@ async function cmdDoctor() {
   if (status === 'already') {
     process.stdout.write(`✓ Hook kurulu (${SETTINGS})\n`);
   } else if (status === 'conflict') {
-    process.stdout.write(`✗ Çakışan AskUserQuestion hook'u var — 'claude-askui install' çalıştırın\n`);
+    process.stdout.write(`✗ Çakışan AskUserQuestion hook'u var — 'askuserquestionspro install' çalıştırın\n`);
     ok = false;
   } else {
-    process.stdout.write(`✗ Hook kurulu değil — 'claude-askui install' çalıştırın\n`);
+    process.stdout.write(`✗ Hook kurulu değil — 'askuserquestionspro install' çalıştırın\n`);
     ok = false;
   }
   // 2. Hook dosyası var mı?
@@ -132,11 +134,11 @@ async function cmdDoctor() {
   const mcpList = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8' });
   if (mcpList.error && mcpList.error.code === 'ENOENT') {
     process.stdout.write(`· claude CLI bulunamadı — MCP durumu kontrol edilemedi\n`);
-  } else if (mcpList.stdout && mcpList.stdout.includes('askui')) {
+  } else if (mcpList.stdout && mcpList.stdout.includes('askuserquestionspro')) {
     process.stdout.write(`✓ MCP aracı kayıtlı\n`);
   } else {
     process.stdout.write(
-      `· MCP aracı kayıtlı değil — 'claude-askui install' veya manuel ` +
+      `· MCP aracı kayıtlı değil — 'askuserquestionspro install' veya manuel ` +
       `'claude mcp add' çalıştırın\n`
     );
   }
@@ -146,7 +148,7 @@ async function cmdDoctor() {
 async function main() {
   const cmd = process.argv[2];
   switch (cmd) {
-    case 'install': return cmdInstall();
+    case 'init': case 'install': return cmdInstall();
     case 'uninstall': return cmdUninstall();
     case 'serve': return cmdServe();
     case 'mcp': return cmdMcp();

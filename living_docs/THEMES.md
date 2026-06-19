@@ -37,7 +37,7 @@ registry, bir seçici.
    `:root` defaultları). Diğer 4 tema yalnızca **delta** taşır. `apply()` önce
    tüm bilinen anahtarları `documentElement`'ten siler (→ amoled), sonra temanın
    override'ını `setProperty` ile yazar. Font alanı varsa tek `<link>` enjekte/
-   değiştirir. Seçim `localStorage["askui_theme"]`'e yazılır ve script yüklenir
+   değiştirir. Seçim `localStorage["askuserquestionspro_theme"]`'e yazılır ve script yüklenir
    yüklenmez (React'tan önce) uygulanır → açılışta flaş yok. `?theme=<id>`
    başlangıç override'ı eklendi (paylaşılabilir link / headless test).
 3. **Switcher UI** (`views.js` `ThemeSwitcher`): sidebar foot'una swatch satırı

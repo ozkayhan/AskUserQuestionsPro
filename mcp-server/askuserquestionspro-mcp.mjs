@@ -3,8 +3,8 @@
 // Tüm tanılama/log mesajları STDERR'e gider; STDOUT yalnızca protokol kanalıdır.
 // Node core dışında sıfır bağımlılık.
 
-process.on('uncaughtException', (e) => process.stderr.write(`[askui-mcp] uncaughtException: ${e}\n`));
-process.on('unhandledRejection', (r) => process.stderr.write(`[askui-mcp] unhandledRejection: ${r}\n`));
+process.on('uncaughtException', (e) => process.stderr.write(`[askuserquestionspro-mcp] uncaughtException: ${e}\n`));
+process.on('unhandledRejection', (r) => process.stderr.write(`[askuserquestionspro-mcp] unhandledRejection: ${r}\n`));
 
 // ASK aracı tanımı — maxItems YOK: sınırsız soru desteklenir.
 const ASK_TOOL = {
@@ -76,7 +76,7 @@ async function handleAsk(args) {
     return {
       content: [{
         type: 'text',
-        text: 'askui bridge unavailable — could not start the local UI server. Fall back to the built-in AskUserQuestion tool (max 4 questions per call).',
+        text: 'askuserquestionspro bridge unavailable — could not start the local UI server. Fall back to the built-in AskUserQuestion tool (max 4 questions per call).',
       }],
       isError: true,
     };
@@ -91,7 +91,7 @@ async function handleAsk(args) {
     return {
       content: [{
         type: 'text',
-        text: 'askui UI did not return answers (timeout, cancellation, or another set was pending). Fall back to the built-in AskUserQuestion tool.',
+        text: 'askuserquestionspro UI did not return answers (timeout, cancellation, or another set was pending). Fall back to the built-in AskUserQuestion tool.',
       }],
       isError: true,
     };
@@ -115,7 +115,7 @@ async function handleMessage(msg) {
 
   // Bildirim (id yok) — yanıt gönderme.
   if (id === undefined || id === null) {
-    process.stderr.write(`[askui-mcp] bildirim alındı: ${method}\n`);
+    process.stderr.write(`[askuserquestionspro-mcp] bildirim alındı: ${method}\n`);
     return;
   }
 
@@ -128,7 +128,7 @@ async function handleMessage(msg) {
       result: {
         protocolVersion,
         capabilities: { tools: {} },
-        serverInfo: { name: 'askui', version: '1.0.0' },
+        serverInfo: { name: 'askuserquestionspro', version: '1.0.0' },
       },
     });
     return;
@@ -175,13 +175,13 @@ process.stdin.on('data', async (chunk) => {
       msg = JSON.parse(trimmed);
     } catch (e) {
       // Ayrıştırılamayan satır — id bilinmiyor, stderr'e logla ve devam et.
-      process.stderr.write(`[askui-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`);
+      process.stderr.write(`[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`);
       continue;
     }
     try {
       await handleMessage(msg);
     } catch (e) {
-      process.stderr.write(`[askui-mcp] mesaj işleme hatası: ${e}\n`);
+      process.stderr.write(`[askuserquestionspro-mcp] mesaj işleme hatası: ${e}\n`);
       // id varsa hata yanıtı gönder.
       if (msg.id !== undefined && msg.id !== null) {
         sendError(msg.id, -32603, 'internal error');
@@ -196,6 +196,6 @@ process.stdin.on('end', () => {
   if (trimmed) {
     let msg;
     try { msg = JSON.parse(trimmed); } catch { return; }
-    handleMessage(msg).catch((e) => process.stderr.write(`[askui-mcp] son satır hatası: ${e}\n`));
+    handleMessage(msg).catch((e) => process.stderr.write(`[askuserquestionspro-mcp] son satır hatası: ${e}\n`));
   }
 });

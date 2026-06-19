@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-const MCP_PATH = path.join(__dirname, '..', 'mcp-server', 'askui-mcp.mjs');
+const MCP_PATH = path.join(__dirname, '..', 'mcp-server', 'askuserquestionspro-mcp.mjs');
 
 // MCP sunucusu spawn edilir; initialize + tools/list gönderilir, yanıtlar doğrulanır.
 test('mcp-server: initialize ve tools/list', async (t) => {
@@ -59,7 +59,7 @@ test('mcp-server: initialize ve tools/list', async (t) => {
 
   // (a) initialize doğrulama
   assert.ok(initRes, 'initialize yanıtı alınmalı');
-  assert.strictEqual(initRes.result.serverInfo.name, 'askui', 'serverInfo.name "askui" olmalı');
+  assert.strictEqual(initRes.result.serverInfo.name, 'askuserquestionspro', 'serverInfo.name "askuserquestionspro" olmalı');
   assert.ok(
     typeof initRes.result.protocolVersion === 'string' && initRes.result.protocolVersion.length > 0,
     'protocolVersion boş olmayan string olmalı',

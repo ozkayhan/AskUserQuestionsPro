@@ -1,19 +1,19 @@
-# claude-askui — npm Dağıtımı (Tasarım)
+# askuserquestionspro — npm Dağıtımı (Tasarım)
 
 Tarih: 2026-06-11
 
 ## Amaç
 
-`askuseroz` projesini herkesin `npm install -g claude-askui` ile kurup,
-`claude-askui install` komutuyla Claude Code'a otomatik bağlayabileceği
+`askuseroz` projesini herkesin `npm install -g askuserquestionspro` ile kurup,
+`askuserquestionspro install` komutuyla Claude Code'a otomatik bağlayabileceği
 dağıtılabilir bir pakete dönüştürmek. Çalışma tamamen lokal kalır (mevcut
 davranış), hiçbir uzak servis eklenmez.
 
 ## Kararlar
 
 - **Kanal:** npm (yalnız). Homebrew sonraya bırakıldı (ek bakım: tap/formula + node depend).
-- **İsim:** `claude-askui` (npm'de müsait — 404 doğrulandı).
-- **Kurulum UX:** Açık komut (`claude-askui install`). Otomatik postinstall yok —
+- **İsim:** `askuserquestionspro` (npm'de müsait — 404 doğrulandı).
+- **Kurulum UX:** Açık komut (`askuserquestionspro install`). Otomatik postinstall yok —
   global config'i sessizce değiştirmek sürpriz/risk.
 - **install.sh korunur** — npm'siz / repo'dan direkt senaryo için.
 - `doctor` ve `serve` komutları dahil.
@@ -21,16 +21,16 @@ davranış), hiçbir uzak servis eklenmez.
 ## Mevcut sorun
 
 Hook komutu repo'nun klonlandığı mutlak path'e bağlı
-(`node $DIR/hooks/askuser-bridge.mjs`). npm global kurulumda paket farklı bir
-konumda (örn. `/usr/local/lib/node_modules/claude-askui/`). CLI kendi
+(`node $DIR/hooks/askuserquestionspro-bridge.mjs`). npm global kurulumda paket farklı bir
+konumda (örn. `/usr/local/lib/node_modules/askuserquestionspro/`). CLI kendi
 `__dirname`'inden hook path'ini çözerek bunu stabilize eder.
 
 ## Mimari
 
 ### 1. `package.json` dağıtım hazırlığı
 - `"private": true` kaldırılır
-- `name: "claude-askui"`, uygun `version`, `description`, `license`, `repository`, `keywords`
-- `"bin": { "claude-askui": "bin/cli.js" }`
+- `name: "askuserquestionspro"`, uygun `version`, `description`, `license`, `repository`, `keywords`
+- `"bin": { "askuserquestionspro": "bin/cli.js" }`
 - `"files": ["bin/", "hooks/", "server/", "web/", "README.md"]` — test/docs/design-reference paket dışı
 - `"engines": { "node": ">=18" }` (global fetch için)
 
@@ -42,7 +42,7 @@ Komutlar:
 - `doctor` — kurulum + health kontrol
 - `help` / `--help` / argümansız — kullanım
 
-Hook path'i: `path.join(__dirname, '..', 'hooks', 'askuser-bridge.mjs')` →
+Hook path'i: `path.join(__dirname, '..', 'hooks', 'askuserquestionspro-bridge.mjs')` →
 mutlak. Komut `"<execPath> <hookAbsPath>"` yerine `"node <hookAbsPath>"`
 (install.sh ile tutarlı; PATH'te node varsayılır).
 
@@ -96,8 +96,8 @@ Mevcut testler korunur (`npm test` yeşil kalır).
 2. `npm publish` (kullanıcı yapar; gerekli kimlik onda)
 3. README birincil kurulum:
    ```bash
-   npm install -g claude-askui
-   claude-askui install
+   npm install -g askuserquestionspro
+   askuserquestionspro install
    ```
 
 ## Kapsam dışı (YAGNI)

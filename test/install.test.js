@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { addHook, removeHook } = require('../bin/install.js');
 
-const HOOK = '/abs/path/hooks/askuser-bridge.mjs';
+const HOOK = '/abs/path/hooks/askuserquestionspro-bridge.mjs';
 const CMD = `node "${HOOK}"`;
 
 function ourEntry() {
