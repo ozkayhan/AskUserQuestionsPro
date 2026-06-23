@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { server, bridge } = require('../server/server.js');
+const APP_ID = require('../lib/app-id.cjs');
 
 let base;
 test.before(async () => {
@@ -11,7 +12,7 @@ test.after(() => server.close());
 
 test('/health ok döndürür', async () => {
   const r = await fetch(`${base}/health`);
-  assert.deepStrictEqual(await r.json(), { ok: true });
+  assert.deepStrictEqual(await r.json(), { ok: true, app: APP_ID });
 });
 
 test('/ask soruları tutar, /answer ile resolve olur', async () => {
