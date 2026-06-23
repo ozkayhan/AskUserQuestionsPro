@@ -53,7 +53,8 @@ function serveStatic(req, res) {
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
 
-  if (req.method === 'GET' && url === '/health') return sendJson(res, 200, { ok: true });
+  // app kimliği: eski/yabancı bir server'ın bu portu kapıp /health'e ok demesini ayırt etmek için
+  if (req.method === 'GET' && url === '/health') return sendJson(res, 200, { ok: true, app: 'askuserquestionspro' });
   if (req.method === 'GET' && url === '/current')
     return sendJson(res, 200, bridge.peek() || { id: null, questions: null });
 

@@ -11,7 +11,7 @@ test.after(() => server.close());
 
 test('/health ok döndürür', async () => {
   const r = await fetch(`${base}/health`);
-  assert.deepStrictEqual(await r.json(), { ok: true });
+  assert.deepStrictEqual(await r.json(), { ok: true, app: 'askuserquestionspro' });
 });
 
 test('/ask soruları tutar, /answer ile resolve olur', async () => {
