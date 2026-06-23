@@ -132,6 +132,10 @@ function cmdSettings(sub, key, val) {
       process.stderr.write(`Bilinmeyen key: ${key}. Geçerli: ${Schema.entries().map((e) => e.key).join(', ')}\n`);
       process.exit(1);
     }
+    if (val === undefined) {
+      process.stderr.write(`settings set <key> için değer eksik.\n`);
+      process.exit(1);
+    }
     const c = Schema.coerce(key, val);
     if (!c.ok) {
       const e = Schema.byKey(key);

@@ -137,7 +137,8 @@ const server = http.createServer(async (req, res) => {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch))
       return sendJson(res, 400, { error: 'invalid settings' });
     // Settings.write zaten validate eder → kötü değer diske ulaşmaz.
-    return sendJson(res, 200, { ok: true, settings: Settings.write(patch) });
+    const { _v, ...clientSettings } = Settings.write(patch); // _v disk formatı; tarayıcıya sızdırma
+    return sendJson(res, 200, { ok: true, settings: clientSettings });
   }
 
   if (req.method === 'GET') return serveStatic(req, res);

@@ -49,6 +49,7 @@ function SettingsModal({ onClose }) {
   const [baseline] = useStateSet(() => ({ ...currentSettings() }));
   const [draft, setDraft] = useStateSet(() => ({ ...currentSettings() }));
   const [saved, setSaved] = useStateSet(false);
+  const [saveError, setSaveError] = useStateSet(false);
   const [needsReload, setNeedsReload] = useStateSet(false);
 
   // Esc ile kapat (cancel = revert).
@@ -56,7 +57,7 @@ function SettingsModal({ onClose }) {
     const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); } };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  });
+  }, []);
 
   function change(key, value) {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -72,6 +73,7 @@ function SettingsModal({ onClose }) {
   }
 
   function save() {
+    setSaveError(false);
     fetch("/settings", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draft),
@@ -86,7 +88,7 @@ function SettingsModal({ onClose }) {
         setNeedsReload(reloadChanged);
         setSaved(true);
       })
-      .catch(() => setSaved(false));
+      .catch(() => { setSaved(false); setSaveError(true); });
   }
 
   const groups = Settings_Schema.groups();
@@ -105,6 +107,9 @@ function SettingsModal({ onClose }) {
         ))}
         {needsReload && (
           <div className="settings__notice">Reload the page for this to fully take effect.</div>
+        )}
+        {saveError && (
+          <div className="settings__notice">Save failed — please try again.</div>
         )}
         <div className="settings__foot">
           <span className="settings__saved">{saved ? "Saved ✓" : ""}</span>
