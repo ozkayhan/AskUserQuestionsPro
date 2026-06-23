@@ -55,3 +55,6 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
   calls and tells Claude to use `mcp__askuserquestionspro__ask` instead
   (opt-in "always use the unlimited path"). Read by
   `hooks/askuserquestionspro-bridge.mjs`.
+- `XDG_CONFIG_HOME` — base dir for the persisted settings file
+  (`$XDG_CONFIG_HOME/askuserquestionspro/settings.json`, default
+  `~/.config`). Read by `lib/settings.js`.

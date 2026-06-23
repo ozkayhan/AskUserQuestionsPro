@@ -14,7 +14,8 @@ All on `127.0.0.1`. No auth (localhost-only, single user).
 | `GET /events` | — | `text/event-stream` | SSE: pushes `{ id, questions }` on change + ~25s keepalive. |
 | `POST /ask` | `{ questions: [...] }` | `{ answers: {...} }` (blocks until answered) or error | Submit a question set; request stays open until answered/timeout. |
 | `POST /answer` | `{ answers: {...} }` | resolves the pending set | The browser submits the user's answers. |
-| `GET *` | — | static file | Serves `web/` (traversal-guarded). |
+| `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` or `{ error }` (400) | Persist a UI-settings patch (schema-validated by `lib/settings.js`). |
+| `GET *` | — | static file | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`. |
 
 Request bodies are capped at 8 MB. If the `/ask` client disconnects, the
 server cancels the pending set.
