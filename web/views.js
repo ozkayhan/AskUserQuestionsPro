@@ -1,4 +1,4 @@
-/* global React, Check, Kbd, Brand, fullOptions, Themes */
+/* global React, Check, Kbd, Brand, fullOptions */
 /* askuseroz · views — saf sunum bileşenleri (durumu prop ile alır, callback ile bildirir) */
 const { useEffect: useEffectView, useState: useStateView, useMemo: useMemoView } = React;
 
@@ -8,28 +8,6 @@ const ChevronRight = () => (
     <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
-
-/* ─────────────────── theme switcher (sadece seçici) ─────────────────── */
-function ThemeSwitcher() {
-  if (typeof Themes === "undefined") return null;
-  const [active, setActive] = useStateView(() => Themes.current());
-  const pick = (id) => { setActive(Themes.apply(id)); };
-  return (
-    <div className="themer">
-      <div className="themer__label">Theme</div>
-      <div className="themer__row">
-        {Themes.list.map((t) => (
-          <button key={t.id} className="swatch" data-active={t.id === active}
-                  title={t.name} onClick={() => pick(t.id)}>
-            <span className="swatch__dot"
-                  style={{ background: t.swatch.bg, "--sw-accent": t.swatch.accent }} />
-            {t.name}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function Waiting() {
   return (
@@ -259,7 +237,6 @@ function Sidebar({ QUESTIONS, answers, current, n, answered, isSummary, submitte
             <span>Jump to next unanswered</span>
           </div>
         )}
-        <ThemeSwitcher />
       </div>
     </aside>
   );

@@ -837,50 +837,122 @@ button { font-family: inherit; cursor: pointer; }
 
 .qgroup__body { display: flex; flex-direction: column; gap: 2px; padding: 0 6px; }
 
-/* ───────────────────────── theme switcher ───────────────────────── */
+/* ───────────────────────── settings panel ───────────────────────── */
 
-.themer { display: flex; flex-direction: column; gap: 9px; }
-.themer__label {
+/* sol-alt sabit ayar butonu (her ekranda) */
+.settings-fab {
+  position: fixed;
+  left: 18px; bottom: 18px;
+  z-index: 40;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  transition: all 140ms ease;
+}
+.settings-fab:hover { color: var(--fg); background: var(--surface-3); border-color: var(--border-strong); }
+
+/* modal kartı — popup token'larını yeniden kullanır */
+.settings {
+  width: min(440px, calc(100vw - 48px));
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 26px;
+  box-shadow: var(--shadow-popup);
+  backdrop-filter: var(--surface-blur);
+  animation: popIn 220ms var(--ease);
+}
+.settings__chip {
   font-family: var(--font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 18px;
 }
-.themer__row { display: flex; flex-wrap: wrap; gap: 6px; }
-.swatch {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 10px 6px 7px;
-  border-radius: 99px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
+.settings__group { margin-bottom: 18px; }
+.settings__group-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--fg-subtle);
+  margin-bottom: 10px;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+}
+.setting-row__label { font-size: 14px; color: var(--fg); }
+
+/* select → segment butonları */
+.setting-seg { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.setting-seg__btn {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--fg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
   font-size: 12.5px;
   font-weight: 500;
-  letter-spacing: -0.01em;
-  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+  transition: all 130ms ease;
 }
-.swatch:hover { border-color: var(--border-strong); color: var(--fg-muted); background: var(--surface-2); }
-.swatch[data-active="true"] {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--fg);
+.setting-seg__btn:hover { color: var(--fg-muted); border-color: var(--border-strong); }
+.setting-seg__btn[data-active="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
 }
-.swatch__dot {
-  position: relative;
-  width: 15px; height: 15px;
+
+/* toggle → switch */
+.setting-toggle {
+  width: 40px; height: 23px;
   border-radius: 99px;
   border: 1px solid var(--border-strong);
+  background: var(--surface-3);
+  position: relative;
+  transition: background 140ms ease, border-color 140ms ease;
   flex-shrink: 0;
 }
-.swatch__dot::after {
-  content: "";
+.setting-toggle__dot {
   position: absolute;
-  right: -2px; bottom: -2px;
-  width: 8px; height: 8px;
+  top: 2px; left: 2px;
+  width: 17px; height: 17px;
   border-radius: 99px;
-  background: var(--sw-accent, var(--accent));
-  border: 1.5px solid var(--surface-1);
+  background: var(--fg-faint);
+  transition: transform 150ms var(--ease), background 140ms ease;
 }
+.setting-toggle[data-on="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.setting-toggle[data-on="true"] .setting-toggle__dot { transform: translateX(17px); background: var(--accent); }
+
+.settings__notice {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+}
+.settings__foot {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings__saved { font-size: 12.5px; color: var(--success); }
+.settings__actions { display: flex; gap: 8px; }
+
+/* reduce-motion: tüm animasyon/transition kapat */
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+

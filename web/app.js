@@ -1,20 +1,25 @@
 /* global React, ReactDOM, AnswerMap, useLiveQuestions, postAnswers, fullOptions,
-   Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary */
+   Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary,
+   SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
 const { useState, useEffect, useRef, useCallback } = React;
 
 function App() {
   const { id, questions } = useLiveQuestions();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  if (!questions || questions.length === 0) {
-    return (
-      <div className="app">
-        <Waiting />
-      </div>
-    );
-  }
-  // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
-  return <Flow questions={questions} key={id == null ? "q" : "round-" + id} />;
+  const screen = (!questions || questions.length === 0)
+    ? <div className="app"><Waiting /></div>
+    // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
+    : <Flow questions={questions} key={id == null ? "q" : "round-" + id} />;
+
+  return (
+    <React.Fragment>
+      {screen}
+      <SettingsButton onOpen={() => setSettingsOpen(true)} />
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+    </React.Fragment>
+  );
 }
 
 function Flow({ questions }) {
