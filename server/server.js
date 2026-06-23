@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Bridge } = require('./bridge.js');
 const APP_ID = require('../lib/app-id.cjs');
+const Settings = require('../lib/settings.js');
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
@@ -41,11 +42,20 @@ function broadcastCurrent() {
 function serveStatic(req, res) {
   let rel = req.url.split('?')[0];
   if (rel === '/' || rel === '') rel = '/index.html';
+  const isIndex = rel === '/index.html';
   const file = path.join(WEB_DIR, path.normalize(rel));
   // Sınır duyarlı kontrol: WEB_DIR'in kendisi veya altı olmalı.
   if (file !== WEB_DIR && !file.startsWith(WEB_DIR + path.sep)) { res.writeHead(403); res.end(); return; }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
+    // index.html: ayarları DOM'a inject et (flash yok — değerler sayfa gelmeden hazır).
+    if (isIndex) {
+      const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(Settings.read())}</script>`;
+      const html = buf.toString('utf8').replace('</head>', tag + '</head>');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(html);
+      return;
+    }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
     res.end(buf);
   });
@@ -117,6 +127,17 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       return sendJson(res, 409, { error: e.message });
     }
+  }
+
+  if (req.method === 'POST' && url === '/settings') {
+    let body;
+    try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
+    let patch;
+    try { patch = JSON.parse(body); } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch))
+      return sendJson(res, 400, { error: 'invalid settings' });
+    // Settings.write zaten validate eder → kötü değer diske ulaşmaz.
+    return sendJson(res, 200, { ok: true, settings: Settings.write(patch) });
   }
 
   if (req.method === 'GET') return serveStatic(req, res);
