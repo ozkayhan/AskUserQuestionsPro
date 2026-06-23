@@ -20,7 +20,7 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
 
-      - run: npm ci
+      - run: npm install
 
       - run: npm test
 
@@ -29,12 +29,18 @@ jobs:
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+          # Sadece E404 (sürüm yok) yayını tetikler. Ağ/registry hatasında işi durdur —
+          # aksi halde geçici hiccup'ta zaten yayında olan sürüm tekrar publish edilmeye çalışılır.
+          if OUTPUT=$(npm view "$NAME@$VERSION" version 2>&1); then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "ℹ️  $NAME@$VERSION zaten yayında — atlanıyor."
-          else
+          elif echo "$OUTPUT" | grep -q 'E404'; then
             echo "published=false" >> "$GITHUB_OUTPUT"
             echo "🚀 $NAME@$VERSION yayınlanacak."
+          else
+            echo "❌ npm view beklenmeyen hata verdi (registry/ağ sorunu olabilir), publish atlanıyor:"
+            echo "$OUTPUT"
+            exit 1
           fi
 
       - name: Publish
