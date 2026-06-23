@@ -13,6 +13,8 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawn, spawnSync } = require('node:child_process');
 const { addHook, removeHook, readSettings, writeSettings } = require('./install.js');
+const Settings = require('../lib/settings.js');
+const Schema = require('../web/settings-schema.js');
 
 const PKG_ROOT = path.join(__dirname, '..');
 const HOOK_ABS = path.join(PKG_ROOT, 'hooks', 'askuserquestionspro-bridge.mjs');
@@ -31,6 +33,7 @@ Kullanım:
   askuserquestionspro uninstall   Hook'u kaldır
   askuserquestionspro serve       Yerel köprüyü foreground çalıştır (debug, port ${PORT})
   askuserquestionspro mcp         MCP stdio sunucusunu foreground çalıştır (debug)
+  askuserquestionspro settings    Ayarları listele (settings get/set <key> [val])
   askuserquestionspro doctor      Kurulum ve köprü durumunu kontrol et
   askuserquestionspro help        Bu mesaj
 
@@ -102,6 +105,50 @@ function cmdMcp() {
   child.on('exit', (code) => process.exit(code || 0));
 }
 
+function cmdSettings(sub, key, val) {
+  const cur = Settings.read();
+  if (!sub || sub === 'list') {
+    for (const g of Schema.groups()) {
+      process.stdout.write(`${g}\n`);
+      for (const e of Schema.entries().filter((x) => x.group === g)) {
+        let line = `  ${e.key} = ${JSON.stringify(cur[e.key])}  (default ${JSON.stringify(e.default)}, ${e.type}`;
+        if (e.type === 'select') line += `: ${e.options.map((o) => o.value).join('/')}`;
+        process.stdout.write(line + `)\n`);
+      }
+    }
+    process.stdout.write(`\nDosya: ${Settings.getPath()}\n`);
+    return;
+  }
+  if (sub === 'get') {
+    if (!Schema.byKey(key)) {
+      process.stderr.write(`Bilinmeyen key: ${key}. Geçerli: ${Schema.entries().map((e) => e.key).join(', ')}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`${JSON.stringify(cur[key])}\n`);
+    return;
+  }
+  if (sub === 'set') {
+    if (!Schema.byKey(key)) {
+      process.stderr.write(`Bilinmeyen key: ${key}. Geçerli: ${Schema.entries().map((e) => e.key).join(', ')}\n`);
+      process.exit(1);
+    }
+    const c = Schema.coerce(key, val);
+    if (!c.ok) {
+      const e = Schema.byKey(key);
+      const hint = e.type === 'toggle' ? 'on/off/true/false/1/0' : e.options.map((o) => o.value).join('/');
+      process.stderr.write(`Geçersiz değer "${val}" for ${key}. Beklenen: ${hint}\n`);
+      process.exit(1);
+    }
+    const next = Settings.write({ [key]: c.value });
+    process.stdout.write(`${key} = ${JSON.stringify(next[key])} kaydedildi\n`);
+    if (Schema.byKey(key).applies === 'reload')
+      process.stdout.write(`Not: açık tarayıcı sekmesini yenileyince tam etkili olur.\n`);
+    return;
+  }
+  process.stderr.write(`Bilinmeyen settings alt komutu: ${sub}\n`);
+  process.exit(1);
+}
+
 async function cmdDoctor() {
   let ok = true;
   // 1. settings.json'da hook kurulu mu?
@@ -142,6 +189,18 @@ async function cmdDoctor() {
       `'claude mcp add' çalıştırın\n`
     );
   }
+  // 5. Ayar dosyası durumu (bilgi amaçlı).
+  try {
+    const p = Settings.getPath();
+    if (require('node:fs').existsSync(p)) {
+      const raw = JSON.parse(require('node:fs').readFileSync(p, 'utf8'));
+      process.stdout.write(`✓ Ayar dosyası (${p}) _v=${raw._v} → ${JSON.stringify(Settings.read())}\n`);
+    } else {
+      process.stdout.write(`· Ayar dosyası yok (${p}) — varsayılanlar: ${JSON.stringify(Settings.read())}\n`);
+    }
+  } catch (e) {
+    process.stdout.write(`· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.read())}\n`);
+  }
   process.exit(ok ? 0 : 1);
 }
 
@@ -152,6 +211,7 @@ async function main() {
     case 'uninstall': return cmdUninstall();
     case 'serve': return cmdServe();
     case 'mcp': return cmdMcp();
+    case 'settings': return cmdSettings(process.argv[3], process.argv[4], process.argv[5]);
     case 'doctor': return cmdDoctor();
     case 'help': case '--help': case '-h': case undefined: return usage();
     default:

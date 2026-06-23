@@ -96,6 +96,30 @@ test('validate null/array/garbage → default (throw etmez)', () => {
   assert.deepStrictEqual(Schema.validate('xx'), Schema.defaults());
 });
 
+// ── coerce: CLI string → tip ──────────────────────────────────────────
+test('coerce toggle: on/true/1/yes → true, off/false/0/no → false', () => {
+  for (const s of ['on', 'true', '1', 'yes']) {
+    assert.deepStrictEqual(Schema.coerce('reduceMotion', s), { ok: true, value: true }, s);
+  }
+  for (const s of ['off', 'false', '0', 'no']) {
+    assert.deepStrictEqual(Schema.coerce('reduceMotion', s), { ok: true, value: false }, s);
+  }
+});
+
+test('coerce toggle geçersiz → ok:false', () => {
+  assert.strictEqual(Schema.coerce('reduceMotion', 'maybe').ok, false);
+});
+
+test('coerce select: options içindeyse value, değilse ok:false', () => {
+  assert.deepStrictEqual(Schema.coerce('theme', 'paper'), { ok: true, value: 'paper' });
+  assert.strictEqual(Schema.coerce('theme', 'yok').ok, false);
+  assert.strictEqual(Schema.coerce('uiScale', 'lg').value, 'lg');
+});
+
+test('coerce bilinmeyen key → ok:false', () => {
+  assert.strictEqual(Schema.coerce('yok', 'x').ok, false);
+});
+
 // ── lib/settings.js disk I/O ──────────────────────────────────────────
 test('read: dosya yoksa default döner (throw yok)', () => {
   withTmpConfig((Settings) => {

@@ -77,6 +77,21 @@
     return out;
   }
 
+  // CLI string'ini girdinin tipine zorla. → { ok, value } | { ok:false }.
+  function coerce(key, str) {
+    var e = BY_KEY[key];
+    if (!e) return { ok: false };
+    if (e.type === 'toggle') {
+      var s = String(str).toLowerCase();
+      if (s === 'on' || s === 'true' || s === '1' || s === 'yes') return { ok: true, value: true };
+      if (s === 'off' || s === 'false' || s === '0' || s === 'no') return { ok: true, value: false };
+      return { ok: false };
+    }
+    // select
+    return e.options.some(function (o) { return o.value === str; })
+      ? { ok: true, value: str } : { ok: false };
+  }
+
   // tarayıcıda her apply'ı çağır (sayfa yüklenince + Kaydet'te).
   function applyAll(values) {
     var v = validate(values);
@@ -91,6 +106,7 @@
     defaults: defaults,
     groups: groups,
     validate: validate,
+    coerce: coerce,
     applyAll: applyAll
   };
 });
