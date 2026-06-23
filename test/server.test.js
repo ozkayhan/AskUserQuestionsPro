@@ -1,5 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+// settings disk I/O'yu izole tmp'ye yönlendir (gerçek ~/.config kirlenmesin).
+// server require'ından ÖNCE set edilmeli — lib/settings DIR'i load anında okur.
+process.env.XDG_CONFIG_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-srv-'));
 const { server, bridge } = require('../server/server.js');
 const APP_ID = require('../lib/app-id.cjs');
 
@@ -63,6 +69,43 @@ test('/ask gecersiz questions (dizi degil) -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions: 'oops' }),
+  });
+  assert.strictEqual(r.status, 400);
+});
+
+test('index.html window.__ASKUSER_SETTINGS__ inject eder', async () => {
+  const body = await (await fetch(`${base}/`)).text();
+  assert.match(body, /window\.__ASKUSER_SETTINGS__=/);
+  const m = /window\.__ASKUSER_SETTINGS__=(\{.*?\})<\/script>/.exec(body);
+  assert.ok(m, 'inject script bulunmali');
+  const injected = JSON.parse(m[1]);
+  assert.ok('theme' in injected && 'uiScale' in injected, 'settings degerleri');
+});
+
+test('POST /settings gecerli patch yazar', async () => {
+  const r = await fetch(`${base}/settings`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ theme: 'paper' }),
+  });
+  assert.strictEqual(r.status, 200);
+  const j = await r.json();
+  assert.strictEqual(j.ok, true);
+  assert.strictEqual(j.settings.theme, 'paper');
+  // disk'e yansidi mi → yeniden GET / inject paper gostermeli
+  const body = await (await fetch(`${base}/`)).text();
+  assert.match(body, /"theme":"paper"/);
+});
+
+test('POST /settings bad json -> 400', async () => {
+  const r = await fetch(`${base}/settings`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{bozuk',
+  });
+  assert.strictEqual(r.status, 400);
+});
+
+test('POST /settings dizi/null -> 400', async () => {
+  const r = await fetch(`${base}/settings`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '[1,2]',
   });
   assert.strictEqual(r.status, 400);
 });

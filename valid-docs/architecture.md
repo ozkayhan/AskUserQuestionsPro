@@ -73,8 +73,10 @@ Step by step (both entry paths are identical after `bridge-client`):
   in the browser. The server is raw `node:http`. This keeps install trivial
   (`npx` / `curl | bash`) and the package self-contained.
 
-- **In-memory, localhost-only.** No persistence, bound to `127.0.0.1`. Answers
-  exist only for the lifetime of the pending request.
+- **In-memory, localhost-only.** Bound to `127.0.0.1`; answers exist only for
+  the lifetime of the pending request. The one persisted thing is UI settings —
+  a small JSON file in `~/.config/askuserquestionspro/` (`lib/settings.js`),
+  not question/answer data.
 
 ## Failure & edge handling
 

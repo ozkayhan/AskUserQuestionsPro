@@ -7,9 +7,10 @@ the vendored Babel.
 
 1. Vendor globals: `web/vendor/react.production.min.js`,
    `react-dom.production.min.js`, `babel.min.js`.
-2. App files loaded as `type="text/babel"` (compiled client-side), in
-   dependency order: `ui-kit.js` → `themes.js` → `answer-map.js` →
-   `views.js` → `live.js` → `app.js`.
+2. Plain scripts: `answer-map.js`, `themes.js`, `settings-schema.js`. Then app
+   files loaded as `type="text/babel"` (compiled client-side), in dependency
+   order: `ui-kit.js` → `live.js` → `views.js` → `settings-panel.js` →
+   `app.js`.
 3. Mounts into `<div id="root">`.
 
 Fonts: Geist / Geist Mono preloaded; themes swap the Google Fonts link at
@@ -17,7 +18,9 @@ runtime via `Themes.swapFont()`.
 
 ## State model (`web/app.js`)
 
-The root `Flow` component owns all interaction state:
+The root `App` component renders the question `Flow` (or `Waiting`) plus the
+always-visible `SettingsButton` fab and, when open, the `SettingsModal`. The
+`Flow` component owns all interaction state:
 
 - **answers**: `{ [questionText]: { sel: number[], confirmed: boolean, customText: string } }`.
   Keyed by question *text* (stable across re-renders).
@@ -59,7 +62,7 @@ Arrow/number shortcuts are suppressed while focus is in an `<input>`/`<textarea>
 
 - `Sidebar` — switches layout by size: `SidebarFlatList` (N ≤ 8) vs
   `SidebarGrouped` + `SidebarSearch` (N > 8). Shows progress, answered/total,
-  footer hints + `ThemeSwitcher`.
+  footer hints.
 - `QItem` — one question row; states done/current/pending; click to jump.
 - `SidebarGrouped` — accordion grouped by `q.header` ("General" if missing),
   per-group done/total badge.
@@ -72,7 +75,6 @@ Arrow/number shortcuts are suppressed while focus is in an `<input>`/`<textarea>
   Cancel; `Enter` save, `Shift+Enter` newline, `Esc` cancel.
 - `Summary` — review all answers as tags; per-question Edit; Submit disabled
   until ≥1 answer.
-- `ThemeSwitcher` — calls `Themes.apply(id)`.
 
 ## UI primitives (`web/ui-kit.js`)
 
@@ -96,6 +98,23 @@ Arrow/number shortcuts are suppressed while focus is in an `<input>`/`<textarea>
 
 This module is unit-tested in isolation (`test/answer-map.test.js`).
 
+## Settings panel (`web/settings-panel.js` + `web/settings-schema.js`)
+
+A schema-driven settings UI. `web/settings-schema.js` (UMD global
+`Settings_Schema`) is the single source of truth for all settings — every
+control is generated from `entries()`. Current entries: `theme` (select),
+`uiScale` (`sm`/`md`/`lg` zoom), `reduceMotion` (toggle).
+
+- `SettingsButton` — fixed bottom-left gear fab, visible on every screen.
+- `SettingsModal` — centered overlay; renders one `SettingRow` (segment for
+  `select`, switch for `toggle`) per schema entry, grouped by `entry.group`.
+  Editing a `live` setting applies it instantly as preview; **Cancel**/`Esc`
+  reverts via `applyAll(baseline)`; **Save** POSTs the draft to `/settings`,
+  updates `window.__ASKUSER_SETTINGS__`, and shows a reload notice if a
+  `reload`-class setting changed.
+- On boot, `applyAll(window.__ASKUSER_SETTINGS__)` applies the
+  server-injected settings (theme is handled separately by `themes.js`).
+
 ## Themes (`web/themes.js` + `web/styles.css`)
 
 Five themes in `LIST`:
@@ -110,7 +129,8 @@ Five themes in `LIST`:
 
 Mechanics:
 
-- `read()` resolves the active theme: `?theme=` URL param > `localStorage` >
+- `read()` resolves the active theme: server-injected disk setting
+  (`window.__ASKUSER_SETTINGS__.theme`) > `?theme=` URL param > `localStorage` >
   `amoled`.
 - `apply(id)` clears all `KNOWN_TOKENS` from `:root`, sets the theme's delta
   tokens, swaps the font link, persists to `localStorage`.

@@ -219,6 +219,11 @@
   function get(id) { return BY_ID[id] || BY_ID[DEFAULT_ID]; }
 
   function read() {
+    // 0) Server'ın inject ettiği disk ayarı — en yüksek öncelik (kalıcı, makine-bazlı).
+    try {
+      if (typeof window !== 'undefined' && window.__ASKUSER_SETTINGS__ &&
+          BY_ID[window.__ASKUSER_SETTINGS__.theme]) return window.__ASKUSER_SETTINGS__.theme;
+    } catch (e) { /* yok say */ }
     // 1) ?theme=<id> başlangıç override'ı (paylaşılabilir link / test) — picker'ı
     //    kaldırmaz, seçim yine kalıcı ve değiştirilebilir kalır.
     try {

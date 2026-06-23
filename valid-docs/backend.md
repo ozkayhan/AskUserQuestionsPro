@@ -18,6 +18,11 @@ Responsibilities:
 - On client disconnect during an open `/ask`, call `bridge.cancel()` so the
   bridge isn't left blocked.
 - Path-traversal-safe static serving (resolved paths must stay under `web/`).
+- When serving `index.html`, inject `<script>window.__ASKUSER_SETTINGS__=…</script>`
+  before `</head>` so the persisted settings (`Settings.read()`) are present
+  before the app boots (no theme/scale flash).
+- `POST /settings` — accepts a JSON object patch, writes it via
+  `Settings.write()` (schema-validated), returns `{ ok, settings }`.
 
 ## Bridge (`server/bridge.js`)
 
@@ -43,6 +48,24 @@ Used by both the hook and the MCP server. Port/base from `ASKUSER_PORT`
   `xdg-open` (Linux), pointed at the base URL. Silent on failure.
 - `askBridge(questions, { timeoutMs })` — `POST /ask`; returns the answers
   object or throws. Uses `AbortController` for the timeout.
+
+## Settings persistence (`lib/settings.js` + `web/settings-schema.js`)
+
+`web/settings-schema.js` is a UMD module (browser global `Settings_Schema`,
+also `require`-able by Node) holding the **single source of truth** for UI
+settings: `theme`, `uiScale`, `reduceMotion`. It exposes
+`entries/byKey/defaults/groups/validate/coerce/applyAll`. `validate()` is
+self-healing — unknown keys dropped, invalid/missing values replaced with
+defaults, never throws. `apply()` functions run only in the browser.
+
+`lib/settings.js` is the disk layer (consumed by `server/server.js` and
+`bin/cli.js`):
+- File: `${XDG_CONFIG_HOME or ~/.config}/askuserquestionspro/settings.json`.
+- `read()` — parse the file and `Schema.validate()` it; ENOENT or corrupt JSON
+  both fall back to schema defaults (never throws).
+- `write(patch)` — merge over current, validate, then atomic write
+  (`.tmp` + `rename`); stamps `_v: 1`. Returns the written object.
+- `getPath()` — the resolved file path.
 
 ## Hook (`hooks/askuserquestionspro-bridge.mjs` + `hooks/hook-output.js`)
 
@@ -103,7 +126,8 @@ Tool input schema: see [api.md](api.md).
 | `uninstall` | Remove the hook entry from settings. |
 | `serve` | Run `server/server.js` in foreground (debug). |
 | `mcp` | Run the MCP stdio server in foreground (debug). |
-| `doctor` | Health check: hook present, hook file exists, bridge server reachable, MCP registered. |
+| `settings` | `settings` / `settings list` prints all entries + the config file path; `settings get <key>` prints one value; `settings set <key> <val>` coerces + writes via `lib/settings.js` (unknown key / invalid value → error exit). |
+| `doctor` | Health check: hook present, hook file exists, bridge server reachable, MCP registered, settings file status (`_v` + resolved values, or defaults if missing/corrupt). |
 | `help` | Usage. |
 
 `bin/install.js` — pure settings manipulation (testable):
