@@ -1,0 +1,44 @@
+name: Publish to npm
+
+# main'e her push (PR merge dahil) → package.json sürümü npm'dekinden yeniyse yayınla.
+# Sürüm aynıysa hiçbir şey yapmaz, hata vermez. Sürüm bump'ı package.json'da elle yapılır.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # npm provenance için
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Sürüm npm'de yok mu kontrol et
+        id: check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  $NAME@$VERSION zaten yayında — atlanıyor."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "🚀 $NAME@$VERSION yayınlanacak."
+          fi
+
+      - name: Publish
+        if: steps.check.outputs.published == 'false'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
