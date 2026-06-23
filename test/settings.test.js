@@ -1,7 +1,26 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const Schema = require('../web/settings-schema.js');
 const Themes = require('../web/themes.js');
+
+// lib/settings.js disk I/O'yu izole tmp dizine yönlendir (XDG_CONFIG_HOME).
+function withTmpConfig(fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-set-'));
+  const prev = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = dir;
+  delete require.cache[require.resolve('../lib/settings.js')];
+  const Settings = require('../lib/settings.js');
+  try { fn(Settings, dir); }
+  finally {
+    if (prev === undefined) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = prev;
+    delete require.cache[require.resolve('../lib/settings.js')];
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 test('defaults: theme/uiScale/reduceMotion', () => {
   assert.deepStrictEqual(Schema.defaults(), {
@@ -75,4 +94,61 @@ test('validate null/array/garbage → default (throw etmez)', () => {
   assert.deepStrictEqual(Schema.validate(null), Schema.defaults());
   assert.deepStrictEqual(Schema.validate([1, 2]), Schema.defaults());
   assert.deepStrictEqual(Schema.validate('xx'), Schema.defaults());
+});
+
+// ── lib/settings.js disk I/O ──────────────────────────────────────────
+test('read: dosya yoksa default döner (throw yok)', () => {
+  withTmpConfig((Settings) => {
+    assert.deepStrictEqual(Settings.read(), Schema.defaults());
+  });
+});
+
+test('write: patch yazar + okur, _v eklenir, atomic dosya kalır', () => {
+  withTmpConfig((Settings, dir) => {
+    const next = Settings.write({ theme: 'paper' });
+    assert.strictEqual(next.theme, 'paper');
+    assert.strictEqual(next._v, 1);
+    const file = path.join(dir, 'askuserquestionspro', 'settings.json');
+    assert.ok(fs.existsSync(file));
+    assert.ok(!fs.existsSync(file + '.tmp'), 'tmp temizlenmeli');
+    const disk = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.strictEqual(disk.theme, 'paper');
+    // read patch'i korur, diğerleri default
+    assert.strictEqual(Settings.read().theme, 'paper');
+    assert.strictEqual(Settings.read().uiScale, 'md');
+  });
+});
+
+test('write: kısmi patch öncekini korur (merge)', () => {
+  withTmpConfig((Settings) => {
+    Settings.write({ theme: 'paper' });
+    Settings.write({ uiScale: 'lg' });
+    const v = Settings.read();
+    assert.strictEqual(v.theme, 'paper');
+    assert.strictEqual(v.uiScale, 'lg');
+  });
+});
+
+test('read: bozuk JSON → default (self-heal, throw yok)', () => {
+  withTmpConfig((Settings, dir) => {
+    const cfgDir = path.join(dir, 'askuserquestionspro');
+    fs.mkdirSync(cfgDir, { recursive: true });
+    fs.writeFileSync(path.join(cfgDir, 'settings.json'), '{ bozuk json', 'utf8');
+    assert.deepStrictEqual(Settings.read(), Schema.defaults());
+  });
+});
+
+test('write: geçersiz değer diske ulaşmaz (validate)', () => {
+  withTmpConfig((Settings) => {
+    const next = Settings.write({ theme: 'yok', uiScale: 'xl' });
+    assert.strictEqual(next.theme, 'amoled');
+    assert.strictEqual(next.uiScale, 'md');
+  });
+});
+
+test('getPath: XDG_CONFIG_HOME altında settings.json', () => {
+  withTmpConfig((Settings, dir) => {
+    assert.strictEqual(Settings.getPath(),
+      path.join(dir, 'askuserquestionspro', 'settings.json'));
+  });
 });
