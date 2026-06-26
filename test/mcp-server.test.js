@@ -71,10 +71,45 @@ test('mcp-server: initialize ve tools/list', async (t) => {
   assert.ok(Array.isArray(tools) && tools.length > 0, 'tools dizisi boş olmamalı');
   const askTool = tools.find((t) => t.name === 'ask');
   assert.ok(askTool, '"ask" adında araç olmalı');
-  const qSchema = askTool.inputSchema.properties.questions;
+  const schema = askTool.inputSchema;
+  const qSchema = schema.properties.questions;
   assert.ok(qSchema, 'questions özelliği olmalı');
   assert.strictEqual(qSchema.maxItems, undefined, 'questions.maxItems OLMAMALI (sınırsız)');
   const itemRequired = qSchema.items.required;
   assert.ok(Array.isArray(itemRequired) && itemRequired.includes('question'), 'items.required "question" içermeli');
-  assert.ok(Array.isArray(itemRequired) && itemRequired.includes('options'), 'items.required "options" içermeli');
+  // options artık required listesinde OLMAMALI (binary/scale opsiyonel)
+  assert.ok(!itemRequired.includes('options'), 'items.required "options" içermemeli (binary/scale için opsiyonel)');
+
+  // (c) type enum kontrolü
+  const itemProps = qSchema.items.properties;
+  assert.ok(itemProps.type, 'items.properties.type olmalı');
+  assert.ok(Array.isArray(itemProps.type.enum), 'type.enum dizi olmalı');
+  const expectedTypes = ['single', 'multi', 'binary', 'scale', 'ranking', 'tree'];
+  for (const tp of expectedTypes) {
+    assert.ok(itemProps.type.enum.includes(tp), `type.enum "${tp}" içermeli`);
+  }
+
+  // (d) $defs kontrolü — özyinelemeli option tanımı
+  assert.ok(schema.$defs, 'inputSchema.$defs olmalı');
+  assert.ok(schema.$defs.option, '$defs.option tanımı olmalı');
+  const optDef = schema.$defs.option;
+  assert.ok(optDef.properties.label, '$defs.option label alanı olmalı');
+  assert.ok(optDef.properties.children, '$defs.option children alanı olmalı');
+  assert.ok(
+    optDef.properties.children.items && optDef.properties.children.items.$ref,
+    '$defs.option.children.items.$ref olmalı (özyinelemeli)',
+  );
+
+  // (e) options $ref ile referans veriyor
+  assert.ok(
+    itemProps.options && itemProps.options.items && itemProps.options.items.$ref,
+    'options.items.$ref olmalı',
+  );
+
+  // (f) scale alanları
+  assert.ok(itemProps.min, 'min alanı olmalı');
+  assert.ok(itemProps.max, 'max alanı olmalı');
+  assert.ok(itemProps.step, 'step alanı olmalı');
+  assert.ok(itemProps.leftLabel, 'leftLabel alanı olmalı');
+  assert.ok(itemProps.rightLabel, 'rightLabel alanı olmalı');
 });

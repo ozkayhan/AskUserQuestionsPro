@@ -28,10 +28,91 @@ function readBody(req) {
   });
 }
 
-// Soru setinin temel şekil doğrulaması (kötü/eksik girdiyi 400'le geri çevir).
+// Geçerli soru tiplerini listele.
+const VALID_TYPES = new Set(['single', 'multi', 'binary', 'scale', 'ranking', 'tree']);
+
+// Tree derinliğini özyinelemeli hesapla.
+function treeDepth(options, depth) {
+  if (!Array.isArray(options) || options.length === 0) return depth;
+  let max = depth;
+  for (const opt of options) {
+    if (opt.children && opt.children.length > 0) {
+      max = Math.max(max, treeDepth(opt.children, depth + 1));
+    }
+  }
+  return max;
+}
+
+// Soru setinin tipe özgü doğrulaması.
+// Döner: {ok:true} | {ok:false, error:string}
 function validQuestions(q) {
-  return Array.isArray(q) && q.length > 0 && q.every((it) =>
-    it && typeof it.question === 'string' && Array.isArray(it.options));
+  if (!Array.isArray(q) || q.length === 0) {
+    return { ok: false, error: 'questions must be a non-empty array' };
+  }
+  for (const it of q) {
+    if (!it || typeof it.question !== 'string') {
+      return { ok: false, error: 'each question must have a string "question" field' };
+    }
+    // tip kontrolü
+    const t = it.type;
+    if (t !== undefined && !VALID_TYPES.has(t)) {
+      return { ok: false, error: `invalid type "${t}": must be one of single, multi, binary, scale, ranking, tree` };
+    }
+    // Etkin tip (type yoksa: multiSelect → multi, aksi single)
+    const effectiveType = t || (it.multiSelect ? 'multi' : 'single');
+    if (effectiveType === 'scale') {
+      // scale: min/max sayı olmalı, min < max, step > 0
+      if (typeof it.min !== 'number' || typeof it.max !== 'number') {
+        return { ok: false, error: `scale question "${it.question}" requires numeric min and max` };
+      }
+      if (it.min >= it.max) {
+        return { ok: false, error: `scale question "${it.question}" min must be less than max` };
+      }
+      if (it.step !== undefined && (typeof it.step !== 'number' || it.step <= 0)) {
+        return { ok: false, error: `scale question "${it.question}" step must be a positive number` };
+      }
+    } else if (effectiveType === 'ranking') {
+      // ranking: options dizisi, en az 2 öğe
+      if (!Array.isArray(it.options) || it.options.length < 2) {
+        return { ok: false, error: `ranking question "${it.question}" requires at least 2 options` };
+      }
+    } else if (effectiveType === 'binary') {
+      // binary: options varsa tam 2 şık olmalı
+      if (it.options !== undefined && (!Array.isArray(it.options) || it.options.length !== 2)) {
+        return { ok: false, error: `binary question "${it.question}" must have exactly 2 options when options is provided` };
+      }
+    } else if (effectiveType === 'tree') {
+      // tree: options boş olmamalı, children varsa array, derinlik ≤ 6
+      if (!Array.isArray(it.options) || it.options.length === 0) {
+        return { ok: false, error: `tree question "${it.question}" requires a non-empty options array` };
+      }
+      const depth = treeDepth(it.options, 1);
+      if (depth > 6) {
+        return { ok: false, error: `tree question "${it.question}" exceeds maximum depth of 6` };
+      }
+      // children'ların array olduğunu doğrula (özyinelemeli)
+      function checkChildren(opts) {
+        for (const opt of opts) {
+          if (opt.children !== undefined && !Array.isArray(opt.children)) {
+            return `tree option "${opt.label}" has invalid children (must be array)`;
+          }
+          if (Array.isArray(opt.children) && opt.children.length > 0) {
+            const err = checkChildren(opt.children);
+            if (err) return err;
+          }
+        }
+        return null;
+      }
+      const childErr = checkChildren(it.options);
+      if (childErr) return { ok: false, error: childErr };
+    } else {
+      // single / multi: options dizisi boş olmamalı
+      if (!Array.isArray(it.options) || it.options.length === 0) {
+        return { ok: false, error: `question "${it.question}" requires a non-empty options array` };
+      }
+    }
+  }
+  return { ok: true };
 }
 
 function broadcastCurrent() {
@@ -88,7 +169,8 @@ const server = http.createServer(async (req, res) => {
     try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
     let questions;
     try { questions = JSON.parse(body).questions; } catch { return sendJson(res, 400, { error: 'bad json' }); }
-    if (!validQuestions(questions)) return sendJson(res, 400, { error: 'invalid questions' });
+    const vq = validQuestions(questions);
+    if (!vq.ok) return sendJson(res, 400, { error: vq.error });
     let answersPromise;
     try {
       answersPromise = bridge.submitQuestions(questions);

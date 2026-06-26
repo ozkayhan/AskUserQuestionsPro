@@ -37,6 +37,30 @@
       apply: function (v) {
         document.documentElement.setAttribute('data-reduce-motion', v ? 'true' : 'false');
       }
+    },
+    {
+      key: 'qtypeBinary', label: 'Binary (yes/no)', group: 'Question types', type: 'toggle',
+      default: true,
+      applies: 'reload',
+      apply: function () {}
+    },
+    {
+      key: 'qtypeScale', label: 'Scale', group: 'Question types', type: 'toggle',
+      default: true,
+      applies: 'reload',
+      apply: function () {}
+    },
+    {
+      key: 'qtypeRanking', label: 'Ranking', group: 'Question types', type: 'toggle',
+      default: true,
+      applies: 'reload',
+      apply: function () {}
+    },
+    {
+      key: 'qtypeTree', label: 'Decision tree', group: 'Question types', type: 'toggle',
+      default: true,
+      applies: 'reload',
+      apply: function () {}
     }
   ];
 

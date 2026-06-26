@@ -22,11 +22,15 @@ function withTmpConfig(fn) {
   }
 }
 
-test('defaults: theme/uiScale/reduceMotion', () => {
+test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
   assert.deepStrictEqual(Schema.defaults(), {
     theme: 'amoled',
     uiScale: 'md',
-    reduceMotion: false
+    reduceMotion: false,
+    qtypeBinary: true,
+    qtypeScale: true,
+    qtypeRanking: true,
+    qtypeTree: true
   });
 });
 
@@ -87,7 +91,10 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   const v = Schema.validate({ theme: 'paper', bogus: 42 });
   assert.ok(!('bogus' in v), 'bilinmeyen key atılmalı');
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
-  assert.strictEqual(Object.keys(v).sort().join(','), 'reduceMotion,theme,uiScale');
+  assert.strictEqual(
+    Object.keys(v).sort().join(','),
+    'qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+  );
 });
 
 test('validate null/array/garbage → default (throw etmez)', () => {
@@ -118,6 +125,56 @@ test('coerce select: options içindeyse value, değilse ok:false', () => {
 
 test('coerce bilinmeyen key → ok:false', () => {
   assert.strictEqual(Schema.coerce('yok', 'x').ok, false);
+});
+
+// ── qtype toggles ──────────────────────────────────────────────
+test('qtype toggle defaults hepsi true', () => {
+  const d = Schema.defaults();
+  assert.strictEqual(d.qtypeBinary, true);
+  assert.strictEqual(d.qtypeScale, true);
+  assert.strictEqual(d.qtypeRanking, true);
+  assert.strictEqual(d.qtypeTree, true);
+});
+
+test('qtype toggle validate: boolean korunur', () => {
+  const v = Schema.validate({
+    qtypeBinary: false,
+    qtypeScale: true,
+    qtypeRanking: false,
+    qtypeTree: true
+  });
+  assert.strictEqual(v.qtypeBinary, false);
+  assert.strictEqual(v.qtypeScale, true);
+  assert.strictEqual(v.qtypeRanking, false);
+  assert.strictEqual(v.qtypeTree, true);
+});
+
+test('qtype toggle validate: boolean olmayan → default true', () => {
+  const v = Schema.validate({ qtypeBinary: 'false', qtypeScale: 0 });
+  assert.strictEqual(v.qtypeBinary, true, 'string → default');
+  assert.strictEqual(v.qtypeScale, true, 'number → default');
+});
+
+test('qtype toggle coerce: on/off çalışır', () => {
+  assert.deepStrictEqual(Schema.coerce('qtypeBinary', 'off'), { ok: true, value: false });
+  assert.deepStrictEqual(Schema.coerce('qtypeScale', 'on'), { ok: true, value: true });
+  assert.deepStrictEqual(Schema.coerce('qtypeRanking', 'false'), { ok: true, value: false });
+  assert.deepStrictEqual(Schema.coerce('qtypeTree', 'true'), { ok: true, value: true });
+});
+
+test('qtype entries: Question types grubu var', () => {
+  const g = Schema.groups();
+  assert.ok(g.includes('Question types'), 'Question types grubu olmalı');
+  const qtEntries = Schema.entries().filter(e => e.group === 'Question types');
+  assert.strictEqual(qtEntries.length, 4);
+  const keys = qtEntries.map(e => e.key).sort();
+  assert.deepStrictEqual(keys, ['qtypeBinary', 'qtypeRanking', 'qtypeScale', 'qtypeTree']);
+  for (const e of qtEntries) {
+    assert.strictEqual(e.type, 'toggle');
+    assert.strictEqual(e.default, true);
+    assert.strictEqual(e.applies, 'reload');
+    assert.strictEqual(typeof e.apply, 'function');
+  }
 });
 
 // ── lib/settings.js disk I/O ──────────────────────────────────────────
