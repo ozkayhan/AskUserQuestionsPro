@@ -4,63 +4,127 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   var CUSTOM_LABEL = 'Other';
 
-  // questions: AskUserQuestion soru dizisi (her biri {question, options, multiSelect})
-  // state: { [question]: { sel: number[], customText: string } }
-  //   sel, [...options, Other] dizisine indekslenir; Other son indekstir.
-  // döndürür: { [question]: label | [labels] } — AskUserQuestion answers şekli.
+  // RICH tip haritası — setEnabled ile kapatılabilir; varsayılan hepsi true.
+  var ENABLED = { binary: true, scale: true, ranking: true, tree: true };
+  var RICH_TYPES = { binary: true, scale: true, ranking: true, tree: true };
+
+  // setEnabled({binary,scale,ranking,tree}) — app boot'ta çağrılır.
+  function setEnabled(map) {
+    Object.keys(map).forEach(function (k) {
+      if (k in ENABLED) ENABLED[k] = !!map[k];
+    });
+  }
+
+  // TEK GERÇEK KAYNAK: soru tipini çözer.
+  // q.type yoksa multiSelect'e göre single/multi.
+  // RICH tip setEnabled ile kapalıysa degrade olur.
+  function qType(q) {
+    var base = q.type || (q.multiSelect ? 'multi' : 'single');
+    if (base in RICH_TYPES && !ENABLED[base]) {
+      return q.multiSelect ? 'multi' : 'single';
+    }
+    return base;
+  }
+
+  // questions: AskUserQuestion soru dizisi
+  // state: { [question]: { sel, customText, value, order, path, confirmed } }
+  // döndürür: { [question]: tipli cevap değeri }
   function mapAnswers(questions, state) {
     var out = {};
     questions.forEach(function (q) {
       var s = state[q.question];
-      if (!s || !s.sel || s.sel.length === 0) return;
-      var opts = q.options.concat([{ label: CUSTOM_LABEL, custom: true }]);
-      var labels = s.sel
-        .map(function (i) {
-          var o = opts[i];
-          if (!o) return '';
-          return o.custom ? (s.customText || '') : o.label;
-        })
-        .filter(function (x) { return x !== ''; });
-      if (labels.length === 0) return;
-      out[q.question] = q.multiSelect ? labels : labels[0];
+      if (!s) return;
+      var t = qType(q);
+
+      if (t === 'single' || t === 'multi') {
+        if (!s.sel || s.sel.length === 0) return;
+        var opts = (q.options || []).concat([{ label: CUSTOM_LABEL, custom: true }]);
+        var labels = s.sel
+          .map(function (i) {
+            var o = opts[i];
+            if (!o) return '';
+            return o.custom ? (s.customText || '') : o.label;
+          })
+          .filter(function (x) { return x !== ''; });
+        if (labels.length === 0) return;
+        out[q.question] = t === 'multi' ? labels : labels[0];
+
+      } else if (t === 'binary') {
+        if (!s.sel || s.sel.length === 0) return;
+        var bOpts = (q.options && q.options.length === 2)
+          ? q.options
+          : [{ label: 'Evet' }, { label: 'Hayır' }];
+        var bLabel = bOpts[s.sel[0]] ? bOpts[s.sel[0]].label : '';
+        if (!bLabel) return;
+        out[q.question] = bLabel;
+
+      } else if (t === 'scale') {
+        if (s.value == null) return;
+        out[q.question] = s.value;
+
+      } else if (t === 'ranking') {
+        if (!s.order || s.order.length === 0) return;
+        out[q.question] = s.order.map(function (i) { return q.options[i].label; });
+
+      } else if (t === 'tree') {
+        if (!s.path || s.path.length === 0) return;
+        var pathLabels = [];
+        var cur = q.options;
+        var lastNode = null;
+        for (var pi = 0; pi < s.path.length; pi++) {
+          var node = cur[s.path[pi]];
+          if (!node) break;
+          pathLabels.push(node.label);
+          lastNode = node;
+          cur = node.children || [];
+        }
+        if (pathLabels.length === 0) return;
+        // ponytail: yalnızca yaprak düğümde gönder — eksik yol göndermemek için
+        if (!lastNode || (lastNode.children && lastNode.children.length > 0)) return;
+        out[q.question] = pathLabels;
+      }
     });
     return out;
   }
 
-  // Bir seçeneğe basıldığında/tıklandığında ne yapılacağına karar verir (saf fonksiyon).
-  // q: { options, multiSelect }, a: { sel:number[], customText, confirmed }, optIdx: number
-  // döndürür action: { type, ... }
-  //   'noop'            — geçersiz indeks
-  //   'select'          — { sel } yeni tekli seçim (armed)
-  //   'toggle'          — { sel } çoklu seçim listesi güncellendi
-  //   'popup'           — { optIdx, draft } custom düzenleyiciyi aç
-  //   'confirm'         — onayla ve ilerle
+  // Bir seçeneğe basıldığında ne yapılacağına karar verir (saf fonksiyon).
+  // binary: "Other" EKLEME; tek basışta {type:'select', sel:[optIdx]} döndür.
+  // single/multi: mevcut davranış korunur.
   function decideActivate(q, a, optIdx) {
-    var opts = q.options.concat([{ label: CUSTOM_LABEL, custom: true }]);
+    var t = qType(q);
+
+    // binary: sadece sel güncelle, armed/popup yok, app confirm+advance eder.
+    if (t === 'binary') {
+      var bOpts = (q.options && q.options.length === 2)
+        ? q.options
+        : [{ label: 'Evet' }, { label: 'Hayır' }];
+      if (optIdx < 0 || optIdx >= bOpts.length) return { type: 'noop' };
+      return { type: 'select', sel: [optIdx] };
+    }
+
+    var opts = (q.options || []).concat([{ label: CUSTOM_LABEL, custom: true }]);
     if (optIdx < 0 || optIdx >= opts.length) return { type: 'noop' };
     var isCustom = !!opts[optIdx].custom;
 
-    if (q.multiSelect) {
+    if (t === 'multi') {
       var inSel = a.sel.indexOf(optIdx) !== -1;
       if (inSel) {
         if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText };
         return { type: 'toggle', sel: a.sel.filter(function (i) { return i !== optIdx; }) };
       }
-      // Yeni custom: metin kaydedilene dek seçimi işaretleme; iptal edilirse hayalet
-      // seçili "Other" kalmasın (savePopup metin gelince sel'e ekler).
+      // Yeni custom: metin kaydedilene dek seçimi işaretleme.
       if (isCustom && !a.customText) return { type: 'popup', optIdx: optIdx, draft: '' };
       return { type: 'toggle', sel: a.sel.concat([optIdx]) };
     }
 
+    // single (ve degrade binary→single durumu)
     var armed = a.sel[0] === optIdx;
     if (!armed) return { type: 'select', sel: [optIdx] };
-    // armed: custom seçenekte her zaman düzenleyiciyi aç (ilk kez yaz veya mevcut metni düzenle)
     if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText || '' };
     return { type: 'confirm' };
   }
 
-  // Popup "kaydet" mantığı (saf): boş metin = custom seçimi kaldır, dolu = ekle/güncelle.
-  // a: { sel:number[], customText }, optIdx: custom indeksi, text: trim'lenmiş metin
+  // Popup "kaydet" mantığı (saf).
   function savePopupState(a, optIdx, text) {
     if (!text) {
       return { sel: a.sel.filter(function (i) { return i !== optIdx; }), customText: '' };
@@ -69,5 +133,150 @@
     return { sel: sel, customText: text };
   }
 
-  return { mapAnswers: mapAnswers, decideActivate: decideActivate, savePopupState: savePopupState };
+  // isAnswered: cevap verilmiş mi?
+  function isAnswered(q, a) {
+    if (!a) return false;
+    var t = qType(q);
+    if (t === 'single' || t === 'multi' || t === 'binary') {
+      return !!(a.sel && a.sel.length > 0);
+    }
+    if (t === 'scale') {
+      return a.value != null;
+    }
+    if (t === 'ranking') {
+      return !!(a.order && a.order.length > 0);
+    }
+    if (t === 'tree') {
+      if (!a.path || a.path.length === 0) return false;
+      var node = treeNodeAt(q, a.path);
+      return !!(node && isLeaf(node));
+    }
+    return false;
+  }
+
+  // summaryText: sidebar/özet için görüntü metni.
+  function summaryText(q, a) {
+    if (!a) return '';
+    var t = qType(q);
+
+    if (t === 'binary') {
+      if (!a.sel || a.sel.length === 0) return '';
+      var bOpts = (q.options && q.options.length === 2)
+        ? q.options
+        : [{ label: 'Evet' }, { label: 'Hayır' }];
+      return bOpts[a.sel[0]] ? bOpts[a.sel[0]].label : '';
+    }
+
+    if (t === 'scale') {
+      if (a.value == null) return '';
+      return a.value + ' / ' + q.max;
+    }
+
+    if (t === 'ranking') {
+      if (!a.order || a.order.length === 0) return '';
+      return a.order.map(function (i) { return q.options[i].label; }).join(' → ');
+    }
+
+    if (t === 'tree') {
+      if (!a.path || a.path.length === 0) return '';
+      var pathLabels = [];
+      var cur = q.options;
+      for (var pi = 0; pi < a.path.length; pi++) {
+        var node = cur[a.path[pi]];
+        if (!node) break;
+        pathLabels.push(node.label);
+        cur = node.children || [];
+      }
+      return pathLabels.join(' → ');
+    }
+
+    // single / multi
+    if (!a.sel || a.sel.length === 0) return '';
+    var opts = (q.options || []).concat([{ label: CUSTOM_LABEL, custom: true }]);
+    var labels = a.sel
+      .map(function (i) {
+        var o = opts[i];
+        if (!o) return '';
+        return o.custom ? (a.customText || '') : o.label;
+      })
+      .filter(function (x) { return x !== ''; });
+    return labels.join(', ');
+  }
+
+  // --- ranking saf yardımcılar ---
+
+  // moveRank: order dizisinde idx'deki elemanı dir (-1 yukarı, +1 aşağı) yönünde taşır.
+  // Sınır dışına çıkmaz; mutasyonsuz yeni dizi döndürür.
+  function moveRank(order, idx, dir) {
+    var arr = order.slice();
+    var target = idx + dir;
+    if (target < 0 || target >= arr.length) return arr;
+    var tmp = arr[idx];
+    arr[idx] = arr[target];
+    arr[target] = tmp;
+    return arr;
+  }
+
+  // initOrder: q.options için [0..n-1] başlangıç sırası.
+  function initOrder(q) {
+    return q.options.map(function (_, i) { return i; });
+  }
+
+  // --- scale saf yardımcı ---
+
+  // clampScale: v değerini min/max/step'e oturtulmuş sayı olarak döndürür.
+  function clampScale(q, v) {
+    var step = q.step || 1;
+    var clamped = Math.min(q.max, Math.max(q.min, v));
+    // step'e yuvarlama
+    var snapped = Math.round((clamped - q.min) / step) * step + q.min;
+    return Math.min(q.max, Math.max(q.min, snapped));
+  }
+
+  // --- tree saf yardımcılar ---
+
+  // treeNodeAt: path dizisine göre düğümü döndürür; bulunamazsa null.
+  function treeNodeAt(q, path) {
+    var cur = q.options;
+    var node = null;
+    for (var i = 0; i < path.length; i++) {
+      node = cur[path[i]];
+      if (!node) return null;
+      cur = node.children || [];
+    }
+    return node;
+  }
+
+  // treeChildrenAt: path konumundaki seviyenin şıkları (path boşsa kök).
+  function treeChildrenAt(q, path) {
+    if (!path || path.length === 0) return q.options;
+    var cur = q.options;
+    for (var i = 0; i < path.length; i++) {
+      var node = cur[path[i]];
+      if (!node) return [];
+      cur = node.children || [];
+    }
+    return cur;
+  }
+
+  // isLeaf: children'ı olmayan veya boş olan düğüm yapraktır (nihai cevap).
+  function isLeaf(node) {
+    return !node.children || node.children.length === 0;
+  }
+
+  return {
+    setEnabled: setEnabled,
+    qType: qType,
+    mapAnswers: mapAnswers,
+    decideActivate: decideActivate,
+    savePopupState: savePopupState,
+    isAnswered: isAnswered,
+    summaryText: summaryText,
+    moveRank: moveRank,
+    initOrder: initOrder,
+    clampScale: clampScale,
+    treeNodeAt: treeNodeAt,
+    treeChildrenAt: treeChildrenAt,
+    isLeaf: isLeaf,
+  };
 });

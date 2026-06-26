@@ -26,10 +26,12 @@ function Flow({ questions }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
 
-  // answers[question] = { sel:number[], confirmed, customText }
+  // answers[question] = { sel:number[], confirmed, customText, value, order, path }
   const [answers, setAnswers] = useState(() => {
     const a = {};
-    QUESTIONS.forEach((q) => { a[q.question] = { sel: [], confirmed: false, customText: "" }; });
+    QUESTIONS.forEach((q) => {
+      a[q.question] = { sel: [], confirmed: false, customText: "", value: null, order: null, path: null };
+    });
     return a;
   });
   const [current, setCurrent] = useState(0);
@@ -72,6 +74,12 @@ function Flow({ questions }) {
   const activate = useCallback((qIndex, optIdx) => {
     const q = QUESTIONS[qIndex];
     const a = ref.current.answers[q.question];
+    // binary: tek basış onay — sel set et + confirmed:true + ilerle (popup/armed yok).
+    if (AnswerMap.qType(q) === "binary") {
+      setQ(q.question, { sel: [optIdx], confirmed: true });
+      advance(qIndex);
+      return;
+    }
     const action = AnswerMap.decideActivate(q, a, optIdx);
     switch (action.type) {
       case "noop":
@@ -90,17 +98,44 @@ function Flow({ questions }) {
     }
   }, [setQ, advance, QUESTIONS]);
 
+  // onConfirm(qIndex, patch): genel onay — tüm tipler için çalışır.
+  // patch: kartın az önce uyguladığı değer (value/order/path). React setState async
+  // olduğundan ref.current henüz eski olabilir; patch'i merge ederek stale-ref'i aşarız
+  // (özellikle tree yaprak seçimi + dokunulmamış scale/ranking Enter). patch state'e de yazılır.
+  const onConfirm = useCallback((qIndex, patch) => {
+    const q = QUESTIONS[qIndex];
+    const a = { ...ref.current.answers[q.question], ...(patch || {}) };
+    if (!AnswerMap.isAnswered(q, a)) return;
+    const qtype = AnswerMap.qType(q);
+    // single/multi: "Other" seçili ama customText boşsa popup aç (B4 korunur).
+    if (qtype === "single" || qtype === "multi") {
+      const opts = fullOptions(q);
+      const customIdx = opts.length - 1;
+      if (a.sel.includes(customIdx) && !a.customText) {
+        setPopup({ qid: q.question, optIdx: customIdx, draft: "" });
+        return;
+      }
+    }
+    setQ(q.question, { ...(patch || {}), confirmed: true });
+    advance(qIndex);
+  }, [QUESTIONS, setQ, advance]);
+
   const confirmCurrent = useCallback(() => {
     const { current: cur } = ref.current;
     if (cur >= n) return;
     const q = QUESTIONS[cur];
     const a = ref.current.answers[q.question];
-    if (a.sel.length === 0) return;
-    const opts = fullOptions(q);
-    const customIdx = opts.length - 1;
-    if (a.sel.includes(customIdx) && !a.customText) {
-      setPopup({ qid: q.question, optIdx: customIdx, draft: "" });
-      return;
+    // AnswerMap.isAnswered ile koru (tüm tipler).
+    if (!AnswerMap.isAnswered(q, a)) return;
+    const qtype = AnswerMap.qType(q);
+    // single/multi: "Other" boş popup kontrolü korunur.
+    if (qtype === "single" || qtype === "multi") {
+      const opts = fullOptions(q);
+      const customIdx = opts.length - 1;
+      if (a.sel.includes(customIdx) && !a.customText) {
+        setPopup({ qid: q.question, optIdx: customIdx, draft: "" });
+        return;
+      }
     }
     setQ(q.question, { confirmed: true });
     advance(cur);
@@ -131,8 +166,9 @@ function Flow({ questions }) {
   }, []);
 
   // "u" kısayolu: yanıtlanmamış ilk soruya atla; hepsi yanıtlanmışsa Summary'ye git.
+  // AnswerMap.isAnswered ile koru (tüm tipler).
   const jumpToNextUnanswered = useCallback(() => {
-    const idx = QUESTIONS.findIndex((q) => ref.current.answers[q.question].sel.length === 0);
+    const idx = QUESTIONS.findIndex((q) => !AnswerMap.isAnswered(q, ref.current.answers[q.question]));
     goTo(idx === -1 ? n : idx, idx === -1 || idx > ref.current.current ? "right" : "left");
   }, [QUESTIONS, goTo, n]);
 
@@ -145,7 +181,14 @@ function Flow({ questions }) {
     const stateForMap = {};
     QUESTIONS.forEach((q) => {
       const a = ref.current.answers[q.question];
-      stateForMap[q.question] = { sel: a.sel, customText: a.customText };
+      // value/order/path yeni tipler için stateForMap'e eklenir.
+      stateForMap[q.question] = {
+        sel: a.sel,
+        customText: a.customText,
+        value: a.value,
+        order: a.order,
+        path: a.path,
+      };
     });
     return AnswerMap.mapAnswers(QUESTIONS, stateForMap);
   }, [QUESTIONS]);
@@ -169,9 +212,16 @@ function Flow({ questions }) {
       // Metin alanında (input, textarea) tuş yönlendirmesi: sadece ok tuşlarını ve Escape'i engelle.
       const inTextField = document.activeElement &&
         (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA");
-      if (e.key === "ArrowRight") { e.preventDefault(); goTo(Math.min(R.n, R.current + 1), "right"); }
-      else if (e.key === "ArrowLeft") { e.preventDefault(); goTo(Math.max(0, R.current - 1), "left"); }
-      else if (e.key === "Enter") {
+      // ←/→: metin alanındaysa (range input, arama kutusu) kaçır — kart kendi nav'ını yönetir.
+      if (e.key === "ArrowRight") {
+        if (inTextField) return;
+        e.preventDefault();
+        goTo(Math.min(R.n, R.current + 1), "right");
+      } else if (e.key === "ArrowLeft") {
+        if (inTextField) return;
+        e.preventDefault();
+        goTo(Math.max(0, R.current - 1), "left");
+      } else if (e.key === "Enter") {
         // Arama inputundayken Enter ile onay yok (input formu kontrolü).
         if (inTextField) return;
         e.preventDefault();
@@ -196,9 +246,12 @@ function Flow({ questions }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [goTo, confirmCurrent, activate, goBack, submit, jumpToNextUnanswered]);
 
-  // "answered" = en az bir şık seçili (sel) — gönderimle tutarlı (B16).
-  const answered = QUESTIONS.filter((q) => answers[q.question].sel.length > 0).length;
+  // "answered" = AnswerMap.isAnswered ile tüm tipler için doğru sayım (B16 + yeni tipler).
+  const answered = QUESTIONS.filter((q) => AnswerMap.isAnswered(q, answers[q.question])).length;
   const canSubmit = answered > 0;
+
+  // qid'e bağlı setQ helper: QuestionCard'a prop olarak geçilir.
+  const makeSetQ = useCallback((qid) => (patch) => setQ(qid, patch), [setQ]);
 
   return (
     <div className="app" data-panel="left" data-align="center">
@@ -218,7 +271,9 @@ function Flow({ questions }) {
           ) : (
             <QuestionCard key={QUESTIONS[current].question} q={QUESTIONS[current]}
                           qIndex={current} ans={answers[QUESTIONS[current].question]}
-                          motion="slide" dir={dir} onActivate={activate} />
+                          motion="slide" dir={dir} onActivate={activate}
+                          setQ={makeSetQ(QUESTIONS[current].question)}
+                          onConfirm={onConfirm} />
           )}
         </div>
         {!isSummary && <Hints q={QUESTIONS[current]} />}
@@ -238,6 +293,17 @@ function Flow({ questions }) {
       )}
     </div>
   );
+}
+
+// Boot: ayarlar varsa AnswerMap.setEnabled ile yeni tip toggleları uygula (reload'da okur).
+if (window.__ASKUSER_SETTINGS__) {
+  const s = window.__ASKUSER_SETTINGS__;
+  AnswerMap.setEnabled({
+    binary:  s.qtypeBinary  !== false,
+    scale:   s.qtypeScale   !== false,
+    ranking: s.qtypeRanking !== false,
+    tree:    s.qtypeTree    !== false,
+  });
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);

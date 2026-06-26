@@ -1,6 +1,6 @@
-/* global React, Check, Kbd, Brand, fullOptions */
+/* global React, Check, Kbd, Brand, fullOptions, AnswerMap */
 /* askuseroz · views — saf sunum bileşenleri (durumu prop ile alır, callback ile bildirir) */
-const { useEffect: useEffectView, useState: useStateView, useMemo: useMemoView } = React;
+const { useEffect: useEffectView, useState: useStateView, useMemo: useMemoView, useRef: useRefView } = React;
 
 /* Küçük ok ikonu (accordion chevron) */
 const ChevronRight = () => (
@@ -27,9 +27,14 @@ function Waiting() {
 function QItem({ q, i, answers, current, goTo }) {
   const a = answers[q.question];
   const state = a.confirmed ? "done" : (i === current ? "current" : "pending");
-  const opts = fullOptions(q);
   const answerText = a.confirmed
-    ? a.sel.map((s) => (opts[s].custom ? a.customText : opts[s].label)).join(", ") : "";
+    ? (typeof AnswerMap !== "undefined" && AnswerMap.summaryText
+        ? AnswerMap.summaryText(q, a)
+        : (() => {
+            const opts = fullOptions(q);
+            return a.sel.map((s) => (opts[s] && opts[s].custom ? a.customText : (opts[s] ? opts[s].label : ""))).join(", ");
+          })())
+    : "";
   return (
     <button key={q.question} className="qitem" data-active={i === current} data-state={state}
             onClick={() => goTo(i, i > current ? "right" : "left")}>
@@ -37,7 +42,7 @@ function QItem({ q, i, answers, current, goTo }) {
       <span className="qitem__body">
         <span className="qitem__header">{q.header}</span>
         <span className="qitem__q">{q.question}</span>
-        {a.confirmed && <span className="qitem__answer"><Check s={11} /> {answerText}</span>}
+        {a.confirmed && answerText && <span className="qitem__answer"><Check s={11} /> {answerText}</span>}
       </span>
     </button>
   );
@@ -159,13 +164,18 @@ function Sidebar({ QUESTIONS, answers, current, n, answered, isSummary, submitte
   const useLarge = n > ACCORDION_THRESHOLD;
 
   // Filtrelenmiş indeks kümesi (sadece large modda kullanılır).
+  // isAnswered varsa onu kullan; yoksa geriye uyumlu sel.length kontrolü.
   const filteredIndices = useMemoView(() => {
     if (!useLarge) return null;
-    const q = (searchQuery || "").toLowerCase().trim();
+    const qStr = (searchQuery || "").toLowerCase().trim();
     const set = new Set();
     QUESTIONS.forEach((question, i) => {
-      if (showUnanswered && answers[question.question].sel.length > 0) return;
-      if (q && !question.question.toLowerCase().includes(q)) return;
+      const a = answers[question.question];
+      const isAns = (typeof AnswerMap !== "undefined" && AnswerMap.isAnswered)
+        ? AnswerMap.isAnswered(question, a)
+        : (a.sel.length > 0);
+      if (showUnanswered && isAns) return;
+      if (qStr && !question.question.toLowerCase().includes(qStr)) return;
       set.add(i);
     });
     return set;
@@ -242,7 +252,51 @@ function Sidebar({ QUESTIONS, answers, current, n, answered, isSummary, submitte
   );
 }
 
+/* ─────────────────── ipuçları (qType'a göre) ─────────────────── */
 function Hints({ q }) {
+  const qType = (typeof AnswerMap !== "undefined" && AnswerMap.qType)
+    ? AnswerMap.qType(q)
+    : (q.type || (q.multiSelect ? "multi" : "single"));
+
+  if (qType === "scale") {
+    // Slider odaktayken ←/→ değeri ayarlar; sorular arası geçiş ↵ (onayla→ilerle) veya kenar çubuğu.
+    return (
+      <footer className="hints">
+        <span className="hint"><span className="kbd-group"><Kbd>←</Kbd><Kbd>→</Kbd></span> Ayarla</span>
+        <span className="hint"><Kbd>↵</Kbd> Onayla ve ilerle</span>
+      </footer>
+    );
+  }
+  if (qType === "ranking") {
+    return (
+      <footer className="hints">
+        <span className="hint"><span className="kbd-group"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> Taşı</span>
+        <span className="hint"><Kbd>↵</Kbd> Onayla</span>
+        <span className="hint__spacer" />
+        <span className="hint"><span className="kbd-group"><Kbd>←</Kbd><Kbd>→</Kbd></span> Navigate</span>
+      </footer>
+    );
+  }
+  if (qType === "tree") {
+    return (
+      <footer className="hints">
+        <span className="hint"><span className="kbd-group"><Kbd>1</Kbd>–<Kbd>9</Kbd></span> Seç</span>
+        <span className="hint"><Kbd>⌫</Kbd> Geri</span>
+        <span className="hint__spacer" />
+        <span className="hint"><Kbd>→</Kbd> İleri soru</span>
+      </footer>
+    );
+  }
+  if (qType === "binary") {
+    return (
+      <footer className="hints">
+        <span className="hint"><span className="kbd-group"><Kbd>1</Kbd><Kbd>2</Kbd></span> Seç</span>
+        <span className="hint__spacer" />
+        <span className="hint"><span className="kbd-group"><Kbd>←</Kbd><Kbd>→</Kbd></span> Navigate</span>
+      </footer>
+    );
+  }
+  // single / multi (mevcut)
   return (
     <footer className="hints">
       <span className="hint">
@@ -253,54 +307,423 @@ function Hints({ q }) {
           ? <><Kbd>↵</Kbd> Confirm selection</>
           : <><span style={{ color: "var(--fg-faint)" }}>press key again →</span> Confirm</>}
       </span>
-      <span className="hint"><Kbd>↵</Kbd> on “Other” to type</span>
+      <span className="hint"><Kbd>↵</Kbd> on "Other" to type</span>
       <span className="hint__spacer" />
       <span className="hint"><span className="kbd-group"><Kbd>←</Kbd><Kbd>→</Kbd></span> Navigate</span>
     </footer>
   );
 }
 
-/* ─────────────────── question card (referans birebir) ─────────────────── */
-function QuestionCard({ q, qIndex, ans, motion, dir, onActivate }) {
-  const opts = fullOptions(q);
+/* ─────────────────── BinaryCard ─────────────────── */
+function BinaryCard({ q, qIndex, ans, onActivate }) {
+  const opts = fullOptions(q); // binary için 2 şık (Evet/Hayır veya özel)
   return (
-    <div className="qcard" data-motion={motion} data-dir={dir}>
-      <div className="qcard__chip"><span className="dot" />{q.header}</div>
-      <h1 className="qcard__q">{q.question}</h1>
-      <p className="qcard__meta">
-        {q.multiSelect ? "Select all that apply." : "Select one option."} An “Other” choice is always available.
-      </p>
+    <div className="binary">
+      {opts.map((o, i) => {
+        const sel = ans.sel.includes(i);
+        const confirmed = ans.confirmed && sel;
+        return (
+          <button
+            key={i}
+            className="binary__opt"
+            data-sel={sel}
+            data-confirmed={confirmed}
+            onClick={() => onActivate(qIndex, i)}
+          >
+            <span className="opt__key">{i + 1}</span>
+            <span className="opt__label">{o.label}</span>
+            {sel && <span className="opt__check"><Check c={confirmed ? "var(--success)" : "var(--accent)"} /></span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─────────────────── ScaleCard ─────────────────── */
+function ScaleCard({ q, ans, qIndex, setQ, onConfirm }) {
+  const min = q.min != null ? q.min : 0;
+  const max = q.max != null ? q.max : 10;
+  const step = q.step != null ? q.step : 1;
+  // Görsel başlangıç: value ?? orta nokta — ama state'e null bırak (isAnswered value!=null bekler)
+  const displayValue = ans.value != null ? ans.value : Math.round((min + max) / 2);
+
+  const handleChange = (e) => {
+    const clamped = (typeof AnswerMap !== "undefined" && AnswerMap.clampScale)
+      ? AnswerMap.clampScale(q, +e.target.value)
+      : Math.min(max, Math.max(min, +e.target.value));
+    setQ({ value: clamped });
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.stopPropagation();
+      e.preventDefault();
+      // Dokunulmamış slider'da bile gösterilen değeri (orta nokta) onayla — patch ile geç (stale-ref'siz).
+      const committed = (typeof AnswerMap !== "undefined" && AnswerMap.clampScale)
+        ? AnswerMap.clampScale(q, displayValue)
+        : displayValue;
+      onConfirm(qIndex, { value: committed });
+    }
+  };
+
+  return (
+    <div className="scale">
+      <div className="scale__value" data-empty={ans.value == null}>{displayValue}</div>
+      <input
+        type="range"
+        className="scale__range"
+        min={min}
+        max={max}
+        step={step}
+        value={displayValue}
+        autoFocus
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+      />
+      <div className="scale__labels">
+        <span>{q.leftLabel || ""}</span>
+        <span>{q.rightLabel || ""}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────── RankingCard ─────────────────── */
+function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
+  const initOrder = (typeof AnswerMap !== "undefined" && AnswerMap.initOrder)
+    ? AnswerMap.initOrder(q)
+    : q.options.map((_, i) => i);
+  const order = ans.order || initOrder;
+
+  // cursor: hangi satır odakta (klavye ile gezilecek)
+  const [cursor, setCursor] = useStateView(0);
+  // grabbed: o satır "tutuldu mu" (Enter/Space ile kap/bırak)
+  const [grabbed, setGrabbed] = useStateView(false);
+
+  const moveRank = (idx, dir) => {
+    if (typeof AnswerMap !== "undefined" && AnswerMap.moveRank) {
+      return AnswerMap.moveRank(order, idx, dir);
+    }
+    const newOrder = [...order];
+    const target = idx + dir;
+    if (target < 0 || target >= newOrder.length) return newOrder;
+    [newOrder[idx], newOrder[target]] = [newOrder[target], newOrder[idx]];
+    return newOrder;
+  };
+
+  const handleKeyDown = (e) => {
+    // Sadece kartın kullandığı tuşları yut; ←/→ ve u/b app'e ulaşıp navigasyonu sürdürsün.
+    if (e.key === "ArrowUp") {
+      e.stopPropagation();
+      e.preventDefault();
+      if (grabbed) {
+        const newOrder = moveRank(cursor, -1);
+        setQ({ order: newOrder });
+        setCursor(Math.max(0, cursor - 1));
+      } else {
+        setCursor((c) => Math.max(0, c - 1));
+      }
+    } else if (e.key === "ArrowDown") {
+      e.stopPropagation();
+      e.preventDefault();
+      if (grabbed) {
+        const newOrder = moveRank(cursor, 1);
+        setQ({ order: newOrder });
+        setCursor(Math.min(order.length - 1, cursor + 1));
+      } else {
+        setCursor((c) => Math.min(order.length - 1, c + 1));
+      }
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.stopPropagation();
+      e.preventDefault();
+      if (grabbed) {
+        setGrabbed(false);
+      } else if (e.key === " ") {
+        setGrabbed(true);
+      } else {
+        // Enter kapalıyken → gösterilen sırayı onayla (dokunulmamışsa initOrder; patch ile stale-ref'siz).
+        onConfirm(qIndex, { order: order });
+      }
+    }
+  };
+
+  return (
+    <div
+      className="ranking"
+      tabIndex={0}
+      autoFocus
+      onKeyDown={handleKeyDown}
+    >
+      {order.map((optIdx, rankPos) => {
+        const opt = q.options[optIdx];
+        const isCursor = cursor === rankPos;
+        const isGrabbed = grabbed && isCursor;
+        return (
+          <div
+            key={optIdx}
+            className="rank-row"
+            data-cursor={isCursor}
+            data-grabbed={isGrabbed}
+          >
+            <span className="rank-row__badge">{rankPos + 1}</span>
+            <span className="opt__label">{opt ? opt.label : ""}</span>
+            <span className="rank-row__moves">
+              <button
+                className="rank-row__move"
+                tabIndex={-1}
+                disabled={rankPos === 0}
+                onClick={(e) => { e.stopPropagation(); setQ({ order: moveRank(rankPos, -1) }); }}
+                aria-label="Yukarı taşı"
+              >↑</button>
+              <button
+                className="rank-row__move"
+                tabIndex={-1}
+                disabled={rankPos === order.length - 1}
+                onClick={(e) => { e.stopPropagation(); setQ({ order: moveRank(rankPos, 1) }); }}
+                aria-label="Aşağı taşı"
+              >↓</button>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─────────────────── TreeCard ─────────────────── */
+function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
+  const path = ans.path || [];
+
+  const getChildren = (currentPath) => {
+    if (typeof AnswerMap !== "undefined" && AnswerMap.treeChildrenAt) {
+      return AnswerMap.treeChildrenAt(q, currentPath);
+    }
+    // Fallback: manuel gezinti
+    let nodes = q.options;
+    for (const idx of currentPath) {
+      if (!nodes || !nodes[idx]) return [];
+      nodes = nodes[idx].children || [];
+    }
+    return nodes || [];
+  };
+
+  const isLeafNode = (node) => {
+    if (typeof AnswerMap !== "undefined" && AnswerMap.isLeaf) {
+      return AnswerMap.isLeaf(node);
+    }
+    return !node.children || node.children.length === 0;
+  };
+
+  const getNodeAt = (currentPath) => {
+    if (typeof AnswerMap !== "undefined" && AnswerMap.treeNodeAt) {
+      return AnswerMap.treeNodeAt(q, currentPath);
+    }
+    if (currentPath.length === 0) return null;
+    let nodes = q.options;
+    let node = null;
+    for (const idx of currentPath) {
+      if (!nodes || !nodes[idx]) return null;
+      node = nodes[idx];
+      nodes = node.children || [];
+    }
+    return node;
+  };
+
+  const children = getChildren(path);
+
+  // Breadcrumb için yol etiketleri
+  const crumbs = path.map((_, depth) => {
+    const node = getNodeAt(path.slice(0, depth + 1));
+    return node ? node.label : "";
+  });
+
+  const handleSelect = (i) => {
+    const child = children[i];
+    if (!child) return;
+    const newPath = [...path, i];
+    if (isLeafNode(child)) {
+      // Yaprak → patch ile onayla (onConfirm path'i yazar + confirmed + ilerler; stale-ref yok).
+      onConfirm(qIndex, { path: newPath });
+    } else {
+      setQ({ path: newPath });
+    }
+  };
+
+  const handleBack = () => {
+    if (path.length > 0) {
+      setQ({ path: path.slice(0, -1) });
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    // Sadece kartın kullandığı tuşları yut; → (ileri) ve u/b app navigasyonuna geçsin.
+    if (e.key === "Backspace") {
+      e.stopPropagation();
+      e.preventDefault();
+      handleBack();
+    } else if (e.key === "ArrowLeft") {
+      if (path.length > 0) {
+        // Ağaç içinde geri: yut
+        e.stopPropagation();
+        e.preventDefault();
+        handleBack();
+      }
+      // Kökte iken: bubble → app-level ← soruyu geçsin
+    } else if (e.key === "Enter") {
+      e.stopPropagation();
+      e.preventDefault();
+      // Yaprak kontrolü: mevcut path bir yaprak ise onayla (patch ile path'i geç).
+      if (path.length > 0) {
+        const currentNode = getNodeAt(path);
+        if (currentNode && isLeafNode(currentNode)) {
+          onConfirm(qIndex, { path: path });
+        }
+      }
+    } else {
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= 9) {
+        e.stopPropagation();
+        e.preventDefault();
+        handleSelect(num - 1);
+      }
+    }
+  };
+
+  return (
+    <div
+      className="tree"
+      tabIndex={0}
+      autoFocus
+      onKeyDown={handleKeyDown}
+    >
+      {crumbs.length > 0 && (
+        <div className="tree__crumbs">
+          <button className="tree__crumb tree__back" onClick={handleBack} tabIndex={-1}>
+            ← Geri
+          </button>
+          {crumbs.map((label, i) => (
+            <button
+              key={i}
+              className="tree__crumb"
+              tabIndex={-1}
+              onClick={() => setQ({ path: path.slice(0, i + 1) })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="options">
-        {opts.map((o, i) => {
-          const sel = ans.sel.includes(i);
-          const confirmed = ans.confirmed && sel;
-          const isCustom = !!o.custom;
-          const showCustomVal = isCustom && ans.customText;
+        {children.map((child, i) => {
+          const isLeaf = isLeafNode(child);
           return (
-            <button key={i} className={"opt" + (isCustom ? " opt--custom" : "")}
-                    data-sel={sel} data-confirmed={confirmed} onClick={() => onActivate(qIndex, i)}>
+            <button
+              key={i}
+              className="opt"
+              data-sel={false}
+              data-confirmed={false}
+              onClick={() => handleSelect(i)}
+            >
               <span className="opt__key">{i + 1}</span>
               <span className="opt__body">
-                <span className="opt__label">
-                  {isCustom && showCustomVal
-                    ? <>Other <span className="custom-val">— “{ans.customText}”</span></>
-                    : o.label}
-                </span>
-                <span className="opt__desc">
-                  {isCustom
-                    ? (sel
-                        ? <span className="hint-edit">Press <Kbd>{i + 1}</Kbd> or <Kbd>↵</Kbd> to type your own answer.</span>
-                        : o.description)
-                    : o.description}
-                </span>
+                <span className="opt__label">{child.label}</span>
+                {child.description && <span className="opt__desc">{child.description}</span>}
               </span>
-              {q.multiSelect
-                ? <span className="opt__box">{sel && <Check c="#fff" s={12} />}</span>
-                : <span className="opt__check"><Check c={confirmed ? "var(--success)" : "var(--accent)"} /></span>}
+              {!isLeaf && <span className="opt__arrow">›</span>}
             </button>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────── question card dağıtıcı ─────────────────── */
+// props: { q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm }
+function QuestionCard({ q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm }) {
+  const qType = (typeof AnswerMap !== "undefined" && AnswerMap.qType)
+    ? AnswerMap.qType(q)
+    : (q.type || (q.multiSelect ? "multi" : "single"));
+
+  let cardBody;
+  switch (qType) {
+    case "binary":
+      cardBody = (
+        <BinaryCard q={q} qIndex={qIndex} ans={ans} onActivate={onActivate} />
+      );
+      break;
+    case "scale":
+      cardBody = (
+        <ScaleCard q={q} ans={ans} qIndex={qIndex} setQ={setQ} onConfirm={onConfirm} />
+      );
+      break;
+    case "ranking":
+      cardBody = (
+        <RankingCard q={q} ans={ans} qIndex={qIndex} setQ={setQ} onConfirm={onConfirm} />
+      );
+      break;
+    case "tree":
+      cardBody = (
+        <TreeCard q={q} ans={ans} qIndex={qIndex} setQ={setQ} onConfirm={onConfirm} />
+      );
+      break;
+    default: {
+      // single / multi — mevcut SelectCard gövdesi
+      const opts = fullOptions(q);
+      cardBody = (
+        <div className="options">
+          {opts.map((o, i) => {
+            const sel = ans.sel.includes(i);
+            const confirmed = ans.confirmed && sel;
+            const isCustom = !!o.custom;
+            const showCustomVal = isCustom && ans.customText;
+            return (
+              <button key={i} className={"opt" + (isCustom ? " opt--custom" : "")}
+                      data-sel={sel} data-confirmed={confirmed} onClick={() => onActivate(qIndex, i)}>
+                <span className="opt__key">{i + 1}</span>
+                <span className="opt__body">
+                  <span className="opt__label">
+                    {isCustom && showCustomVal
+                      ? <>Other <span className="custom-val">— "{ans.customText}"</span></>
+                      : o.label}
+                  </span>
+                  <span className="opt__desc">
+                    {isCustom
+                      ? (sel
+                          ? <span className="hint-edit">Press <Kbd>{i + 1}</Kbd> or <Kbd>↵</Kbd> to type your own answer.</span>
+                          : o.description)
+                      : o.description}
+                  </span>
+                </span>
+                {q.multiSelect
+                  ? <span className="opt__box">{sel && <Check c="#fff" s={12} />}</span>
+                  : <span className="opt__check"><Check c={confirmed ? "var(--success)" : "var(--accent)"} /></span>}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+  }
+
+  // meta metni qType'a göre
+  let metaText;
+  switch (qType) {
+    case "binary":   metaText = "Bir seçenek seçin."; break;
+    case "scale":    metaText = `${q.min ?? 0} – ${q.max ?? 10} arasında bir değer seçin.`; break;
+    case "ranking":  metaText = "Öğeleri öncelik sırasına göre düzenleyin."; break;
+    case "tree":     metaText = "Bir dal seçin; yaprak düğüme ulaşınca onaylanır."; break;
+    default:
+      metaText = q.multiSelect ? "Select all that apply. An \"Other\" choice is always available." : "Select one option. An \"Other\" choice is always available.";
+  }
+
+  return (
+    <div className="qcard" data-motion={motion} data-dir={dir}>
+      <div className="qcard__chip"><span className="dot" />{q.header}</div>
+      <h1 className="qcard__q">{q.question}</h1>
+      <p className="qcard__meta">{metaText}</p>
+      {cardBody}
     </div>
   );
 }
@@ -353,20 +776,25 @@ function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canS
       <div className="summary__list">
         {QUESTIONS.map((q, i) => {
           const a = answers[q.question];
-          const opts = fullOptions(q);
+          const summaryText = (typeof AnswerMap !== "undefined" && AnswerMap.summaryText)
+            ? AnswerMap.summaryText(q, a)
+            : (() => {
+                const opts = fullOptions(q);
+                if (!a.sel || a.sel.length === 0) return "";
+                return a.sel.map((s) => {
+                  const o = opts[s];
+                  return o ? (o.custom ? a.customText : o.label) : "";
+                }).filter(Boolean).join(", ");
+              })();
           return (
             <div className="srow" key={q.question}>
               <div className="srow__head">{q.header}</div>
               <div className="srow__val">
                 <div className="srow__q">{q.question}</div>
                 <div className="srow__a">
-                  {a.sel.length === 0
+                  {!summaryText
                     ? <span className="none">No answer yet</span>
-                    : a.sel.map((s) => {
-                        const o = opts[s];
-                        const val = o.custom ? a.customText : o.label;
-                        return <span key={s} className={"tag" + (o.custom ? " tag--custom" : "")}>{val}</span>;
-                      })}
+                    : <span className="tag">{summaryText}</span>}
                 </div>
               </div>
               <button className="srow__edit" onClick={() => onEdit(i)}>Edit</button>

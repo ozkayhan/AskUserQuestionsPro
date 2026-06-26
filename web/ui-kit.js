@@ -1,4 +1,4 @@
-/* global React */
+/* global React, AnswerMap */
 /* askuseroz · ui-kit — ikonlar, sabitler, saf yardımcılar (durumsuz, JSX) */
 
 const CUSTOM_LABEL = "Other";
@@ -22,7 +22,22 @@ const Brand = ({ s = 20 }) => (
   </svg>
 );
 
-// q.options + her zaman görünen "Other" şıkkı; Other son indekstir.
+// qType'a göre seçenek dizisi döndürür:
+// - single/multi: q.options + "Other" şıkkı (mevcut davranış)
+// - binary: q.options varsa aynen, yoksa [{Evet},{Hayır}] varsayılanı
+// - diğer tipler (scale/ranking/tree): q.options aynen (varsa)
 function fullOptions(q) {
-  return [...q.options, { label: CUSTOM_LABEL, description: CUSTOM_DESC, custom: true }];
+  const qType = (typeof AnswerMap !== "undefined" && AnswerMap.qType)
+    ? AnswerMap.qType(q)
+    : (q.type || (q.multiSelect ? "multi" : "single"));
+
+  if (qType === "single" || qType === "multi") {
+    return [...q.options, { label: CUSTOM_LABEL, description: CUSTOM_DESC, custom: true }];
+  }
+  if (qType === "binary") {
+    if (q.options && q.options.length === 2) return q.options;
+    return [{ label: "Evet" }, { label: "Hayır" }];
+  }
+  // scale'de options yok; ranking/tree'de q.options aynen
+  return q.options || [];
 }
