@@ -283,7 +283,7 @@ function Hints({ q }) {
         <span className="hint"><span className="kbd-group"><Kbd>1</Kbd>–<Kbd>9</Kbd></span> Seç</span>
         <span className="hint"><Kbd>⌫</Kbd> Geri</span>
         <span className="hint__spacer" />
-        <span className="hint"><span className="kbd-group"><Kbd>←</Kbd><Kbd>→</Kbd></span> Navigate</span>
+        <span className="hint"><Kbd>→</Kbd> İleri soru</span>
       </footer>
     );
   }
@@ -558,10 +558,18 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
 
   const handleKeyDown = (e) => {
     // Sadece kartın kullandığı tuşları yut; → (ileri) ve u/b app navigasyonuna geçsin.
-    if (e.key === "Backspace" || e.key === "ArrowLeft") {
+    if (e.key === "Backspace") {
       e.stopPropagation();
       e.preventDefault();
       handleBack();
+    } else if (e.key === "ArrowLeft") {
+      if (path.length > 0) {
+        // Ağaç içinde geri: yut
+        e.stopPropagation();
+        e.preventDefault();
+        handleBack();
+      }
+      // Kökte iken: bubble → app-level ← soruyu geçsin
     } else if (e.key === "Enter") {
       e.stopPropagation();
       e.preventDefault();

@@ -70,13 +70,17 @@
         if (!s.path || s.path.length === 0) return;
         var pathLabels = [];
         var cur = q.options;
+        var lastNode = null;
         for (var pi = 0; pi < s.path.length; pi++) {
           var node = cur[s.path[pi]];
           if (!node) break;
           pathLabels.push(node.label);
+          lastNode = node;
           cur = node.children || [];
         }
         if (pathLabels.length === 0) return;
+        // ponytail: yalnızca yaprak düğümde gönder — eksik yol göndermemek için
+        if (!lastNode || (lastNode.children && lastNode.children.length > 0)) return;
         out[q.question] = pathLabels;
       }
     });
