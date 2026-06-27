@@ -221,6 +221,27 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
 npm test   # node --test, zero dependencies
 ```
 
+## Release flow (maintainers)
+
+This project uses [Changesets](https://github.com/changesets/changesets) for automated versioning and publishing.
+
+1. **Add a changeset to your PR:**
+   ```bash
+   npx changeset   # select bump type (patch / minor / major), describe the change
+   ```
+   Commit the generated `.changeset/*.md` file alongside your PR.
+
+2. **Merge the PR to `main`.** The `release.yml` workflow runs and the Changesets bot opens (or updates) a **"Version Packages"** PR that bumps `package.json`, updates `CHANGELOG.md`, and removes consumed changesets.
+
+3. **Merge the Version Packages PR.** The workflow publishes to npm with provenance, creates a git tag, and generates a GitHub Release — all automatically.
+
+A PR merged without a changeset causes no release; it simply waits for the next Version Packages merge. Safe and idempotent.
+
+### Contributing
+
+- Run `npm run lint` and `npm run format:check` before opening a PR (CI enforces both).
+- Run `npm test` — tests use Node's built-in test runner, no extra dependencies.
+
 ## License
 
 MIT
