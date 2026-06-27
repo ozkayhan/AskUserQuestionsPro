@@ -7,7 +7,7 @@ const path = require('node:path');
 const MCP_PATH = path.join(__dirname, '..', 'mcp-server', 'askuserquestionspro-mcp.mjs');
 
 // MCP sunucusu spawn edilir; initialize + tools/list gönderilir, yanıtlar doğrulanır.
-test('mcp-server: initialize ve tools/list', async (t) => {
+test('mcp-server: initialize ve tools/list', async (_t) => {
   const child = spawn(process.execPath, [MCP_PATH], {
     stdio: ['pipe', 'pipe', 'pipe'],
   });

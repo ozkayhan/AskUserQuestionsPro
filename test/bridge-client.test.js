@@ -2,7 +2,6 @@
 // bridge-client.mjs ESM modülü olduğundan dynamic import() kullanılır.
 const test = require('node:test');
 const assert = require('node:assert');
-const http = require('node:http');
 const { server } = require('../server/server.js');
 
 let base;

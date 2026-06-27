@@ -141,7 +141,7 @@ async function handleAsk(args) {
 
 // Gelen JSON-RPC mesajını işle.
 async function handleMessage(msg) {
-  const { jsonrpc, id, method, params } = msg;
+  const { id, method, params } = msg;
 
   // Bildirim (id yok) — yanıt gönderme.
   if (id === undefined || id === null) {
