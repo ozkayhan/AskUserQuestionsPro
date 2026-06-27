@@ -46,7 +46,7 @@ function SettingRow({ entry, value, onChange }) {
 }
 
 function SettingsModal({ onClose }) {
-  const [baseline] = useStateSet(() => ({ ...currentSettings() }));
+  const [baseline, setBaseline] = useStateSet(() => ({ ...currentSettings() }));
   const [draft, setDraft] = useStateSet(() => ({ ...currentSettings() }));
   const [saved, setSaved] = useStateSet(false);
   const [saveError, setSaveError] = useStateSet(false);
@@ -67,8 +67,8 @@ function SettingsModal({ onClose }) {
   }
 
   function cancel() {
-    // draft'ı bırak, baseline'daki live ayarları geri uygula (önizlemeyi geri al).
-    Settings_Schema.applyAll(baseline);
+    // Kaydedilmişse revert etme — sadece önizleme yapılıp vazgeçilmişse geri al.
+    if (!saved) Settings_Schema.applyAll(baseline);
     onClose();
   }
 
@@ -86,6 +86,7 @@ function SettingsModal({ onClose }) {
         const reloadChanged = Settings_Schema.entries().some((e) =>
           e.applies === "reload" && res.settings[e.key] !== baseline[e.key]);
         setNeedsReload(reloadChanged);
+        setBaseline({ ...res.settings });
         setSaved(true);
       })
       .catch(() => { setSaved(false); setSaveError(true); });

@@ -225,7 +225,7 @@ process.stdin.on('end', () => {
   const trimmed = buffer.trim();
   if (trimmed) {
     let msg;
-    try { msg = JSON.parse(trimmed); } catch { return; }
+    try { msg = JSON.parse(trimmed); } catch (e) { process.stderr.write(`[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`); return; }
     handleMessage(msg).catch((e) => process.stderr.write(`[askuserquestionspro-mcp] son satır hatası: ${e}\n`));
   }
 });

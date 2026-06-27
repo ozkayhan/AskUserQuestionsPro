@@ -12,9 +12,11 @@ instance).
 Responsibilities:
 - Route the HTTP endpoints (see [api.md](api.md)).
 - Maintain `sseClients` (a `Set`) and `broadcastCurrent()` → push
-  `bridge.peek()` to every SSE client whenever state changes.
+  `bridge.peek()` to every SSE client whenever state changes. Each
+  `res.write()` is wrapped in try/catch; failed writes remove the dead
+  client from `sseClients`.
 - `validQuestions()` validates incoming question arrays.
-- `readBody()` reads request bodies with an 8 MB cap.
+- `readBody()` reads request bodies with an 8 MB cap (tracked by byte count, not character count; `req.destroy()` on overflow).
 - On client disconnect during an open `/ask`, call `bridge.cancel()` so the
   bridge isn't left blocked.
 - Path-traversal-safe static serving (resolved paths must stay under `web/`).
@@ -83,7 +85,9 @@ Executable `.mjs`. Flow:
 Fallback: any error / uncaught exception → `process.exit(0)`, letting Claude
 Code use its native picker. Never blocks.
 
-`buildHookOutput(toolInput, answers)` returns:
+`buildHookOutput(toolInput, answers)` filters `answers` to only keys that
+match a question in `toolInput.questions` (prevents stale/extra keys reaching
+Claude), then returns:
 
 ```js
 {
@@ -105,7 +109,9 @@ Exposes one tool, `ask` (full name `mcp__askuserquestionspro__ask`) — the
 
 Methods: `initialize`, `tools/list`, `tools/call`, `ping`. Notifications
 (`id === undefined`) are logged and ignored. Reads line-delimited JSON from
-STDIN, buffering partial lines.
+STDIN, buffering partial lines. On STDIN `end`, any trailing buffered line is
+flushed and attempted to parse; JSON parse errors there are logged to STDERR
+(not silently swallowed).
 
 `handleAsk(args)` imports `ensureServer/openBrowser/askBridge` from
 `lib/bridge-client.mjs`, ensures the server, opens the browser, and calls
@@ -135,6 +141,10 @@ Tool input schema: see [api.md](api.md).
   `added` / `already` / `conflict` (conflict = another `AskUserQuestion` hook
   already present).
 - `removeHook(settings, hookAbsPath)` → status `removed` / `absent`.
+- `readSettings(settingsPath)` → parsed object. ENOENT → returns `{}` (file
+  not yet created is normal). Other read errors or invalid JSON → throws loudly
+  so the caller isn't silently working from a corrupt baseline.
+- `writeSettings(settingsPath, settings)` → atomic write (mkdir -p + writeFile).
 - Hook entry: `matcher: 'AskUserQuestion'`, command `node "<hookAbsPath>"`,
   `timeout: 360`.
 

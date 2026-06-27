@@ -16,7 +16,6 @@ Start here to navigate. Real paths; "to change X, go to Y".
 ├── install.sh            curl|bash installer
 ├── package.json          npm manifest, bin entries, scripts
 ├── .github/workflows/    CI
-├── docs/                 Turkish user/design docs (historical)
 ├── living_docs/          Turkish architecture/purpose/themes notes
 ├── design-reference/     original design prototype + screenshots (not runtime)
 └── valid-docs/           ← you are here (English, code-verified)
@@ -64,6 +63,6 @@ Loaded by `web/index.html` in order: vendor libs → app files (`type="text/babe
 
 - `design-reference/` — original prototype (`app.jsx`, `styles.css`,
   screenshots) used to design the UI; not loaded at runtime.
-- `docs/`, `living_docs/`, `CODEMAP.md`, `BUG-REPORT.md`,
+- `living_docs/`, `CODEMAP.md`, `BUG-REPORT.md`,
   `PERFECT-V1-FINAL-RESOLUTION-SPRINT-REPORT.md` — Turkish documentation and
   historical reports.
