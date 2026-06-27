@@ -31,7 +31,17 @@
     "test": "node --test",
     "serve": "node server/server.js",
     "mcp": "node mcp-server/askuserquestionspro-mcp.mjs",
-    "install-hook": "node bin/cli.js install"
+    "install-hook": "node bin/cli.js install",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "changeset publish",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "engines": {
     "node": ">=18"
@@ -44,5 +54,13 @@
     "cli",
     "amoled"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "eslint": "^9.15.0",
+    "@eslint/js": "^9.15.0",
+    "globals": "^15.12.0",
+    "prettier": "^3.3.3",
+    "eslint-config-prettier": "^9.1.0"
+  }
 }
