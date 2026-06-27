@@ -129,7 +129,7 @@ async function handleAsk(args) {
 
   let answers;
   try {
-    answers = await askBridge(args.questions, { timeoutMs: 30 * 60 * 1000 });
+    answers = await askBridge(args.questions, { timeoutMs: 60 * 60 * 1000 });
   } catch {
     return {
       content: [
