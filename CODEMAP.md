@@ -85,23 +85,23 @@ askuseroz/
 
 ## "X'i değiştirmek istiyorum" → hangi dosya?
 
-| İstediğin | Git buraya |
-|-----------|-----------|
-| Arayüzün **görünümü/teması** (renk, boşluk, font) | `web/styles.css` |
-| Bir şıka basınca **ne olacağı** (seç/onayla/popup mantığı) | `web/answer-map.js` (`decideActivate`) |
-| Cevapların **Claude'a hangi şekilde** döneceği | `web/answer-map.js` (`mapAnswers`) + `hooks/hook-output.js` |
-| **Klavye kısayolları**, soru akışı, gönderim | `web/app.js` (`Flow` içindeki `onKey`/`activate`/`submit`) |
-| Bir **bileşenin işaretlemesi** (sidebar, kart, popup, özet) | `web/views.js` |
-| **İkon** veya ortak sabit eklemek | `web/ui-kit.js` |
-| **Yeni HTTP ucu** veya SSE davranışı | `server/server.js` |
-| Soru/cevap **randevu mantığı** (eşzamanlılık, iptal) | `server/bridge.js` |
-| Hook'un **Claude ile sözleşmesi**, fallback davranışı | `hooks/askuserquestionspro-bridge.mjs` + `hooks/hook-output.js` |
-| **MCP aracının şeması** veya araç açıklaması | `mcp-server/askuserquestionspro-mcp.mjs` |
-| **Sunucu başlatma / tarayıcı açma** (hook ve MCP arasında ortak) | `lib/bridge-client.mjs` |
-| **MCP proje kaydı** (timeout, path) | `.mcp.json` |
-| **ASKUI_FORCE_MCP** davranışı (deny → MCP yönlendirmesi) | `hooks/askuserquestionspro-bridge.mjs` |
-| **Kurulum** akışı, port, settings.json, MCP kaydı | `install.sh` (port: `ASKUSER_PORT`, varsayılan 4517) |
-| Yeni script eklersen **yükleme sırası** | `web/index.html` (ui-kit → live → views → app sırası şart) |
+| İstediğin                                                        | Git buraya                                                      |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| Arayüzün **görünümü/teması** (renk, boşluk, font)                | `web/styles.css`                                                |
+| Bir şıka basınca **ne olacağı** (seç/onayla/popup mantığı)       | `web/answer-map.js` (`decideActivate`)                          |
+| Cevapların **Claude'a hangi şekilde** döneceği                   | `web/answer-map.js` (`mapAnswers`) + `hooks/hook-output.js`     |
+| **Klavye kısayolları**, soru akışı, gönderim                     | `web/app.js` (`Flow` içindeki `onKey`/`activate`/`submit`)      |
+| Bir **bileşenin işaretlemesi** (sidebar, kart, popup, özet)      | `web/views.js`                                                  |
+| **İkon** veya ortak sabit eklemek                                | `web/ui-kit.js`                                                 |
+| **Yeni HTTP ucu** veya SSE davranışı                             | `server/server.js`                                              |
+| Soru/cevap **randevu mantığı** (eşzamanlılık, iptal)             | `server/bridge.js`                                              |
+| Hook'un **Claude ile sözleşmesi**, fallback davranışı            | `hooks/askuserquestionspro-bridge.mjs` + `hooks/hook-output.js` |
+| **MCP aracının şeması** veya araç açıklaması                     | `mcp-server/askuserquestionspro-mcp.mjs`                        |
+| **Sunucu başlatma / tarayıcı açma** (hook ve MCP arasında ortak) | `lib/bridge-client.mjs`                                         |
+| **MCP proje kaydı** (timeout, path)                              | `.mcp.json`                                                     |
+| **ASKUI_FORCE_MCP** davranışı (deny → MCP yönlendirmesi)         | `hooks/askuserquestionspro-bridge.mjs`                          |
+| **Kurulum** akışı, port, settings.json, MCP kaydı                | `install.sh` (port: `ASKUSER_PORT`, varsayılan 4517)            |
+| Yeni script eklersen **yükleme sırası**                          | `web/index.html` (ui-kit → live → views → app sırası şart)      |
 
 ---
 
@@ -118,7 +118,7 @@ askuseroz/
 4. **Saf mantığı saf tut.** `answer-map.js`, `bridge.js`, `hook-output.js` I/O'suz
    ve test'li; mantık eklerken aynı dosyada kal ve `test/`'e test yaz.
 5. **`web/index.html` script sırası** bağımlılık zinciridir: `answer-map → ui-kit
-   → live → views → app`. Klasik script'ler global scope paylaşır; isim çakışması
+→ live → views → app`. Klasik script'ler global scope paylaşır; isim çakışması
    = `SyntaxError` (bu yüzden `live.js`/`views.js` hook'ları alias'lar).
 
 ---

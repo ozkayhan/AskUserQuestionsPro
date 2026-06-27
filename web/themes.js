@@ -9,17 +9,43 @@
   // styles.css :root bloğundaki tokenlarla birebir aynı olmalı; test bunu
   // doğrular. Bir temada burada olmayan bir anahtar = yazım hatası.
   var KNOWN_TOKENS = [
-    '--bg', '--surface-1', '--surface-2', '--surface-3',
-    '--border', '--border-strong', '--border-faint',
-    '--fg', '--fg-muted', '--fg-subtle', '--fg-faint',
-    '--accent', '--accent-fg', '--accent-soft', '--accent-line',
-    '--success', '--success-soft',
-    '--radius', '--radius-sm', '--radius-lg',
-    '--motion-ms', '--ease',
-    '--font-sans', '--font-mono', '--font-display',
-    '--shadow-pop', '--shadow-popup', '--shadow-toast', '--shadow-key',
-    '--overlay-bg', '--overlay-blur', '--surface-blur',
-    '--texture', '--selection-bg', '--sidebar-bg', '--opt-bg-sel', '--progress-glow'
+    '--bg',
+    '--surface-1',
+    '--surface-2',
+    '--surface-3',
+    '--border',
+    '--border-strong',
+    '--border-faint',
+    '--fg',
+    '--fg-muted',
+    '--fg-subtle',
+    '--fg-faint',
+    '--accent',
+    '--accent-fg',
+    '--accent-soft',
+    '--accent-line',
+    '--success',
+    '--success-soft',
+    '--radius',
+    '--radius-sm',
+    '--radius-lg',
+    '--motion-ms',
+    '--ease',
+    '--font-sans',
+    '--font-mono',
+    '--font-display',
+    '--shadow-pop',
+    '--shadow-popup',
+    '--shadow-toast',
+    '--shadow-key',
+    '--overlay-bg',
+    '--overlay-blur',
+    '--surface-blur',
+    '--texture',
+    '--selection-bg',
+    '--sidebar-bg',
+    '--opt-bg-sel',
+    '--progress-glow',
   ];
 
   // ── registry ──────────────────────────────────────────────────────
@@ -32,7 +58,7 @@
       name: 'AMOLED',
       swatch: { bg: '#000000', accent: '#0070f3' },
       font: null,
-      tokens: {}
+      tokens: {},
     },
     {
       id: 'paper',
@@ -72,8 +98,8 @@
         '--selection-bg': 'rgba(178,66,48,0.16)',
         '--sidebar-bg': 'var(--surface-1)',
         '--opt-bg-sel': 'linear-gradient(180deg, var(--accent-soft), transparent)',
-        '--progress-glow': 'none'
-      }
+        '--progress-glow': 'none',
+      },
     },
     {
       id: 'phosphor',
@@ -109,12 +135,13 @@
         '--shadow-key': 'inset 0 -2px 0 rgba(0,0,0,0.60)',
         '--overlay-bg': 'rgba(0,8,0,0.72)',
         '--overlay-blur': '1px',
-        '--texture': 'repeating-linear-gradient(0deg, rgba(57,255,20,0.045) 0px, rgba(57,255,20,0.045) 1px, transparent 1px, transparent 3px)',
+        '--texture':
+          'repeating-linear-gradient(0deg, rgba(57,255,20,0.045) 0px, rgba(57,255,20,0.045) 1px, transparent 1px, transparent 3px)',
         '--selection-bg': 'rgba(57,255,20,0.28)',
         '--sidebar-bg': '#070b07',
         '--opt-bg-sel': 'linear-gradient(180deg, rgba(57,255,20,0.10), transparent)',
-        '--progress-glow': '0 0 14px rgba(57,255,20,0.70)'
-      }
+        '--progress-glow': '0 0 14px rgba(57,255,20,0.70)',
+      },
     },
     {
       id: 'dusk',
@@ -154,8 +181,8 @@
         '--selection-bg': 'rgba(240,168,48,0.18)',
         '--sidebar-bg': 'linear-gradient(180deg, var(--surface-1), var(--bg) 65%)',
         '--opt-bg-sel': 'linear-gradient(180deg, var(--accent-soft), transparent)',
-        '--progress-glow': '0 0 14px var(--accent-line)'
-      }
+        '--progress-glow': '0 0 14px var(--accent-line)',
+      },
     },
     {
       id: 'aurora',
@@ -192,38 +219,51 @@
         '--surface-blur': 'blur(14px) saturate(1.4)',
         '--overlay-bg': 'rgba(8,6,25,0.60)',
         '--overlay-blur': '6px',
-        '--texture': 'radial-gradient(circle at 18% 8%, rgba(139,92,246,0.22), transparent 40%), radial-gradient(circle at 84% 82%, rgba(45,212,191,0.16), transparent 44%)',
+        '--texture':
+          'radial-gradient(circle at 18% 8%, rgba(139,92,246,0.22), transparent 40%), radial-gradient(circle at 84% 82%, rgba(45,212,191,0.16), transparent 44%)',
         '--selection-bg': 'rgba(139,92,246,0.30)',
         '--sidebar-bg': 'linear-gradient(180deg, rgba(28,24,60,0.55), rgba(10,10,31,0.30) 70%)',
         '--opt-bg-sel': 'linear-gradient(180deg, rgba(139,92,246,0.22), transparent)',
-        '--progress-glow': '0 0 16px rgba(139,92,246,0.70)'
-      }
-    }
+        '--progress-glow': '0 0 16px rgba(139,92,246,0.70)',
+      },
+    },
   ];
 
   var DEFAULT_ID = 'amoled';
   var STORAGE_KEY = 'askuserquestionspro_theme';
 
   var BY_ID = {};
-  LIST.forEach(function (t) { BY_ID[t.id] = t; });
+  LIST.forEach(function (t) {
+    BY_ID[t.id] = t;
+  });
 
   // Tüm temalarda kullanılan anahtarların birleşimi — apply() reset için.
   var USED_KEYS = (function () {
     var set = {};
     LIST.forEach(function (t) {
-      Object.keys(t.tokens).forEach(function (k) { set[k] = true; });
+      Object.keys(t.tokens).forEach(function (k) {
+        set[k] = true;
+      });
     });
     return Object.keys(set);
   })();
 
-  function get(id) { return BY_ID[id] || BY_ID[DEFAULT_ID]; }
+  function get(id) {
+    return BY_ID[id] || BY_ID[DEFAULT_ID];
+  }
 
   function read() {
     // 0) Server'ın inject ettiği disk ayarı — en yüksek öncelik (kalıcı, makine-bazlı).
     try {
-      if (typeof window !== 'undefined' && window.__ASKUSER_SETTINGS__ &&
-          BY_ID[window.__ASKUSER_SETTINGS__.theme]) return window.__ASKUSER_SETTINGS__.theme;
-    } catch (e) { /* yok say */ }
+      if (
+        typeof window !== 'undefined' &&
+        window.__ASKUSER_SETTINGS__ &&
+        BY_ID[window.__ASKUSER_SETTINGS__.theme]
+      )
+        return window.__ASKUSER_SETTINGS__.theme;
+    } catch (e) {
+      /* yok say */
+    }
     // 1) ?theme=<id> başlangıç override'ı (paylaşılabilir link / test) — picker'ı
     //    kaldırmaz, seçim yine kalıcı ve değiştirilebilir kalır.
     try {
@@ -231,23 +271,32 @@
         var m = /[?&]theme=([^&]+)/.exec(location.search);
         if (m && BY_ID[decodeURIComponent(m[1])]) return decodeURIComponent(m[1]);
       }
-    } catch (e) { /* yok say */ }
+    } catch (e) {
+      /* yok say */
+    }
     // 2) localStorage'taki son seçim
     try {
-      var id = (typeof localStorage !== 'undefined') && localStorage.getItem(STORAGE_KEY);
+      var id = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY);
       return BY_ID[id] ? id : DEFAULT_ID;
-    } catch (e) { return DEFAULT_ID; }
+    } catch (e) {
+      return DEFAULT_ID;
+    }
   }
 
   var currentId = DEFAULT_ID;
-  function current() { return currentId; }
+  function current() {
+    return currentId;
+  }
 
   // Google Fonts <link>'ini tema fontuna göre enjekte/değiştir/kaldır.
   function swapFont(font) {
     if (typeof document === 'undefined') return;
     var id = 'askuserquestionspro-theme-font';
     var link = document.getElementById(id);
-    if (!font) { if (link) link.remove(); return; }
+    if (!font) {
+      if (link) link.remove();
+      return;
+    }
     var href = 'https://fonts.googleapis.com/css2?family=' + font + '&display=swap';
     if (!link) {
       link = document.createElement('link');
@@ -265,7 +314,9 @@
     currentId = theme.id;
     if (typeof document !== 'undefined') {
       var root = document.documentElement;
-      USED_KEYS.forEach(function (k) { root.style.removeProperty(k); });
+      USED_KEYS.forEach(function (k) {
+        root.style.removeProperty(k);
+      });
       Object.keys(theme.tokens).forEach(function (k) {
         root.style.setProperty(k, theme.tokens[k]);
       });
@@ -274,7 +325,9 @@
     }
     try {
       if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, theme.id);
-    } catch (e) { /* yok say */ }
+    } catch (e) {
+      /* yok say */
+    }
     return theme.id;
   }
 
@@ -288,6 +341,6 @@
     get: get,
     DEFAULT_ID: DEFAULT_ID,
     KNOWN_TOKENS: KNOWN_TOKENS,
-    STORAGE_KEY: STORAGE_KEY
+    STORAGE_KEY: STORAGE_KEY,
   };
 });

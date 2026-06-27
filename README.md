@@ -63,13 +63,13 @@ askuserquestionspro install
 
 ### CLI commands
 
-| Command | What it does |
-|---------|--------------|
-| `askuserquestionspro install` | Adds the hook to `~/.claude/settings.json` and registers the MCP server |
-| `askuserquestionspro uninstall` | Removes the hook |
-| `askuserquestionspro serve` | Runs the bridge in the foreground for debugging (port 4517) |
-| `askuserquestionspro mcp` | Starts the MCP server manually (for debugging or manual registration) |
-| `askuserquestionspro doctor` | Checks hook installation, hook file, bridge health, and MCP registration |
+| Command                         | What it does                                                             |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `askuserquestionspro install`   | Adds the hook to `~/.claude/settings.json` and registers the MCP server  |
+| `askuserquestionspro uninstall` | Removes the hook                                                         |
+| `askuserquestionspro serve`     | Runs the bridge in the foreground for debugging (port 4517)              |
+| `askuserquestionspro mcp`       | Starts the MCP server manually (for debugging or manual registration)    |
+| `askuserquestionspro doctor`    | Checks hook installation, hook file, bridge health, and MCP registration |
 
 The same `serve` step is available via `npm run serve`, and `npm run install-hook` runs `askuserquestionspro install`.
 
@@ -103,8 +103,15 @@ Answers come back to the model as a normal tool-result. The routing guidance liv
 A repo-root `.mcp.json` provides project-scoped registration for development use:
 
 ```json
-{ "mcpServers": { "askuserquestionspro": { "command": "node", "args": ["mcp-server/askuserquestionspro-mcp.mjs"],
-                              "timeout": 3600000 } } }
+{
+  "mcpServers": {
+    "askuserquestionspro": {
+      "command": "node",
+      "args": ["mcp-server/askuserquestionspro-mcp.mjs"],
+      "timeout": 3600000
+    }
+  }
+}
 ```
 
 The `askuserquestionspro doctor` command reports whether the MCP server is registered.
@@ -131,12 +138,12 @@ When set, the `PreToolUse` hook returns a `permissionDecision: "deny"` with a me
 
 When a question set has more than 8 questions, the UI activates additional navigation features automatically. At 8 or fewer questions, the UI is visually unchanged.
 
-| Feature | Description |
-|---------|-------------|
-| **Accordion sections** | The sidebar groups questions by their `header` field into collapsible sections, each showing an answered/total count. |
-| **Search + filter** | A text filter box searches question text; a "show only unanswered" toggle narrows the list. |
-| **Jump to next unanswered** | Press `u` (or the sidebar button) to jump instantly to the next question without an answer. |
-| **Skip remaining & review** | A bulk button goes straight to the Review screen without stepping through every remaining question. |
+| Feature                     | Description                                                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Accordion sections**      | The sidebar groups questions by their `header` field into collapsible sections, each showing an answered/total count. |
+| **Search + filter**         | A text filter box searches question text; a "show only unanswered" toggle narrows the list.                           |
+| **Jump to next unanswered** | Press `u` (or the sidebar button) to jump instantly to the next question without an answer.                           |
+| **Skip remaining & review** | A bulk button goes straight to the Review screen without stepping through every remaining question.                   |
 
 No new dependencies, no build step, no new CSS design tokens.
 
@@ -158,30 +165,30 @@ Keep the browser tab open across a session — it waits for the next question an
 
 The UI ships with **5 distinct themes** — not just recolors, but full design-token swaps covering color, fonts, shadows, corner radius, texture, motion, and glass/blur effects. Switch between them from the **Theme** picker at the bottom of the sidebar; your choice is saved to `localStorage` and restored on the next launch. You can also force a starting theme with a `?theme=<id>` URL parameter (handy for sharing or testing — it doesn't remove the picker).
 
-| Theme | Character |
-|-------|-----------|
-| **AMOLED** | Pure black, blue accent, Geist — the default |
-| **Paper** | Warm off-white, Newsreader serif headings, terracotta accent, sharp corners, flat |
-| **Phosphor** | CRT green, full monospace (Geist Mono), square corners, scanline texture + glow |
-| **Dusk** | Warm charcoal, amber accent, rounded corners, soft shadows |
-| **Aurora** | Indigo glassmorphism, violet/cyan, blur + translucent surfaces, large radius |
+| Theme        | Character                                                                         |
+| ------------ | --------------------------------------------------------------------------------- |
+| **AMOLED**   | Pure black, blue accent, Geist — the default                                      |
+| **Paper**    | Warm off-white, Newsreader serif headings, terracotta accent, sharp corners, flat |
+| **Phosphor** | CRT green, full monospace (Geist Mono), square corners, scanline texture + glow   |
+| **Dusk**     | Warm charcoal, amber accent, rounded corners, soft shadows                        |
+| **Aurora**   | Indigo glassmorphism, violet/cyan, blur + translucent surfaces, large radius      |
 
 Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every other theme carries only its **delta** (token overrides) — roughly 15–30 lines each. Adding a new theme means appending one object to the registry.
 
 ## Keyboard shortcuts
 
-| Key | Action |
-|-----|--------|
-| `1`–`9` | Select the option at that index |
-| same key again | Confirm a single-select choice |
-| `Enter` | Confirm a multi-select; submit on the Review screen |
-| `Enter` on **Other** | Open the text area to type a free-form answer |
-| `Enter` in text area | Save the answer |
-| `Shift`+`Enter` in text area | Insert a new line |
-| `Esc` in text area | Cancel |
-| `←` / `→` | Navigate between questions |
-| `B` | (Review screen) Go back to unanswered questions |
-| `U` | (Large sets, N > 8) Jump to the next unanswered question |
+| Key                          | Action                                                   |
+| ---------------------------- | -------------------------------------------------------- |
+| `1`–`9`                      | Select the option at that index                          |
+| same key again               | Confirm a single-select choice                           |
+| `Enter`                      | Confirm a multi-select; submit on the Review screen      |
+| `Enter` on **Other**         | Open the text area to type a free-form answer            |
+| `Enter` in text area         | Save the answer                                          |
+| `Shift`+`Enter` in text area | Insert a new line                                        |
+| `Esc` in text area           | Cancel                                                   |
+| `←` / `→`                    | Navigate between questions                               |
+| `B`                          | (Review screen) Go back to unanswered questions          |
+| `U`                          | (Large sets, N > 8) Jump to the next unanswered question |
 
 ## Configuration
 
@@ -195,7 +202,11 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
         {
           "matcher": "AskUserQuestion",
           "hooks": [
-            { "type": "command", "command": "node \"/path/to/askuserquestionspro-bridge.mjs\"", "timeout": 360 }
+            {
+              "type": "command",
+              "command": "node \"/path/to/askuserquestionspro-bridge.mjs\"",
+              "timeout": 360
+            }
           ]
         }
       ]
@@ -220,6 +231,29 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
 ```bash
 npm test   # node --test, zero dependencies
 ```
+
+## Release flow (maintainers)
+
+This project uses [Changesets](https://github.com/changesets/changesets) for automated versioning and publishing.
+
+1. **Add a changeset to your PR:**
+
+   ```bash
+   npx changeset   # select bump type (patch / minor / major), describe the change
+   ```
+
+   Commit the generated `.changeset/*.md` file alongside your PR.
+
+2. **Merge the PR to `main`.** The `release.yml` workflow runs and the Changesets bot opens (or updates) a **"Version Packages"** PR that bumps `package.json`, updates `CHANGELOG.md`, and removes consumed changesets.
+
+3. **Merge the Version Packages PR.** The workflow publishes to npm with provenance, creates a git tag, and generates a GitHub Release — all automatically.
+
+A PR merged without a changeset causes no release; it simply waits for the next Version Packages merge. Safe and idempotent.
+
+### Contributing
+
+- Run `npm run lint` and `npm run format:check` before opening a PR (CI enforces both).
+- Run `npm test` — tests use Node's built-in test runner, no extra dependencies.
 
 ## License
 

@@ -43,29 +43,28 @@
           .map(function (i) {
             var o = opts[i];
             if (!o) return '';
-            return o.custom ? (s.customText || '') : o.label;
+            return o.custom ? s.customText || '' : o.label;
           })
-          .filter(function (x) { return x !== ''; });
+          .filter(function (x) {
+            return x !== '';
+          });
         if (labels.length === 0) return;
         out[q.question] = t === 'multi' ? labels : labels[0];
-
       } else if (t === 'binary') {
         if (!s.sel || s.sel.length === 0) return;
-        var bOpts = (q.options && q.options.length === 2)
-          ? q.options
-          : [{ label: 'Evet' }, { label: 'Hayır' }];
+        var bOpts =
+          q.options && q.options.length === 2 ? q.options : [{ label: 'Evet' }, { label: 'Hayır' }];
         var bLabel = bOpts[s.sel[0]] ? bOpts[s.sel[0]].label : '';
         if (!bLabel) return;
         out[q.question] = bLabel;
-
       } else if (t === 'scale') {
         if (s.value == null) return;
         out[q.question] = s.value;
-
       } else if (t === 'ranking') {
         if (!s.order || s.order.length === 0) return;
-        out[q.question] = s.order.map(function (i) { return q.options[i].label; });
-
+        out[q.question] = s.order.map(function (i) {
+          return q.options[i].label;
+        });
       } else if (t === 'tree') {
         if (!s.path || s.path.length === 0) return;
         var pathLabels = [];
@@ -95,9 +94,8 @@
 
     // binary: sadece sel güncelle, armed/popup yok, app confirm+advance eder.
     if (t === 'binary') {
-      var bOpts = (q.options && q.options.length === 2)
-        ? q.options
-        : [{ label: 'Evet' }, { label: 'Hayır' }];
+      var bOpts =
+        q.options && q.options.length === 2 ? q.options : [{ label: 'Evet' }, { label: 'Hayır' }];
       if (optIdx < 0 || optIdx >= bOpts.length) return { type: 'noop' };
       return { type: 'select', sel: [optIdx] };
     }
@@ -110,7 +108,12 @@
       var inSel = a.sel.indexOf(optIdx) !== -1;
       if (inSel) {
         if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText };
-        return { type: 'toggle', sel: a.sel.filter(function (i) { return i !== optIdx; }) };
+        return {
+          type: 'toggle',
+          sel: a.sel.filter(function (i) {
+            return i !== optIdx;
+          }),
+        };
       }
       // Yeni custom: metin kaydedilene dek seçimi işaretleme.
       if (isCustom && !a.customText) return { type: 'popup', optIdx: optIdx, draft: '' };
@@ -127,7 +130,12 @@
   // Popup "kaydet" mantığı (saf).
   function savePopupState(a, optIdx, text) {
     if (!text) {
-      return { sel: a.sel.filter(function (i) { return i !== optIdx; }), customText: '' };
+      return {
+        sel: a.sel.filter(function (i) {
+          return i !== optIdx;
+        }),
+        customText: '',
+      };
     }
     var sel = a.sel.indexOf(optIdx) === -1 ? a.sel.concat([optIdx]) : a.sel;
     return { sel: sel, customText: text };
@@ -161,9 +169,8 @@
 
     if (t === 'binary') {
       if (!a.sel || a.sel.length === 0) return '';
-      var bOpts = (q.options && q.options.length === 2)
-        ? q.options
-        : [{ label: 'Evet' }, { label: 'Hayır' }];
+      var bOpts =
+        q.options && q.options.length === 2 ? q.options : [{ label: 'Evet' }, { label: 'Hayır' }];
       return bOpts[a.sel[0]] ? bOpts[a.sel[0]].label : '';
     }
 
@@ -174,7 +181,11 @@
 
     if (t === 'ranking') {
       if (!a.order || a.order.length === 0) return '';
-      return a.order.map(function (i) { return q.options[i].label; }).join(' → ');
+      return a.order
+        .map(function (i) {
+          return q.options[i].label;
+        })
+        .join(' → ');
     }
 
     if (t === 'tree') {
@@ -197,9 +208,11 @@
       .map(function (i) {
         var o = opts[i];
         if (!o) return '';
-        return o.custom ? (a.customText || '') : o.label;
+        return o.custom ? a.customText || '' : o.label;
       })
-      .filter(function (x) { return x !== ''; });
+      .filter(function (x) {
+        return x !== '';
+      });
     return labels.join(', ');
   }
 
@@ -219,7 +232,9 @@
 
   // initOrder: q.options için [0..n-1] başlangıç sırası.
   function initOrder(q) {
-    return q.options.map(function (_, i) { return i; });
+    return q.options.map(function (_, i) {
+      return i;
+    });
   }
 
   // --- scale saf yardımcı ---

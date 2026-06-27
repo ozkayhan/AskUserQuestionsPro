@@ -7,7 +7,7 @@ const path = require('node:path');
 const MCP_PATH = path.join(__dirname, '..', 'mcp-server', 'askuserquestionspro-mcp.mjs');
 
 // MCP sunucusu spawn edilir; initialize + tools/list gönderilir, yanıtlar doğrulanır.
-test('mcp-server: initialize ve tools/list', async (t) => {
+test('mcp-server: initialize ve tools/list', async (_t) => {
   const child = spawn(process.execPath, [MCP_PATH], {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
@@ -36,33 +36,56 @@ test('mcp-server: initialize ve tools/list', async (t) => {
       }
     });
 
-    child.on('error', (e) => { clearTimeout(timeout); reject(e); });
+    child.on('error', (e) => {
+      clearTimeout(timeout);
+      reject(e);
+    });
 
     // initialize isteği
-    child.stdin.write(JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'initialize',
-      params: { protocolVersion: '2024-11-05', capabilities: {} },
-    }) + '\n');
+    child.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { protocolVersion: '2024-11-05', capabilities: {} },
+      }) + '\n'
+    );
 
     // tools/list isteği
-    child.stdin.write(JSON.stringify({
-      jsonrpc: '2.0', id: 2, method: 'tools/list',
-    }) + '\n');
+    child.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/list',
+      }) + '\n'
+    );
   });
 
   child.kill();
 
   // İki yanıtı id'ye göre bul.
-  const responses = lines.map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const responses = lines
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
   const initRes = responses.find((r) => r.id === 1);
   const listRes = responses.find((r) => r.id === 2);
 
   // (a) initialize doğrulama
   assert.ok(initRes, 'initialize yanıtı alınmalı');
-  assert.strictEqual(initRes.result.serverInfo.name, 'askuserquestionspro', 'serverInfo.name "askuserquestionspro" olmalı');
+  assert.strictEqual(
+    initRes.result.serverInfo.name,
+    'askuserquestionspro',
+    'serverInfo.name "askuserquestionspro" olmalı'
+  );
   assert.ok(
     typeof initRes.result.protocolVersion === 'string' && initRes.result.protocolVersion.length > 0,
-    'protocolVersion boş olmayan string olmalı',
+    'protocolVersion boş olmayan string olmalı'
   );
 
   // (b) tools/list doğrulama
@@ -76,9 +99,15 @@ test('mcp-server: initialize ve tools/list', async (t) => {
   assert.ok(qSchema, 'questions özelliği olmalı');
   assert.strictEqual(qSchema.maxItems, undefined, 'questions.maxItems OLMAMALI (sınırsız)');
   const itemRequired = qSchema.items.required;
-  assert.ok(Array.isArray(itemRequired) && itemRequired.includes('question'), 'items.required "question" içermeli');
+  assert.ok(
+    Array.isArray(itemRequired) && itemRequired.includes('question'),
+    'items.required "question" içermeli'
+  );
   // options artık required listesinde OLMAMALI (binary/scale opsiyonel)
-  assert.ok(!itemRequired.includes('options'), 'items.required "options" içermemeli (binary/scale için opsiyonel)');
+  assert.ok(
+    !itemRequired.includes('options'),
+    'items.required "options" içermemeli (binary/scale için opsiyonel)'
+  );
 
   // (c) type enum kontrolü
   const itemProps = qSchema.items.properties;
@@ -97,13 +126,13 @@ test('mcp-server: initialize ve tools/list', async (t) => {
   assert.ok(optDef.properties.children, '$defs.option children alanı olmalı');
   assert.ok(
     optDef.properties.children.items && optDef.properties.children.items.$ref,
-    '$defs.option.children.items.$ref olmalı (özyinelemeli)',
+    '$defs.option.children.items.$ref olmalı (özyinelemeli)'
   );
 
   // (e) options $ref ile referans veriyor
   assert.ok(
     itemProps.options && itemProps.options.items && itemProps.options.items.$ref,
-    'options.items.$ref olmalı',
+    'options.items.$ref olmalı'
   );
 
   // (f) scale alanları

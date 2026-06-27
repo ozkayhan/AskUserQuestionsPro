@@ -1,14 +1,14 @@
 ---
-baslik: "Sprint 3 — askuserquestionspro için 10 Özellik / Değişiklik Önerisi"
-belge_turu: "Öneri & Önceliklendirme (feature proposal + scoring)"
-proje: "askuseroz / askuserquestionspro"
-olusturulma_tarihi: "2026-06-23"
-olusturulma_saati: "16:01 (+03 / Europe-Istanbul)"
-yazar: "Claude (Opus 4.8, Conductor workspace: cody)"
+baslik: 'Sprint 3 — askuserquestionspro için 10 Özellik / Değişiklik Önerisi'
+belge_turu: 'Öneri & Önceliklendirme (feature proposal + scoring)'
+proje: 'askuseroz / askuserquestionspro'
+olusturulma_tarihi: '2026-06-23'
+olusturulma_saati: '16:01 (+03 / Europe-Istanbul)'
+yazar: 'Claude (Opus 4.8, Conductor workspace: cody)'
 kaynak_dokumanlar:
-  - "living_docs/PURPOSE.md"
-  - "living_docs/ARCHITECTURE.md"
-  - "living_docs/THEMES.md"
+  - 'living_docs/PURPOSE.md'
+  - 'living_docs/ARCHITECTURE.md'
+  - 'living_docs/THEMES.md'
 amac: >
   living_docs'taki mimari ve amaç dokümanları baştan sona okunarak, projenin
   bilinçli kısıtlarına (sıfır npm bağımlılığı, sıfır build adımı, yalnızca-yerel
@@ -20,8 +20,8 @@ kapsam_disi: >
   Mimarinin altın kurallarını ihlal eden öneriler (yeni runtime bağımlılığı
   ekleyen, build adımı getiren, sunucuyu ağa açan veya Claude Code'u kilitleme
   riski taşıyan fikirler) bilinçli olarak elenmiştir.
-versiyon: "1.0"
-durum: "Taslak — gözden geçirme bekliyor"
+versiyon: '1.0'
+durum: 'Taslak — gözden geçirme bekliyor'
 ---
 
 # Sprint 3 — askuserquestionspro için 10 Özellik / Değişiklik Önerisi
@@ -39,13 +39,13 @@ durum: "Taslak — gözden geçirme bekliyor"
 Tüm öneriler **5 boyutta, 1–10 arası, yüksek = iyi** ölçeğinde puanlanır.
 Boyutlar ve ağırlıkları:
 
-| Boyut | Kısaltma | Ne ölçer | Ağırlık |
-|-------|----------|----------|---------|
-| Kullanıcı Değeri | **KD** | Son kullanıcıya / "iş büyüklüğüne karşı katacağı değer büyüklüğüne" net katkı | 0.30 |
-| Teknik Fizibilite | **TF** | Mevcut mimaride ne kadar pürüzsüz oturduğu (10 = çok kolay oturur) | 0.15 |
-| Düşük Efor | **DE** | İşin küçüklüğü (10 = çok az iş, 1 = büyük iş) | 0.15 |
-| Güvenlik / Sağlamlık | **GS** | Kodu/sistemi ne kadar güvenli ve sağlam yaptığı | 0.20 |
-| Mimari Uyum | **MU** | Sıfır-dep + sıfır-build + Kural 1 ile uyum (10 = hiç ihlal yok) | 0.20 |
+| Boyut                | Kısaltma | Ne ölçer                                                                      | Ağırlık |
+| -------------------- | -------- | ----------------------------------------------------------------------------- | ------- |
+| Kullanıcı Değeri     | **KD**   | Son kullanıcıya / "iş büyüklüğüne karşı katacağı değer büyüklüğüne" net katkı | 0.30    |
+| Teknik Fizibilite    | **TF**   | Mevcut mimaride ne kadar pürüzsüz oturduğu (10 = çok kolay oturur)            | 0.15    |
+| Düşük Efor           | **DE**   | İşin küçüklüğü (10 = çok az iş, 1 = büyük iş)                                 | 0.15    |
+| Güvenlik / Sağlamlık | **GS**   | Kodu/sistemi ne kadar güvenli ve sağlam yaptığı                               | 0.20    |
+| Mimari Uyum          | **MU**   | Sıfır-dep + sıfır-build + Kural 1 ile uyum (10 = hiç ihlal yok)               | 0.20    |
 
 **Öncelik Puanı** = ağırlıklı ortalama (10 üzerinden). Yüksek = daha öncelikli.
 
@@ -53,18 +53,18 @@ Boyutlar ve ağırlıkları:
 
 ## Özet tablo (Öncelik Puanına göre sıralı)
 
-| # | Öneri | Kategori | KD | TF | DE | GS | MU | **Öncelik** |
-|---|-------|----------|----|----|----|----|----|-------------|
-| 3 | Cevap taslağı otomatik kaydetme (localStorage) | UI-UX / Reliability | 8 | 9 | 8 | 7 | 9 | **8.15** |
-| 4 | Çapraz platform tarayıcı açma (Linux/Windows) | Portability / New Feature | 7 | 9 | 9 | 5 | 9 | **7.60** |
-| 6 | Erişilebilirlik: ARIA + odak yönetimi + ekran okuyucu | Accessibility / UI-UX | 7 | 8 | 6 | 6 | 9 | **7.20** |
-| 1 | Yerel istek doğrulama token'ı (CSRF / rebind koruması) | Security | 5 | 8 | 7 | 9 | 8 | **7.15** |
-| 10 | Gönderim öncesi validasyon (required / min-max select) | New Feature / UX | 7 | 8 | 7 | 6 | 8 | **7.15** |
-| 2 | Disk snapshot ile çökme/kopuş kurtarma | Reliability / New Feature | 6 | 7 | 6 | 8 | 8 | **6.95** |
-| 7 | Sistem teması auto (`prefers-color-scheme`) + tema genişletme | Design | 6 | 9 | 8 | 4 | 9 | **6.95** |
-| 5 | Native serbest metin / sayı / tarih giriş tipleri | New Feature | 8 | 7 | 6 | 5 | 7 | **6.75** |
-| 9 | Opt-in yerel debug log + zengin `/health` | Observability / DevEx | 4 | 9 | 8 | 7 | 8 | **6.75** |
-| 8 | Soru/şık metninde güvenli markdown + kod render | UI-UX | 7 | 6 | 5 | 4 | 6 | **5.75** |
+| #   | Öneri                                                         | Kategori                  | KD  | TF  | DE  | GS  | MU  | **Öncelik** |
+| --- | ------------------------------------------------------------- | ------------------------- | --- | --- | --- | --- | --- | ----------- |
+| 3   | Cevap taslağı otomatik kaydetme (localStorage)                | UI-UX / Reliability       | 8   | 9   | 8   | 7   | 9   | **8.15**    |
+| 4   | Çapraz platform tarayıcı açma (Linux/Windows)                 | Portability / New Feature | 7   | 9   | 9   | 5   | 9   | **7.60**    |
+| 6   | Erişilebilirlik: ARIA + odak yönetimi + ekran okuyucu         | Accessibility / UI-UX     | 7   | 8   | 6   | 6   | 9   | **7.20**    |
+| 1   | Yerel istek doğrulama token'ı (CSRF / rebind koruması)        | Security                  | 5   | 8   | 7   | 9   | 8   | **7.15**    |
+| 10  | Gönderim öncesi validasyon (required / min-max select)        | New Feature / UX          | 7   | 8   | 7   | 6   | 8   | **7.15**    |
+| 2   | Disk snapshot ile çökme/kopuş kurtarma                        | Reliability / New Feature | 6   | 7   | 6   | 8   | 8   | **6.95**    |
+| 7   | Sistem teması auto (`prefers-color-scheme`) + tema genişletme | Design                    | 6   | 9   | 8   | 4   | 9   | **6.95**    |
+| 5   | Native serbest metin / sayı / tarih giriş tipleri             | New Feature               | 8   | 7   | 6   | 5   | 7   | **6.75**    |
+| 9   | Opt-in yerel debug log + zengin `/health`                     | Observability / DevEx     | 4   | 9   | 8   | 7   | 8   | **6.75**    |
+| 8   | Soru/şık metninde güvenli markdown + kod render               | UI-UX                     | 7   | 6   | 5   | 4   | 6   | **5.75**    |
 
 > Numaralar öneri kimliğidir (aşağıdaki detaylarla eşleşir), tablo sırası öncelik sırasıdır.
 
@@ -77,6 +77,7 @@ Her öneri şu şablonda: **Kategori → Ne → Neden (net fayda) → Nasıl (fi
 ---
 
 ### Öneri 1 — Yerel istek doğrulama token'ı
+
 **Kategori:** Security · **Öncelik: 7.15**
 
 **Ne:** Sunucu (`server/server.js`) ayağa kalkarken `crypto.randomUUID()` ile bir
@@ -106,13 +107,14 @@ değişiklik.
 gibi paylaşılabilir-link senaryoları çakışmamalı. Kural 1 korunur: doğrulama
 başarısız olursa hook yine `exit(0)` ile native picker'a düşebilir.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 5 | 8 | 7 | 9 | 8 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 5   | 8   | 7   | 9   | 8   |
 
 ---
 
 ### Öneri 2 — Disk snapshot ile çökme/kopuş kurtarma
+
 **Kategori:** Reliability / New Feature · **Öncelik: 6.95**
 
 **Ne:** Bridge bekleyen soru setini (`_pending.questions` + henüz gelmiş kısmi
@@ -137,13 +139,14 @@ tutar). Eski/yabancı snapshot'a güveni önlemek için app-kimliği + zaman dam
 gömülmeli (repo'da `lib/app-id.cjs` + `/health` app kimliği deseni zaten mevcut,
 aynı yaklaşım kullanılır).
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 6 | 7 | 6 | 8 | 8 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 6   | 7   | 6   | 8   | 8   |
 
 ---
 
 ### Öneri 3 — Cevap taslağı otomatik kaydetme (localStorage)
+
 **Kategori:** UI-UX / Reliability · **Öncelik: 8.15 (en yüksek)**
 
 **Ne:** Kullanıcının verdiği kısmi cevaplar (`answers` state'i — seçimler,
@@ -166,13 +169,14 @@ Gönderim başarılı olunca taslak temizlenir. ~20-30 satır, yeni dosya bile g
 (zaten mevcut monoton `id` ile çözülür). Hassas cevaplar diskte kalmasın diye
 gönderimde/iptalde temizlik.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 8 | 9 | 8 | 7 | 9 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 8   | 9   | 8   | 7   | 9   |
 
 ---
 
 ### Öneri 4 — Çapraz platform tarayıcı açma
+
 **Kategori:** Portability / New Feature · **Öncelik: 7.60**
 
 **Ne:** `lib/bridge-client.mjs`'teki `openBrowser()` şu an macOS'a özgü `open`
@@ -194,13 +198,14 @@ değişiklikle taşınabilir olur.
 (`start "" "url"`). Test edilebilir bir `pickOpenCmd(platform)` saf fonksiyonu
 olarak çıkarılırsa birim testlenebilir.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 7 | 9 | 9 | 5 | 9 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 7   | 9   | 9   | 5   | 9   |
 
 ---
 
 ### Öneri 5 — Native serbest metin / sayı / tarih giriş tipleri
+
 **Kategori:** New Feature · **Öncelik: 6.75**
 
 **Ne:** Soru şeması bugün yalnızca çoktan seçmeli + "Other" textarea destekliyor.
@@ -223,13 +228,14 @@ mantığının bu tipler için kısa-devre yapması.
 testleri güncellenmeli (mevcut test kültürü buna uygun). Şema değişikliği MCP
 `inputSchema`'ya da yansır — geriye dönük uyum: alan opsiyonel kalır.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 8 | 7 | 6 | 5 | 7 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 8   | 7   | 6   | 5   | 7   |
 
 ---
 
 ### Öneri 6 — Erişilebilirlik: ARIA + odak yönetimi + ekran okuyucu
+
 **Kategori:** Accessibility / UI-UX · **Öncelik: 7.20**
 
 **Ne:** UI'a erişilebilirlik temelleri: şık listelerine `role="radiogroup"` /
@@ -251,13 +257,14 @@ Token sistemine dokunmadan `:focus-visible` stilleri `styles.css`'e eklenir.
 mevcut klavye kısayollarıyla çakışmamalı. Headless görsel doğrulama (THEMES'te
 kurulu harness deseni) ile spot-check.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 7 | 8 | 6 | 6 | 9 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 7   | 8   | 6   | 6   | 9   |
 
 ---
 
 ### Öneri 7 — Sistem teması auto + tema genişletme
+
 **Kategori:** Design · **Öncelik: 6.95**
 
 **Ne:** Tema seçicisine "System" seçeneği: `window.matchMedia('(prefers-color-scheme: light)')`
@@ -279,13 +286,14 @@ mevcut `themes.test.js` token sözleşmesi yeni temaları otomatik denetler.
 (seçim = "system" ise media query kazanır). Güvenlik/sağlamlık katkısı düşük —
 saf kozmetik/UX iyileştirmesi.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 6 | 9 | 8 | 4 | 9 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 6   | 9   | 8   | 4   | 9   |
 
 ---
 
 ### Öneri 8 — Soru/şık metninde güvenli markdown + kod render
+
 **Kategori:** UI-UX · **Öncelik: 5.75 (en düşük — dikkatle)**
 
 **Ne:** Soru metni ve şık açıklamalarında küçük bir **güvenli markdown alt kümesi**
@@ -308,19 +316,21 @@ regex, yalnızca whitelisted etiketler). Bu önerinin asıl maliyeti güvenlikti
 genişlerse Kural "sıfır build/dep" ruhunu zorlar. **Öneri: ya çok dar tut, ya da
 maliyet/fayda Sprint 3'te yeniden tartışılsın.**
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 7 | 6 | 5 | 4 | 6 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 7   | 6   | 5   | 4   | 6   |
 
 ---
 
 ### Öneri 9 — Opt-in yerel debug log + zengin `/health`
+
 **Kategori:** Observability / DevEx · **Öncelik: 6.75**
 
 **Ne:** `ASKUI_DEBUG` truthy olduğunda hook/MCP/server kilit olayları
 (`spawn`, `409`, `timeout`, `fallback` sebebi) `os.tmpdir()` altındaki bir log
 dosyasına satır-satır yazılır. `/health` çıktısı app kimliği + versiyon + uptime
-+ son fallback sebebi ile zenginleştirilir.
+
+- son fallback sebebi ile zenginleştirilir.
 
 **Neden (net fayda):** Kural 1 gereği sistem hata anında **sessizce** native
 picker'a düşüyor — bu mükemmel UX ama **teşhis için kabus**: "neden özel UI
@@ -335,13 +345,14 @@ zenginleştirmesi repo'daki mevcut app-kimliği desenine (`lib/app-id.cjs`) ekle
 metadatası). Düşük KD çünkü son kullanıcı doğrudan görmez — değeri bakım/destek
 tarafında.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 4 | 9 | 8 | 7 | 8 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 4   | 9   | 8   | 7   | 8   |
 
 ---
 
 ### Öneri 10 — Gönderim öncesi validasyon (required / min-max select)
+
 **Kategori:** New Feature / UX · **Öncelik: 7.15**
 
 **Ne:** Soru şemasına opsiyonel `required` ve multiSelect için `minSelect`/`maxSelect`
@@ -364,9 +375,9 @@ B-serisi UI ölçekleme özellikleriyle (atla/filtrele) doğal birleşir.
 kilitlememeli — kullanıcı yine de iptal edip native'e düşebilmeli. Aşırı katı
 kurallar UX'i bozar; varsayılan "hiçbir şey zorunlu değil" olmalı.
 
-| KD | TF | DE | GS | MU |
-|----|----|----|----|----|
-| 7 | 8 | 7 | 6 | 8 |
+| KD  | TF  | DE  | GS  | MU  |
+| --- | --- | --- | --- | --- |
+| 7   | 8   | 7   | 6   | 8   |
 
 ---
 

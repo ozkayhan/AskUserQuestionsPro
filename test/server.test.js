@@ -24,7 +24,8 @@ test('/health ok döndürür', async () => {
 test('/ask soruları tutar, /answer ile resolve olur', async () => {
   const questions = [{ question: 'Q?', options: [{ label: 'A' }], multiSelect: false }];
   const askPromise = fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
   });
   // /ask açıkken /current bekleyen soruyu göstermeli
@@ -33,7 +34,8 @@ test('/ask soruları tutar, /answer ile resolve olur', async () => {
   assert.deepStrictEqual(cur.questions, questions);
 
   await fetch(`${base}/answer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: { 'Q?': 'A' } }),
   });
 
@@ -51,7 +53,8 @@ test('GET / index.html serve eder', async () => {
 test('/current ve /events payload {id, questions} icerir', async () => {
   const questions = [{ question: 'QID?', options: [{ label: 'A' }], multiSelect: false }];
   const askPromise = fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
   });
   await new Promise((r) => setTimeout(r, 50));
@@ -59,7 +62,8 @@ test('/current ve /events payload {id, questions} icerir', async () => {
   assert.ok(typeof cur.id === 'number', 'id alani olmali');
   assert.deepStrictEqual(cur.questions, questions);
   await fetch(`${base}/answer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: { 'QID?': 'A' } }),
   });
   await askPromise;
@@ -67,7 +71,8 @@ test('/current ve /events payload {id, questions} icerir', async () => {
 
 test('/ask gecersiz questions (dizi degil) -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions: 'oops' }),
   });
   assert.strictEqual(r.status, 400);
@@ -81,20 +86,24 @@ test('/ask gecersiz questions (dizi degil) -> 400', async () => {
 // bunun yerine /ask endpoint'i üzerinden HTTP ile test ediyoruz.
 
 test('/ask scale gecerli (min/max var) -> 200', async () => {
-  const questions = [{
-    question: 'Kac puan?',
-    header: 'H',
-    type: 'scale',
-    min: 1,
-    max: 10,
-  }];
+  const questions = [
+    {
+      question: 'Kac puan?',
+      header: 'H',
+      type: 'scale',
+      min: 1,
+      max: 10,
+    },
+  ];
   const askPromise = fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
   });
   await new Promise((r) => setTimeout(r, 50));
   await fetch(`${base}/answer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: { 'Kac puan?': 7 } }),
   });
   const res = await askPromise;
@@ -103,7 +112,8 @@ test('/ask scale gecerli (min/max var) -> 200', async () => {
 
 test('/ask scale eksik min/max -> 400 spesifik hata', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions: [{ question: 'S?', header: 'H', type: 'scale', min: 1 }] }),
   });
   assert.strictEqual(r.status, 400);
@@ -113,8 +123,11 @@ test('/ask scale eksik min/max -> 400 spesifik hata', async () => {
 
 test('/ask scale min >= max -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'S?', header: 'H', type: 'scale', min: 10, max: 1 }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'S?', header: 'H', type: 'scale', min: 10, max: 1 }],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -123,8 +136,11 @@ test('/ask scale min >= max -> 400', async () => {
 
 test('/ask scale gecersiz step -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'S?', header: 'H', type: 'scale', min: 0, max: 10, step: -1 }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'S?', header: 'H', type: 'scale', min: 0, max: 10, step: -1 }],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -133,8 +149,11 @@ test('/ask scale gecersiz step -> 400', async () => {
 
 test('/ask ranking az seceneк (1 items) -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'R?', header: 'H', type: 'ranking', options: [{ label: 'A' }] }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'R?', header: 'H', type: 'ranking', options: [{ label: 'A' }] }],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -142,14 +161,23 @@ test('/ask ranking az seceneк (1 items) -> 400', async () => {
 });
 
 test('/ask ranking gecerli (2+ secenek) -> 200', async () => {
-  const questions = [{ question: 'Sirala?', header: 'H', type: 'ranking', options: [{ label: 'A' }, { label: 'B' }] }];
+  const questions = [
+    {
+      question: 'Sirala?',
+      header: 'H',
+      type: 'ranking',
+      options: [{ label: 'A' }, { label: 'B' }],
+    },
+  ];
   const askPromise = fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
   });
   await new Promise((r) => setTimeout(r, 50));
   await fetch(`${base}/answer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: { 'Sirala?': ['A', 'B'] } }),
   });
   const res = await askPromise;
@@ -158,8 +186,18 @@ test('/ask ranking gecerli (2+ secenek) -> 200', async () => {
 
 test('/ask binary options tam 2 degil -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'B?', header: 'H', type: 'binary', options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }] }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [
+        {
+          question: 'B?',
+          header: 'H',
+          type: 'binary',
+          options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }],
+        },
+      ],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -169,12 +207,14 @@ test('/ask binary options tam 2 degil -> 400', async () => {
 test('/ask binary options yok -> 200 (varsayilan)', async () => {
   const questions = [{ question: 'Evet mi?', header: 'H', type: 'binary' }];
   const askPromise = fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
   });
   await new Promise((r) => setTimeout(r, 50));
   await fetch(`${base}/answer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: { 'Evet mi?': 'Evet' } }),
   });
   const res = await askPromise;
@@ -182,14 +222,23 @@ test('/ask binary options yok -> 200 (varsayilan)', async () => {
 });
 
 test('/ask binary tam 2 option -> 200', async () => {
-  const questions = [{ question: 'Dogru mu?', header: 'H', type: 'binary', options: [{ label: 'Evet' }, { label: 'Hayir' }] }];
+  const questions = [
+    {
+      question: 'Dogru mu?',
+      header: 'H',
+      type: 'binary',
+      options: [{ label: 'Evet' }, { label: 'Hayir' }],
+    },
+  ];
   const askPromise = fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
   });
   await new Promise((r) => setTimeout(r, 50));
   await fetch(`${base}/answer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: { 'Dogru mu?': 'Evet' } }),
   });
   const res = await askPromise;
@@ -198,8 +247,11 @@ test('/ask binary tam 2 option -> 200', async () => {
 
 test('/ask tree bos options -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'T?', header: 'H', type: 'tree', options: [] }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'T?', header: 'H', type: 'tree', options: [] }],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -214,8 +266,11 @@ test('/ask tree derinlik >6 -> 400', async () => {
   }
   const deepOptions = [makeNode(7)];
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'Deep?', header: 'H', type: 'tree', options: deepOptions }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'Deep?', header: 'H', type: 'tree', options: deepOptions }],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -223,22 +278,23 @@ test('/ask tree derinlik >6 -> 400', async () => {
 });
 
 test('/ask tree gecerli (derinlik <=6) -> 200', async () => {
-  const questions = [{
-    question: 'Kategori?',
-    header: 'H',
-    type: 'tree',
-    options: [
-      { label: 'A', children: [{ label: 'A1' }, { label: 'A2' }] },
-      { label: 'B' },
-    ],
-  }];
+  const questions = [
+    {
+      question: 'Kategori?',
+      header: 'H',
+      type: 'tree',
+      options: [{ label: 'A', children: [{ label: 'A1' }, { label: 'A2' }] }, { label: 'B' }],
+    },
+  ];
   const askPromise = fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions }),
   });
   await new Promise((r) => setTimeout(r, 50));
   await fetch(`${base}/answer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: { 'Kategori?': ['A', 'A1'] } }),
   });
   const res = await askPromise;
@@ -247,8 +303,11 @@ test('/ask tree gecerli (derinlik <=6) -> 200', async () => {
 
 test('/ask gecersiz type string -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'X?', header: 'H', type: 'invalid_type', options: [{ label: 'A' }] }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'X?', header: 'H', type: 'invalid_type', options: [{ label: 'A' }] }],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -257,8 +316,11 @@ test('/ask gecersiz type string -> 400', async () => {
 
 test('/ask single options bos -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'Q?', header: 'H', type: 'single', options: [] }] }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'Q?', header: 'H', type: 'single', options: [] }],
+    }),
   });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
@@ -267,7 +329,8 @@ test('/ask single options bos -> 400', async () => {
 
 test('/ask multi options yok -> 400', async () => {
   const r = await fetch(`${base}/ask`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questions: [{ question: 'M?', header: 'H', type: 'multi' }] }),
   });
   assert.strictEqual(r.status, 400);
@@ -286,7 +349,8 @@ test('index.html window.__ASKUSER_SETTINGS__ inject eder', async () => {
 
 test('POST /settings gecerli patch yazar', async () => {
   const r = await fetch(`${base}/settings`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ theme: 'paper' }),
   });
   assert.strictEqual(r.status, 200);
@@ -300,14 +364,18 @@ test('POST /settings gecerli patch yazar', async () => {
 
 test('POST /settings bad json -> 400', async () => {
   const r = await fetch(`${base}/settings`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{bozuk',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{bozuk',
   });
   assert.strictEqual(r.status, 400);
 });
 
 test('POST /settings dizi/null -> 400', async () => {
   const r = await fetch(`${base}/settings`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '[1,2]',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '[1,2]',
   });
   assert.strictEqual(r.status, 400);
 });
@@ -318,15 +386,26 @@ test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir)', async 
   const reader = sse.body.getReader();
   const dec = new TextDecoder();
   const events = [];
-  (async () => { while (true) { const { value, done } = await reader.read(); if (done) break;
-    for (const l of dec.decode(value).split('\n')) if (l.startsWith('data:')) events.push(l.slice(5).trim()); } })();
+  (async () => {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      for (const l of dec.decode(value).split('\n'))
+        if (l.startsWith('data:')) events.push(l.slice(5).trim());
+    }
+  })();
   await new Promise((r) => setTimeout(r, 30));
   const ac = new AbortController();
-  const askP = fetch(`${base}/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'BYE?', options: [{ label: 'A' }], multiSelect: false }] }),
-    signal: ac.signal }).catch(() => {});
+  const askP = fetch(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      questions: [{ question: 'BYE?', options: [{ label: 'A' }], multiSelect: false }],
+    }),
+    signal: ac.signal,
+  }).catch(() => {});
   await new Promise((r) => setTimeout(r, 50));
-  ac.abort();           // hook öldü
+  ac.abort(); // hook öldü
   await askP;
   await new Promise((r) => setTimeout(r, 80));
   const last = events[events.length - 1];

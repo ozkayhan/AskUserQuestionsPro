@@ -8,10 +8,15 @@ function App() {
   const { id, questions } = useLiveQuestions();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const screen = (!questions || questions.length === 0)
-    ? <div className="app"><Waiting /></div>
-    // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
-    : <Flow questions={questions} key={id == null ? "q" : "round-" + id} />;
+  const screen =
+    !questions || questions.length === 0 ? (
+      <div className="app">
+        <Waiting />
+      </div>
+    ) : (
+      // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
+      <Flow questions={questions} key={id == null ? 'q' : 'round-' + id} />
+    );
 
   return (
     <React.Fragment>
@@ -30,18 +35,25 @@ function Flow({ questions }) {
   const [answers, setAnswers] = useState(() => {
     const a = {};
     QUESTIONS.forEach((q) => {
-      a[q.question] = { sel: [], confirmed: false, customText: "", value: null, order: null, path: null };
+      a[q.question] = {
+        sel: [],
+        confirmed: false,
+        customText: '',
+        value: null,
+        order: null,
+        path: null,
+      };
     });
     return a;
   });
   const [current, setCurrent] = useState(0);
-  const [dir, setDir] = useState("right");
+  const [dir, setDir] = useState('right');
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [sendError, setSendError] = useState(false);
 
   // Büyük soru seti: arama + filtre durumu (N > 8)
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [showUnanswered, setShowUnanswered] = useState(false);
   const searchInputRef = useRef(null);
 
@@ -50,75 +62,89 @@ function Flow({ questions }) {
   ref.current = { answers, current, popup, n, isSummary, submitted };
 
   const inputRef = useRef(null);
-  useEffect(() => { if (popup && inputRef.current) inputRef.current.focus(); }, [popup]);
+  useEffect(() => {
+    if (popup && inputRef.current) inputRef.current.focus();
+  }, [popup]);
 
-  const goTo = useCallback((idx, direction) => {
-    setDir(direction);
-    setCurrent(Math.max(0, Math.min(n, idx)));
-  }, [n]);
+  const goTo = useCallback(
+    (idx, direction) => {
+      setDir(direction);
+      setCurrent(Math.max(0, Math.min(n, idx)));
+    },
+    [n]
+  );
 
-  const advance = useCallback((from) => {
-    if (from < n - 1) goTo(from + 1, "right");
-    else goTo(n, "right");
-  }, [goTo, n]);
+  const advance = useCallback(
+    (from) => {
+      if (from < n - 1) goTo(from + 1, 'right');
+      else goTo(n, 'right');
+    },
+    [goTo, n]
+  );
 
   const goBack = useCallback(() => {
     const idx = QUESTIONS.findIndex((q) => !ref.current.answers[q.question].confirmed);
-    goTo(idx === -1 ? n - 1 : idx, "left");
+    goTo(idx === -1 ? n - 1 : idx, 'left');
   }, [goTo, n, QUESTIONS]);
 
   const setQ = useCallback((qid, patch) => {
     setAnswers((prev) => ({ ...prev, [qid]: { ...prev[qid], ...patch } }));
   }, []);
 
-  const activate = useCallback((qIndex, optIdx) => {
-    const q = QUESTIONS[qIndex];
-    const a = ref.current.answers[q.question];
-    // binary: tek basış onay — sel set et + confirmed:true + ilerle (popup/armed yok).
-    if (AnswerMap.qType(q) === "binary") {
-      setQ(q.question, { sel: [optIdx], confirmed: true });
-      advance(qIndex);
-      return;
-    }
-    const action = AnswerMap.decideActivate(q, a, optIdx);
-    switch (action.type) {
-      case "noop":
-        return;
-      case "select":
-      case "toggle":
-        setQ(q.question, { sel: action.sel, confirmed: false });
-        return;
-      case "popup":
-        setPopup({ qid: q.question, optIdx: action.optIdx, draft: action.draft });
-        return;
-      case "confirm":
-        setQ(q.question, { confirmed: true });
+  const activate = useCallback(
+    (qIndex, optIdx) => {
+      const q = QUESTIONS[qIndex];
+      const a = ref.current.answers[q.question];
+      // binary: tek basış onay — sel set et + confirmed:true + ilerle (popup/armed yok).
+      if (AnswerMap.qType(q) === 'binary') {
+        setQ(q.question, { sel: [optIdx], confirmed: true });
         advance(qIndex);
         return;
-    }
-  }, [setQ, advance, QUESTIONS]);
+      }
+      const action = AnswerMap.decideActivate(q, a, optIdx);
+      switch (action.type) {
+        case 'noop':
+          return;
+        case 'select':
+        case 'toggle':
+          setQ(q.question, { sel: action.sel, confirmed: false });
+          return;
+        case 'popup':
+          setPopup({ qid: q.question, optIdx: action.optIdx, draft: action.draft });
+          return;
+        case 'confirm':
+          setQ(q.question, { confirmed: true });
+          advance(qIndex);
+          return;
+      }
+    },
+    [setQ, advance, QUESTIONS]
+  );
 
   // onConfirm(qIndex, patch): genel onay — tüm tipler için çalışır.
   // patch: kartın az önce uyguladığı değer (value/order/path). React setState async
   // olduğundan ref.current henüz eski olabilir; patch'i merge ederek stale-ref'i aşarız
   // (özellikle tree yaprak seçimi + dokunulmamış scale/ranking Enter). patch state'e de yazılır.
-  const onConfirm = useCallback((qIndex, patch) => {
-    const q = QUESTIONS[qIndex];
-    const a = { ...ref.current.answers[q.question], ...(patch || {}) };
-    if (!AnswerMap.isAnswered(q, a)) return;
-    const qtype = AnswerMap.qType(q);
-    // single/multi: "Other" seçili ama customText boşsa popup aç (B4 korunur).
-    if (qtype === "single" || qtype === "multi") {
-      const opts = fullOptions(q);
-      const customIdx = opts.length - 1;
-      if (a.sel.includes(customIdx) && !a.customText) {
-        setPopup({ qid: q.question, optIdx: customIdx, draft: "" });
-        return;
+  const onConfirm = useCallback(
+    (qIndex, patch) => {
+      const q = QUESTIONS[qIndex];
+      const a = { ...ref.current.answers[q.question], ...(patch || {}) };
+      if (!AnswerMap.isAnswered(q, a)) return;
+      const qtype = AnswerMap.qType(q);
+      // single/multi: "Other" seçili ama customText boşsa popup aç (B4 korunur).
+      if (qtype === 'single' || qtype === 'multi') {
+        const opts = fullOptions(q);
+        const customIdx = opts.length - 1;
+        if (a.sel.includes(customIdx) && !a.customText) {
+          setPopup({ qid: q.question, optIdx: customIdx, draft: '' });
+          return;
+        }
       }
-    }
-    setQ(q.question, { ...(patch || {}), confirmed: true });
-    advance(qIndex);
-  }, [QUESTIONS, setQ, advance]);
+      setQ(q.question, { ...(patch || {}), confirmed: true });
+      advance(qIndex);
+    },
+    [QUESTIONS, setQ, advance]
+  );
 
   const confirmCurrent = useCallback(() => {
     const { current: cur } = ref.current;
@@ -129,11 +155,11 @@ function Flow({ questions }) {
     if (!AnswerMap.isAnswered(q, a)) return;
     const qtype = AnswerMap.qType(q);
     // single/multi: "Other" boş popup kontrolü korunur.
-    if (qtype === "single" || qtype === "multi") {
+    if (qtype === 'single' || qtype === 'multi') {
       const opts = fullOptions(q);
       const customIdx = opts.length - 1;
       if (a.sel.includes(customIdx) && !a.customText) {
-        setPopup({ qid: q.question, optIdx: customIdx, draft: "" });
+        setPopup({ qid: q.question, optIdx: customIdx, draft: '' });
         return;
       }
     }
@@ -144,11 +170,14 @@ function Flow({ questions }) {
   const savePopup = useCallback(() => {
     const p = ref.current.popup;
     if (!p) return;
-    const text = (p.draft || "").trim();
+    const text = (p.draft || '').trim();
     setAnswers((prev) => {
       const a = prev[p.qid];
       const next = AnswerMap.savePopupState(a, p.optIdx, text); // boş metin = kaldır (B4)
-      return { ...prev, [p.qid]: { ...a, sel: next.sel, customText: next.customText, confirmed: false } };
+      return {
+        ...prev,
+        [p.qid]: { ...a, sel: next.sel, customText: next.customText, confirmed: false },
+      };
     });
     setPopup(null);
   }, []);
@@ -159,8 +188,11 @@ function Flow({ questions }) {
     if (!p) return;
     setAnswers((prev) => {
       const a = prev[p.qid];
-      const next = AnswerMap.savePopupState(a, p.optIdx, "");
-      return { ...prev, [p.qid]: { ...a, sel: next.sel, customText: next.customText, confirmed: false } };
+      const next = AnswerMap.savePopupState(a, p.optIdx, '');
+      return {
+        ...prev,
+        [p.qid]: { ...a, sel: next.sel, customText: next.customText, confirmed: false },
+      };
     });
     setPopup(null);
   }, []);
@@ -168,13 +200,15 @@ function Flow({ questions }) {
   // "u" kısayolu: yanıtlanmamış ilk soruya atla; hepsi yanıtlanmışsa Summary'ye git.
   // AnswerMap.isAnswered ile koru (tüm tipler).
   const jumpToNextUnanswered = useCallback(() => {
-    const idx = QUESTIONS.findIndex((q) => !AnswerMap.isAnswered(q, ref.current.answers[q.question]));
-    goTo(idx === -1 ? n : idx, idx === -1 || idx > ref.current.current ? "right" : "left");
+    const idx = QUESTIONS.findIndex(
+      (q) => !AnswerMap.isAnswered(q, ref.current.answers[q.question])
+    );
+    goTo(idx === -1 ? n : idx, idx === -1 || idx > ref.current.current ? 'right' : 'left');
   }, [QUESTIONS, goTo, n]);
 
   // "Skip remaining & review": doğrudan Summary ekranına geç.
   const skipAll = useCallback(() => {
-    goTo(n, "right");
+    goTo(n, 'right');
   }, [goTo, n]);
 
   const mappedAnswers = useCallback(() => {
@@ -194,12 +228,13 @@ function Flow({ questions }) {
   }, [QUESTIONS]);
 
   const submit = useCallback(() => {
-    if (ref.current.submitted) return;               // double-submit guard (B17)
+    if (ref.current.submitted) return; // double-submit guard (B17)
     const mapped = mappedAnswers();
-    if (Object.keys(mapped).length === 0) return;    // boş submit guard (B8)
+    if (Object.keys(mapped).length === 0) return; // boş submit guard (B8)
     setSendError(false);
     setSubmitted(true);
-    postAnswers(mapped).catch(() => {                // B6: hata → kilidi aç, uyar
+    postAnswers(mapped).catch(() => {
+      // B6: hata → kilidi aç, uyar
       setSubmitted(false);
       setSendError(true);
     });
@@ -210,24 +245,29 @@ function Flow({ questions }) {
       const R = ref.current;
       if (R.popup || R.submitted) return;
       // Metin alanında (input, textarea) tuş yönlendirmesi: sadece ok tuşlarını ve Escape'i engelle.
-      const inTextField = document.activeElement &&
-        (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA");
+      const inTextField =
+        document.activeElement &&
+        (document.activeElement.tagName === 'INPUT' ||
+          document.activeElement.tagName === 'TEXTAREA');
       // ←/→: metin alanındaysa (range input, arama kutusu) kaçır — kart kendi nav'ını yönetir.
-      if (e.key === "ArrowRight") {
+      if (e.key === 'ArrowRight') {
         if (inTextField) return;
         e.preventDefault();
-        goTo(Math.min(R.n, R.current + 1), "right");
-      } else if (e.key === "ArrowLeft") {
+        goTo(Math.min(R.n, R.current + 1), 'right');
+      } else if (e.key === 'ArrowLeft') {
         if (inTextField) return;
         e.preventDefault();
-        goTo(Math.max(0, R.current - 1), "left");
-      } else if (e.key === "Enter") {
+        goTo(Math.max(0, R.current - 1), 'left');
+      } else if (e.key === 'Enter') {
         // Arama inputundayken Enter ile onay yok (input formu kontrolü).
         if (inTextField) return;
         e.preventDefault();
-        if (R.isSummary) { submit(); return; }
+        if (R.isSummary) {
+          submit();
+          return;
+        }
         confirmCurrent();
-      } else if (R.isSummary && (e.key === "b" || e.key === "B")) {
+      } else if (R.isSummary && (e.key === 'b' || e.key === 'B')) {
         if (inTextField) return;
         e.preventDefault();
         goBack();
@@ -235,15 +275,15 @@ function Flow({ questions }) {
         if (inTextField) return;
         e.preventDefault();
         activate(R.current, parseInt(e.key, 10) - 1);
-      } else if (!R.isSummary && (e.key === "u" || e.key === "U")) {
+      } else if (!R.isSummary && (e.key === 'u' || e.key === 'U')) {
         // "u": yanıtlanmamış ilk soruya atla (sadece büyük N için Hints gösterilir ama kısayol her zaman çalışır).
         if (inTextField) return;
         e.preventDefault();
         jumpToNextUnanswered();
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [goTo, confirmCurrent, activate, goBack, submit, jumpToNextUnanswered]);
 
   // "answered" = AnswerMap.isAnswered ile tüm tipler için doğru sayım (B16 + yeni tipler).
@@ -255,41 +295,75 @@ function Flow({ questions }) {
 
   return (
     <div className="app" data-panel="left" data-align="center">
-      <Sidebar QUESTIONS={QUESTIONS} answers={answers} current={current} n={n}
-               answered={answered} isSummary={isSummary} submitted={submitted}
-               goTo={goTo}
-               searchQuery={searchQuery} onSearch={setSearchQuery}
-               showUnanswered={showUnanswered} onToggleUnanswered={() => setShowUnanswered((v) => !v)}
-               onJumpUnanswered={jumpToNextUnanswered} onSkipAll={skipAll}
-               searchRef={searchInputRef} />
+      <Sidebar
+        QUESTIONS={QUESTIONS}
+        answers={answers}
+        current={current}
+        n={n}
+        answered={answered}
+        isSummary={isSummary}
+        submitted={submitted}
+        goTo={goTo}
+        searchQuery={searchQuery}
+        onSearch={setSearchQuery}
+        showUnanswered={showUnanswered}
+        onToggleUnanswered={() => setShowUnanswered((v) => !v)}
+        onJumpUnanswered={jumpToNextUnanswered}
+        onSkipAll={skipAll}
+        searchRef={searchInputRef}
+      />
       <main className="inspector">
         <div className="stage">
           {isSummary ? (
-            <Summary answers={answers} QUESTIONS={QUESTIONS}
-                     onEdit={(i) => goTo(i, "left")} onBack={goBack}
-                     onSubmit={submit} submitted={submitted} canSubmit={canSubmit} />
+            <Summary
+              answers={answers}
+              QUESTIONS={QUESTIONS}
+              onEdit={(i) => goTo(i, 'left')}
+              onBack={goBack}
+              onSubmit={submit}
+              submitted={submitted}
+              canSubmit={canSubmit}
+            />
           ) : (
-            <QuestionCard key={QUESTIONS[current].question} q={QUESTIONS[current]}
-                          qIndex={current} ans={answers[QUESTIONS[current].question]}
-                          motion="slide" dir={dir} onActivate={activate}
-                          setQ={makeSetQ(QUESTIONS[current].question)}
-                          onConfirm={onConfirm} />
+            <QuestionCard
+              key={QUESTIONS[current].question}
+              q={QUESTIONS[current]}
+              qIndex={current}
+              ans={answers[QUESTIONS[current].question]}
+              motion="slide"
+              dir={dir}
+              onActivate={activate}
+              setQ={makeSetQ(QUESTIONS[current].question)}
+              onConfirm={onConfirm}
+            />
           )}
         </div>
         {!isSummary && <Hints q={QUESTIONS[current]} />}
       </main>
       {popup && (
-        <CustomPopup q={QUESTIONS.find((q) => q.question === popup.qid)} draft={popup.draft}
-                     selected={answers[popup.qid].sel.includes(popup.optIdx)}
-                     inputRef={inputRef} onChange={(v) => setPopup((p) => ({ ...p, draft: v }))}
-                     onSave={savePopup} onRemove={removeCustom} onCancel={() => setPopup(null)} />
+        <CustomPopup
+          q={QUESTIONS.find((q) => q.question === popup.qid)}
+          draft={popup.draft}
+          selected={answers[popup.qid].sel.includes(popup.optIdx)}
+          inputRef={inputRef}
+          onChange={(v) => setPopup((p) => ({ ...p, draft: v }))}
+          onSave={savePopup}
+          onRemove={removeCustom}
+          onCancel={() => setPopup(null)}
+        />
       )}
       {submitted && (
-        <div className="toast"><span className="ok"><Check c="var(--success)" /></span>
-          Answers sent back to the agent.</div>
+        <div className="toast">
+          <span className="ok">
+            <Check c="var(--success)" />
+          </span>
+          Answers sent back to the agent.
+        </div>
       )}
       {sendError && (
-        <div className="toast toast--err">Couldn't send — bridge unavailable. Press Enter to retry.</div>
+        <div className="toast toast--err">
+          Couldn't send — bridge unavailable. Press Enter to retry.
+        </div>
       )}
     </div>
   );
@@ -299,11 +373,11 @@ function Flow({ questions }) {
 if (window.__ASKUSER_SETTINGS__) {
   const s = window.__ASKUSER_SETTINGS__;
   AnswerMap.setEnabled({
-    binary:  s.qtypeBinary  !== false,
-    scale:   s.qtypeScale   !== false,
+    binary: s.qtypeBinary !== false,
+    scale: s.qtypeScale !== false,
     ranking: s.qtypeRanking !== false,
-    tree:    s.qtypeTree    !== false,
+    tree: s.qtypeTree !== false,
   });
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);

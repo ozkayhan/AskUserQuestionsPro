@@ -85,10 +85,18 @@ test('styles.css :root tokenları KNOWN_TOKENS sözleşmesiyle birebir eşleşir
   const rootSet = new Set(root);
 
   const extraInCss = root.filter((t) => !KNOWN.has(t));
-  assert.deepStrictEqual(extraInCss, [], `styles.css :root'ta sözleşme dışı token: ${extraInCss.join(', ')}`);
+  assert.deepStrictEqual(
+    extraInCss,
+    [],
+    `styles.css :root'ta sözleşme dışı token: ${extraInCss.join(', ')}`
+  );
 
   const missingInCss = Themes.KNOWN_TOKENS.filter((t) => !rootSet.has(t));
-  assert.deepStrictEqual(missingInCss, [], `KNOWN_TOKENS'ta olup :root defaultu olmayan: ${missingInCss.join(', ')}`);
+  assert.deepStrictEqual(
+    missingInCss,
+    [],
+    `KNOWN_TOKENS'ta olup :root defaultu olmayan: ${missingInCss.join(', ')}`
+  );
 
   // bidirectional eşitlik → aynı boyut
   assert.strictEqual(rootSet.size, KNOWN.size);

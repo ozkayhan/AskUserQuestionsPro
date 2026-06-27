@@ -23,7 +23,7 @@ always-visible `SettingsButton` fab and, when open, the `SettingsModal`. The
 `Flow` component owns all interaction state:
 
 - **answers**: `{ [questionText]: { sel: number[], confirmed: boolean, customText: string, value: number|null, order: number[]|null, path: number[]|null } }`.
-  Keyed by question *text* (stable across re-renders). Init value: `{ sel:[], confirmed:false, customText:"", value:null, order:null, path:null }`.
+  Keyed by question _text_ (stable across re-renders). Init value: `{ sel:[], confirmed:false, customText:"", value:null, order:null, path:null }`.
   - `sel` — selected option indices (single/multi/binary).
   - `value` — numeric value for scale questions.
   - `order` — ordered option-index array for ranking questions.
@@ -44,13 +44,13 @@ Functions: `goTo(idx, direction)`, `advance(from)`, `goBack()`,
 
 Keyboard (registered in a `useEffect`):
 
-| Key | Action |
-|-----|--------|
-| `←` / `→` | Previous / next question |
-| `1`–`9` | Select option by number |
-| `Enter` | Confirm current question, or submit from Summary |
-| `B` | Back (from Summary) |
-| `U` | Jump to first unanswered (only for large forms, N > 8) |
+| Key       | Action                                                 |
+| --------- | ------------------------------------------------------ |
+| `←` / `→` | Previous / next question                               |
+| `1`–`9`   | Select option by number                                |
+| `Enter`   | Confirm current question, or submit from Summary       |
+| `B`       | Back (from Summary)                                    |
+| `U`       | Jump to first unanswered (only for large forms, N > 8) |
 
 Arrow/number shortcuts are suppressed while focus is in an `<input>`/`<textarea>`.
 
@@ -66,14 +66,14 @@ Arrow/number shortcuts are suppressed while focus is in an `<input>`/`<textarea>
 
 `q.type` selects the interaction mode. Supported values:
 
-| `q.type` | Behaviour | Required fields | Answer value |
-|----------|-----------|----------------|--------------|
-| `"single"` | Select one option (arm then confirm) | `options` | `string` |
-| `"multi"` | Checkbox multi-select | `options` | `string[]` |
-| `"binary"` | Two large side-by-side buttons; single click confirms | `options` optional (defaults to `[{label:"Evet"},{label:"Hayır"}]`); exactly 2 opts; no "Other" | `string` |
-| `"scale"` | Native `<input type="range">` with value balloon and labels | `min`, `max`, `step` (default 1), `leftLabel`, `rightLabel` | `number` |
-| `"ranking"` | Ordered list; ↑/↓ buttons + keyboard drag | `options` (≥ 2); no "Other" | `string[]` (ordered high→low) |
-| `"tree"` | Hierarchical drill-down; breadcrumb shows path; leaf = final answer | `options` with optional recursive `children`; no "Other"; depth ≤ 6 | `string[]` (root→leaf labels) |
+| `q.type`    | Behaviour                                                           | Required fields                                                                                 | Answer value                  |
+| ----------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------- |
+| `"single"`  | Select one option (arm then confirm)                                | `options`                                                                                       | `string`                      |
+| `"multi"`   | Checkbox multi-select                                               | `options`                                                                                       | `string[]`                    |
+| `"binary"`  | Two large side-by-side buttons; single click confirms               | `options` optional (defaults to `[{label:"Evet"},{label:"Hayır"}]`); exactly 2 opts; no "Other" | `string`                      |
+| `"scale"`   | Native `<input type="range">` with value balloon and labels         | `min`, `max`, `step` (default 1), `leftLabel`, `rightLabel`                                     | `number`                      |
+| `"ranking"` | Ordered list; ↑/↓ buttons + keyboard drag                           | `options` (≥ 2); no "Other"                                                                     | `string[]` (ordered high→low) |
+| `"tree"`    | Hierarchical drill-down; breadcrumb shows path; leaf = final answer | `options` with optional recursive `children`; no "Other"; depth ≤ 6                             | `string[]` (root→leaf labels) |
 
 Type is resolved via `AnswerMap.qType(q)`: if the explicit `q.type` is a rich
 type (`binary`/`scale`/`ranking`/`tree`) but the setting for that type is
@@ -81,13 +81,13 @@ disabled, it degrades to `"multi"` or `"single"` based on `q.multiSelect`.
 
 ### Keyboard shortcuts by type
 
-| Type | Shortcuts |
-|------|-----------|
-| single/multi | `1`–`9` select, `Enter` confirm |
-| binary | `1`/`2` select (auto-confirms) |
-| scale | `←`/`→` adjust, `Enter` confirm |
-| ranking | `↑`/`↓` move cursor, `Enter`/`Space` grab/drop, `Enter` (ungrabbed) confirm |
-| tree | `1`–`9` pick child, `Backspace`/`←` go up, `Enter` confirm leaf |
+| Type         | Shortcuts                                                                   |
+| ------------ | --------------------------------------------------------------------------- |
+| single/multi | `1`–`9` select, `Enter` confirm                                             |
+| binary       | `1`/`2` select (auto-confirms)                                              |
+| scale        | `←`/`→` adjust, `Enter` confirm                                             |
+| ranking      | `↑`/`↓` move cursor, `Enter`/`Space` grab/drop, `Enter` (ungrabbed) confirm |
+| tree         | `1`–`9` pick child, `Backspace`/`←` go up, `Enter` confirm leaf             |
 
 ## Components (`web/views.js`)
 
@@ -149,15 +149,15 @@ A schema-driven settings UI. `web/settings-schema.js` (UMD global
 `Settings_Schema`) is the single source of truth for all settings — every
 control is generated from `entries()`. Current entries:
 
-| Key | Group | Type | Default | Effect |
-|-----|-------|------|---------|--------|
-| `theme` | Appearance | select | `amoled` | Applies theme tokens live |
-| `uiScale` | Appearance | select (`sm`/`md`/`lg`) | `md` | `html zoom` |
-| `reduceMotion` | Appearance | toggle | `false` | `data-reduce-motion` attr |
-| `qtypeBinary` | Question types | toggle | `true` | Enable binary questions |
-| `qtypeScale` | Question types | toggle | `true` | Enable scale questions |
-| `qtypeRanking` | Question types | toggle | `true` | Enable ranking questions |
-| `qtypeTree` | Question types | toggle | `true` | Enable decision-tree questions |
+| Key            | Group          | Type                    | Default  | Effect                         |
+| -------------- | -------------- | ----------------------- | -------- | ------------------------------ |
+| `theme`        | Appearance     | select                  | `amoled` | Applies theme tokens live      |
+| `uiScale`      | Appearance     | select (`sm`/`md`/`lg`) | `md`     | `html zoom`                    |
+| `reduceMotion` | Appearance     | toggle                  | `false`  | `data-reduce-motion` attr      |
+| `qtypeBinary`  | Question types | toggle                  | `true`   | Enable binary questions        |
+| `qtypeScale`   | Question types | toggle                  | `true`   | Enable scale questions         |
+| `qtypeRanking` | Question types | toggle                  | `true`   | Enable ranking questions       |
+| `qtypeTree`    | Question types | toggle                  | `true`   | Enable decision-tree questions |
 
 The four `qtype*` toggles apply on reload; `app.js` reads them at boot via
 `AnswerMap.setEnabled({binary, scale, ranking, tree})`. Disabling a rich type
@@ -179,13 +179,13 @@ degrades it to `single` or `multi` transparently.
 
 Five themes in `LIST`:
 
-| id | Feel |
-|----|------|
-| `amoled` | Default — pure black, blue accent (base tokens in `:root`). |
-| `paper` | Warm off-white, serif (Newsreader + Inter), brown accent. |
-| `phosphor` | Neon green on near-black, monospace, scanline texture. |
-| `dusk` | Warm orange/brown gradient, large radius. |
-| `aurora` | Purple/cyan glassmorphism, blur, Space Grotesk. |
+| id         | Feel                                                        |
+| ---------- | ----------------------------------------------------------- |
+| `amoled`   | Default — pure black, blue accent (base tokens in `:root`). |
+| `paper`    | Warm off-white, serif (Newsreader + Inter), brown accent.   |
+| `phosphor` | Neon green on near-black, monospace, scanline texture.      |
+| `dusk`     | Warm orange/brown gradient, large radius.                   |
+| `aurora`   | Purple/cyan glassmorphism, blur, Space Grotesk.             |
 
 Mechanics:
 

@@ -47,7 +47,7 @@ function cmdInstall() {
   if (status === 'conflict') {
     process.stderr.write(
       `UYARI: settings.json içinde başka bir AskUserQuestion PreToolUse hook'u var.\n` +
-      `Tek PreToolUse hook olmalı (Claude Code issue #15897). Elle kontrol edin:\n  ${SETTINGS}\n`
+        `Tek PreToolUse hook olmalı (Claude Code issue #15897). Elle kontrol edin:\n  ${SETTINGS}\n`
     );
     process.exit(1);
   }
@@ -58,7 +58,7 @@ function cmdInstall() {
   writeSettings(SETTINGS, next);
   process.stdout.write(
     `Hook eklendi → ${SETTINGS}\n` +
-    `Yeni bir 'claude' oturumu açın; AskUserQuestion artık özel arayüzde açılır.\n`
+      `Yeni bir 'claude' oturumu açın; AskUserQuestion artık özel arayüzde açılır.\n`
   );
 
   // MCP sunucusunu claude CLI'ya global kaydet (varsa; yoksa ipucu ver).
@@ -66,18 +66,22 @@ function cmdInstall() {
   if (claudeCheck.error && claudeCheck.error.code === 'ENOENT') {
     process.stdout.write(
       `İpucu: claude CLI bulunamadı. MCP aracını elle kaydetmek için:\n` +
-      `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
+        `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
     );
   } else {
     // Önce kaldır (idempotent), sonra ekle.
     spawnSync('claude', ['mcp', 'remove', 'askuserquestionspro'], { stdio: 'ignore' });
-    const add = spawnSync('claude', ['mcp', 'add', '--scope', 'user', 'askuserquestionspro', '--', 'node', MCP_ABS], { stdio: 'ignore' });
+    const add = spawnSync(
+      'claude',
+      ['mcp', 'add', '--scope', 'user', 'askuserquestionspro', '--', 'node', MCP_ABS],
+      { stdio: 'ignore' }
+    );
     if (add.status === 0) {
       process.stdout.write(`MCP aracı (mcp__askuserquestionspro__ask) kaydedildi\n`);
     } else {
       process.stdout.write(
         `MCP kaydı başarısız oldu. Elle kaydetmek için:\n` +
-        `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
+          `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
       );
     }
   }
@@ -121,7 +125,11 @@ function cmdSettings(sub, key, val) {
   }
   if (sub === 'get') {
     if (!Schema.byKey(key)) {
-      process.stderr.write(`Bilinmeyen key: ${key}. Geçerli: ${Schema.entries().map((e) => e.key).join(', ')}\n`);
+      process.stderr.write(
+        `Bilinmeyen key: ${key}. Geçerli: ${Schema.entries()
+          .map((e) => e.key)
+          .join(', ')}\n`
+      );
       process.exit(1);
     }
     process.stdout.write(`${JSON.stringify(cur[key])}\n`);
@@ -129,7 +137,11 @@ function cmdSettings(sub, key, val) {
   }
   if (sub === 'set') {
     if (!Schema.byKey(key)) {
-      process.stderr.write(`Bilinmeyen key: ${key}. Geçerli: ${Schema.entries().map((e) => e.key).join(', ')}\n`);
+      process.stderr.write(
+        `Bilinmeyen key: ${key}. Geçerli: ${Schema.entries()
+          .map((e) => e.key)
+          .join(', ')}\n`
+      );
       process.exit(1);
     }
     if (val === undefined) {
@@ -139,7 +151,8 @@ function cmdSettings(sub, key, val) {
     const c = Schema.coerce(key, val);
     if (!c.ok) {
       const e = Schema.byKey(key);
-      const hint = e.type === 'toggle' ? 'on/off/true/false/1/0' : e.options.map((o) => o.value).join('/');
+      const hint =
+        e.type === 'toggle' ? 'on/off/true/false/1/0' : e.options.map((o) => o.value).join('/');
       process.stderr.write(`Geçersiz değer "${val}" for ${key}. Beklenen: ${hint}\n`);
       process.exit(1);
     }
@@ -161,7 +174,9 @@ async function cmdDoctor() {
   if (status === 'already') {
     process.stdout.write(`✓ Hook kurulu (${SETTINGS})\n`);
   } else if (status === 'conflict') {
-    process.stdout.write(`✗ Çakışan AskUserQuestion hook'u var — 'askuserquestionspro install' çalıştırın\n`);
+    process.stdout.write(
+      `✗ Çakışan AskUserQuestion hook'u var — 'askuserquestionspro install' çalıştırın\n`
+    );
     ok = false;
   } else {
     process.stdout.write(`✗ Hook kurulu değil — 'askuserquestionspro install' çalıştırın\n`);
@@ -177,7 +192,9 @@ async function cmdDoctor() {
   // 3. Köprü ayakta mı? (opsiyonel — talep gelince spawn olur)
   try {
     const r = await fetch(`${BASE}/health`);
-    process.stdout.write(r.ok ? `✓ Köprü çalışıyor (${BASE})\n` : `· Köprü yanıt verdi ama health başarısız\n`);
+    process.stdout.write(
+      r.ok ? `✓ Köprü çalışıyor (${BASE})\n` : `· Köprü yanıt verdi ama health başarısız\n`
+    );
   } catch {
     process.stdout.write(`· Köprü şu an kapalı (normal — AskUserQuestion'da otomatik başlar)\n`);
   }
@@ -190,7 +207,7 @@ async function cmdDoctor() {
   } else {
     process.stdout.write(
       `· MCP aracı kayıtlı değil — 'askuserquestionspro install' veya manuel ` +
-      `'claude mcp add' çalıştırın\n`
+        `'claude mcp add' çalıştırın\n`
     );
   }
   // 5. Ayar dosyası durumu (bilgi amaçlı).
@@ -198,12 +215,18 @@ async function cmdDoctor() {
     const p = Settings.getPath();
     if (require('node:fs').existsSync(p)) {
       const raw = JSON.parse(require('node:fs').readFileSync(p, 'utf8'));
-      process.stdout.write(`✓ Ayar dosyası (${p}) _v=${raw._v} → ${JSON.stringify(Settings.read())}\n`);
+      process.stdout.write(
+        `✓ Ayar dosyası (${p}) _v=${raw._v} → ${JSON.stringify(Settings.read())}\n`
+      );
     } else {
-      process.stdout.write(`· Ayar dosyası yok (${p}) — varsayılanlar: ${JSON.stringify(Settings.read())}\n`);
+      process.stdout.write(
+        `· Ayar dosyası yok (${p}) — varsayılanlar: ${JSON.stringify(Settings.read())}\n`
+      );
     }
   } catch (e) {
-    process.stdout.write(`· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.read())}\n`);
+    process.stdout.write(
+      `· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.read())}\n`
+    );
   }
   process.exit(ok ? 0 : 1);
 }
@@ -211,13 +234,24 @@ async function cmdDoctor() {
 async function main() {
   const cmd = process.argv[2];
   switch (cmd) {
-    case 'init': case 'install': return cmdInstall();
-    case 'uninstall': return cmdUninstall();
-    case 'serve': return cmdServe();
-    case 'mcp': return cmdMcp();
-    case 'settings': return cmdSettings(process.argv[3], process.argv[4], process.argv[5]);
-    case 'doctor': return cmdDoctor();
-    case 'help': case '--help': case '-h': case undefined: return usage();
+    case 'init':
+    case 'install':
+      return cmdInstall();
+    case 'uninstall':
+      return cmdUninstall();
+    case 'serve':
+      return cmdServe();
+    case 'mcp':
+      return cmdMcp();
+    case 'settings':
+      return cmdSettings(process.argv[3], process.argv[4], process.argv[5]);
+    case 'doctor':
+      return cmdDoctor();
+    case 'help':
+    case '--help':
+    case '-h':
+    case undefined:
+      return usage();
     default:
       process.stderr.write(`Bilinmeyen komut: ${cmd}\n\n`);
       usage();

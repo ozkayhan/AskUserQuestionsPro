@@ -3,7 +3,11 @@ const assert = require('node:assert');
 const { mapAnswers } = require('../web/answer-map.js');
 
 const QS = [
-  { question: 'Framework?', multiSelect: false, options: [{ label: 'Next.js' }, { label: 'Remix' }] },
+  {
+    question: 'Framework?',
+    multiSelect: false,
+    options: [{ label: 'Next.js' }, { label: 'Remix' }],
+  },
   { question: 'Features?', multiSelect: true, options: [{ label: 'Auth' }, { label: 'Cache' }] },
 ];
 
@@ -36,18 +40,32 @@ const customIdx = 2; // [A, B, Other]
 
 t2('single-select: ilk basışta custom seçenek armlanır (select)', () => {
   const a = { sel: [], customText: '', confirmed: false };
-  assert2.deepStrictEqual(AM.decideActivate(singleQ, a, customIdx), { type: 'select', sel: [customIdx] });
+  assert2.deepStrictEqual(AM.decideActivate(singleQ, a, customIdx), {
+    type: 'select',
+    sel: [customIdx],
+  });
 });
 
 t2('single-select: armlı custom + metin YOK -> boş popup', () => {
   const a = { sel: [customIdx], customText: '', confirmed: false };
-  assert2.deepStrictEqual(AM.decideActivate(singleQ, a, customIdx), { type: 'popup', optIdx: customIdx, draft: '' });
+  assert2.deepStrictEqual(AM.decideActivate(singleQ, a, customIdx), {
+    type: 'popup',
+    optIdx: customIdx,
+    draft: '',
+  });
 });
 
-t2('REGRESSION: armlı custom + metin VAR -> mevcut metinle popup (düzenleme), confirm DEĞİL', () => {
-  const a = { sel: [customIdx], customText: 'benim cevabım', confirmed: false };
-  assert2.deepStrictEqual(AM.decideActivate(singleQ, a, customIdx), { type: 'popup', optIdx: customIdx, draft: 'benim cevabım' });
-});
+t2(
+  'REGRESSION: armlı custom + metin VAR -> mevcut metinle popup (düzenleme), confirm DEĞİL',
+  () => {
+    const a = { sel: [customIdx], customText: 'benim cevabım', confirmed: false };
+    assert2.deepStrictEqual(AM.decideActivate(singleQ, a, customIdx), {
+      type: 'popup',
+      optIdx: customIdx,
+      draft: 'benim cevabım',
+    });
+  }
+);
 
 t2('single-select: armlı normal seçenek -> confirm', () => {
   const a = { sel: [0], customText: '', confirmed: false };
@@ -59,7 +77,11 @@ const multiQ = { options: [{ label: 'A' }, { label: 'B' }], multiSelect: true };
 t2('REGRESSION: multiSelect yeni custom -> popup, seçim HENÜZ işaretlenmez', () => {
   const a = { sel: [], customText: '', confirmed: false };
   // sel alanı olmamalı; metin kaydedilene dek hayalet seçili "Other" oluşmaz
-  assert2.deepStrictEqual(AM.decideActivate(multiQ, a, customIdx), { type: 'popup', optIdx: customIdx, draft: '' });
+  assert2.deepStrictEqual(AM.decideActivate(multiQ, a, customIdx), {
+    type: 'popup',
+    optIdx: customIdx,
+    draft: '',
+  });
 });
 
 t2('multiSelect normal seçenek -> toggle ekler', () => {
@@ -126,7 +148,13 @@ t3('mapAnswers: binary — varsayılan şıklar', () => {
 });
 
 t3('mapAnswers: binary — özel şıklar', () => {
-  const q = [{ question: 'Kabul?', type: 'binary', options: [{ label: 'Evet, devam et' }, { label: 'Hayır, dur' }] }];
+  const q = [
+    {
+      question: 'Kabul?',
+      type: 'binary',
+      options: [{ label: 'Evet, devam et' }, { label: 'Hayır, dur' }],
+    },
+  ];
   const s = { 'Kabul?': { sel: [1], customText: '' } };
   assert3.deepStrictEqual(AM3.mapAnswers(q, s), { 'Kabul?': 'Hayır, dur' });
 });
@@ -150,7 +178,13 @@ t3('mapAnswers: scale — value null ise atlanır', () => {
 
 // --- mapAnswers ranking ---
 t3('mapAnswers: ranking — sıralı string[] döndürür', () => {
-  const q = [{ question: 'Öncelik?', type: 'ranking', options: [{ label: 'Auth' }, { label: 'Cache' }, { label: 'Billing' }] }];
+  const q = [
+    {
+      question: 'Öncelik?',
+      type: 'ranking',
+      options: [{ label: 'Auth' }, { label: 'Cache' }, { label: 'Billing' }],
+    },
+  ];
   const s = { 'Öncelik?': { sel: [], customText: '', value: null, order: [2, 0, 1], path: null } };
   assert3.deepStrictEqual(AM3.mapAnswers(q, s), { 'Öncelik?': ['Billing', 'Auth', 'Cache'] });
 });
@@ -162,13 +196,16 @@ t3('mapAnswers: ranking — order null ise atlanır', () => {
 
 // --- mapAnswers tree ---
 t3('mapAnswers: tree — kök->yaprak yol döndürür', () => {
-  const q = [{
-    question: 'Kategori?', type: 'tree',
-    options: [
-      { label: 'AI', children: [{ label: 'LLM', children: [{ label: 'fine-tune' }] }] },
-      { label: 'DB' },
-    ]
-  }];
+  const q = [
+    {
+      question: 'Kategori?',
+      type: 'tree',
+      options: [
+        { label: 'AI', children: [{ label: 'LLM', children: [{ label: 'fine-tune' }] }] },
+        { label: 'DB' },
+      ],
+    },
+  ];
   const s = { 'Kategori?': { sel: [], customText: '', value: null, order: null, path: [0, 0, 0] } };
   assert3.deepStrictEqual(AM3.mapAnswers(q, s), { 'Kategori?': ['AI', 'LLM', 'fine-tune'] });
 });
@@ -231,7 +268,7 @@ t3('isAnswered: tree — path var ve son düğüm yaprak ise true', () => {
     options: [
       { label: 'AI', children: [{ label: 'LLM', children: [{ label: 'fine-tune' }] }] },
       { label: 'DB' },
-    ]
+    ],
   };
   // DB yaprak (path=[1])
   assert3.strictEqual(AM3.isAnswered(tq, { path: [1] }), true);
@@ -270,7 +307,10 @@ t3('summaryText: scale — "değer / max" formatı', () => {
 });
 
 t3('summaryText: ranking — ok ile ayrılmış', () => {
-  const rq = { type: 'ranking', options: [{ label: 'Auth' }, { label: 'Cache' }, { label: 'Billing' }] };
+  const rq = {
+    type: 'ranking',
+    options: [{ label: 'Auth' }, { label: 'Cache' }, { label: 'Billing' }],
+  };
   assert3.strictEqual(AM3.summaryText(rq, { order: [2, 0, 1] }), 'Billing → Auth → Cache');
   assert3.strictEqual(AM3.summaryText(rq, { order: null }), '');
 });
@@ -281,7 +321,7 @@ t3('summaryText: tree — ok ile ayrılmış yol', () => {
     options: [
       { label: 'AI', children: [{ label: 'LLM', children: [{ label: 'fine-tune' }] }] },
       { label: 'DB' },
-    ]
+    ],
   };
   assert3.strictEqual(AM3.summaryText(tq, { path: [0, 0, 0] }), 'AI → LLM → fine-tune');
   assert3.strictEqual(AM3.summaryText(tq, { path: [1] }), 'DB');
@@ -331,7 +371,7 @@ t3('clampScale: değeri min/max aralığında sınırlar', () => {
   assert3.strictEqual(AM3.clampScale(sq, 15), 10);
 });
 
-t3('clampScale: step\'e yuvarlar', () => {
+t3("clampScale: step'e yuvarlar", () => {
   const sq = { min: 0, max: 100, step: 10 };
   assert3.strictEqual(AM3.clampScale(sq, 34), 30);
   assert3.strictEqual(AM3.clampScale(sq, 35), 40); // Math.round, 0.5 yukarı
@@ -358,9 +398,7 @@ t3('treeNodeAt: kök seviye düğümü', () => {
 
 t3('treeNodeAt: iç içe düğüm', () => {
   const tq = {
-    options: [
-      { label: 'AI', children: [{ label: 'LLM', children: [{ label: 'fine-tune' }] }] },
-    ]
+    options: [{ label: 'AI', children: [{ label: 'LLM', children: [{ label: 'fine-tune' }] }] }],
   };
   assert3.deepStrictEqual(AM3.treeNodeAt(tq, [0, 0, 0]), { label: 'fine-tune' });
 });
@@ -376,7 +414,7 @@ t3('treeChildrenAt: boş path -> kök options', () => {
   assert3.deepStrictEqual(AM3.treeChildrenAt(tq, []), [{ label: 'A' }, { label: 'B' }]);
 });
 
-t3('treeChildrenAt: path verilen düğümün children\'larını döndürür', () => {
+t3("treeChildrenAt: path verilen düğümün children'larını döndürür", () => {
   const child1 = { label: 'LLM' };
   const tq = { options: [{ label: 'AI', children: [child1] }, { label: 'DB' }] };
   assert3.deepStrictEqual(AM3.treeChildrenAt(tq, [0]), [child1]);
@@ -405,7 +443,14 @@ t3('setEnabled kapalıyken mapAnswers ranking degrades to single', () => {
   AM3.setEnabled({ binary: true, scale: true, ranking: false, tree: true });
   // type:ranking ama ENABLED kapalı → qType single döner
   // mapAnswers single gibi davranır: sel[0] değerini string olarak verir
-  const q = [{ question: 'R?', type: 'ranking', multiSelect: false, options: [{ label: 'X' }, { label: 'Y' }] }];
+  const q = [
+    {
+      question: 'R?',
+      type: 'ranking',
+      multiSelect: false,
+      options: [{ label: 'X' }, { label: 'Y' }],
+    },
+  ];
   const s = { 'R?': { sel: [0], customText: '', value: null, order: [1, 0], path: null } };
   // degrade -> single -> options[0].label = 'X'
   assert3.deepStrictEqual(AM3.mapAnswers(q, s), { 'R?': 'X' });
