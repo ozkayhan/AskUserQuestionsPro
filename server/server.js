@@ -19,8 +19,8 @@ function sendJson(res, code, obj) {
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 8e6) req.destroy(); });
+    let data = ''; let size = 0;
+    req.on('data', (c) => { size += c.length; if (size > 8e6) { req.destroy(); return; } data += c; });
     req.on('end', () => resolve(data));
     req.on('error', reject);
     // req.destroy() (8 MB boyut aşımı) yalnızca 'close' yayar; promise'in asılı kalmaması için.
@@ -117,7 +117,9 @@ function validQuestions(q) {
 
 function broadcastCurrent() {
   const payload = JSON.stringify(bridge.peek() || { id: null, questions: null });
-  for (const res of sseClients) res.write(`data: ${payload}\n\n`);
+  for (const res of sseClients) {
+    try { res.write(`data: ${payload}\n\n`); } catch { sseClients.delete(res); }
+  }
 }
 
 function serveStatic(req, res) {

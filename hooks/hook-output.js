@@ -13,7 +13,11 @@ function buildHookOutput(toolInput, answers) {
       permissionDecisionReason: 'Answered via custom AskUserQuestion UI',
       updatedInput: {
         questions: toolInput.questions,
-        answers: answers,
+        answers: Object.fromEntries(
+          Object.entries(answers).filter(([k]) =>
+            (toolInput.questions || []).some((q) => q.question === k)
+          )
+        ),
       },
     },
   };

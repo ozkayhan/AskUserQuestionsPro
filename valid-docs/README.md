@@ -1,6 +1,6 @@
 # valid-docs — askuserquestionspro
 
-> **Synced to:** `284d4749f8c1aab1bb31e186ced76e5c14e2615d` (`284d474`) — 2026-06-23
+> **Synced to:** `e7c5b6a` — 2026-06-27
 > Regenerate/refresh with the `update-docs` skill. These docs describe the
 > codebase at the commit above; if HEAD has moved, re-run to reconcile.
 
@@ -29,7 +29,7 @@ share `lib/bridge-client.mjs`.
 
 ## Note on existing in-repo docs
 
-The repo also ships Turkish-language docs (`CODEMAP.md`, `living_docs/`,
-`docs/`). `valid-docs/` is the English, code-verified equivalent and is the
-canonical map for agents. The `docs/superpowers/` and `design-reference/`
-trees are historical design/spec artifacts, not current-behavior references.
+The repo also ships Turkish-language docs (`CODEMAP.md`, `living_docs/`).
+`valid-docs/` is the English, code-verified equivalent and is the canonical
+map for agents. The `design-reference/` tree is a historical design/spec
+artifact, not a current-behavior reference.

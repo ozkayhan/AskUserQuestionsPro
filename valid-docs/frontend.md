@@ -167,8 +167,10 @@ degrades it to `single` or `multi` transparently.
 - `SettingsModal` — centered overlay; renders one `SettingRow` (segment for
   `select`, switch for `toggle`) per schema entry, grouped by `entry.group`.
   Editing a `live` setting applies it instantly as preview; **Cancel**/`Esc`
-  reverts via `applyAll(baseline)`; **Save** POSTs the draft to `/settings`,
-  updates `window.__ASKUSER_SETTINGS__`, and shows a reload notice if a
+  reverts via `applyAll(baseline)` only if nothing has been saved yet (so a
+  successful mid-session save is not undone on cancel); **Save** POSTs the
+  draft to `/settings`, updates `window.__ASKUSER_SETTINGS__`, advances the
+  `baseline` to the saved values, and shows a reload notice if a
   `reload`-class setting changed.
 - On boot, `applyAll(window.__ASKUSER_SETTINGS__)` applies the
   server-injected settings (theme is handled separately by `themes.js`).

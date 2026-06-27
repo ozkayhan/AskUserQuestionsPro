@@ -73,10 +73,17 @@ function removeHook(settings, hookAbsPath) {
 // --- I/O sarmalayıcılar (CLI'dan çağrılır) ---
 
 function readSettings(settingsPath) {
+  let raw;
   try {
-    return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-  } catch {
-    return {};
+    raw = fs.readFileSync(settingsPath, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') return {};
+    throw new Error(`Cannot read settings file ${settingsPath}: ${err.message}`);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Invalid JSON in settings file ${settingsPath}: ${err.message}`);
   }
 }
 
