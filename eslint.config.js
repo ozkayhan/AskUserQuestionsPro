@@ -1,4 +1,5 @@
 'use strict';
+// ponytail: package.json has no "type" field (defaults to CommonJS) — require() is intentional here
 const js = require('@eslint/js');
 const globals = require('globals');
 const prettierConfig = require('eslint-config-prettier');
@@ -17,7 +18,10 @@ module.exports = [
     },
     rules: {
       // _ önekli değişkenler ve catch parametreleri kasıtlı unused olabilir
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' }],
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' },
+      ],
     },
   },
   prettierConfig,

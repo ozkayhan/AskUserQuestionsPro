@@ -6,9 +6,9 @@ _Started 2026-06-10 17:41 UTC_
 
 ## User
 
-appin boyutların yani tüm pannelerin boyut oran font oranları boyutları filan bunları odaklanalım. 
+appin boyutların yani tüm pannelerin boyut oran font oranları boyutları filan bunları odaklanalım.
 
-daha okunabilir , biraz daha büyük 
+daha okunabilir , biraz daha büyük
 %100 responsive
 
 daha okunabilir hale gelsin istioyrum
@@ -117,4 +117,3 @@ No issues found
 ## Assistant
 
 Doğrulama da temiz geçti. ✅ Her şey hazır — arayüz artık daha büyük, daha okunabilir ve %100 responsive; tasarım ve özelliklerin tamamı korundu.
-

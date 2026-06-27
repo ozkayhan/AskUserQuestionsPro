@@ -4,10 +4,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
 
-const ciYml = readFileSync(
-  path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'),
-  'utf8'
-);
+const ciYml = readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
 
 describe('ci.yml yapısı', () => {
   it('pull_request tetikleyicisi var', () => {

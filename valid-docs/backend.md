@@ -10,6 +10,7 @@ files from `../web`. Exports `server` and `bridge` (a shared `Bridge`
 instance).
 
 Responsibilities:
+
 - Route the HTTP endpoints (see [api.md](api.md)).
 - Maintain `sseClients` (a `Set`) and `broadcastCurrent()` → push
   `bridge.peek()` to every SSE client whenever state changes. Each
@@ -31,13 +32,13 @@ Responsibilities:
 The single-flight coordinator. State: `_pending` (`{id, questions, resolve,
 reject}` or `null`) and `_seq` (monotonic counter for ids).
 
-| Method | Behavior |
-|--------|----------|
+| Method                       | Behavior                                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `submitQuestions(questions)` | Stores a new pending set, returns a Promise that resolves on answers. **Throws if one is already pending.** |
-| `peek()` | `{ id, questions }` or `null` — side-effect free. |
-| `getCurrent()` | Just the questions array (or `null`). |
-| `provideAnswers(answers)` | Resolves the pending promise, clears `_pending`, returns `true`. |
-| `cancel(reason)` | Rejects the pending promise, clears `_pending`. |
+| `peek()`                     | `{ id, questions }` or `null` — side-effect free.                                                           |
+| `getCurrent()`               | Just the questions array (or `null`).                                                                       |
+| `provideAnswers(answers)`    | Resolves the pending promise, clears `_pending`, returns `true`.                                            |
+| `cancel(reason)`             | Rejects the pending promise, clears `_pending`.                                                             |
 
 ## Shared client (`lib/bridge-client.mjs`)
 
@@ -62,6 +63,7 @@ defaults, never throws. `apply()` functions run only in the browser.
 
 `lib/settings.js` is the disk layer (consumed by `server/server.js` and
 `bin/cli.js`):
+
 - File: `${XDG_CONFIG_HOME or ~/.config}/askuserquestionspro/settings.json`.
 - `read()` — parse the file and `Schema.validate()` it; ENOENT or corrupt JSON
   both fall back to schema defaults (never throws).
@@ -79,7 +81,7 @@ Executable `.mjs`. Flow:
    Claude to use `mcp__askuserquestionspro__ask` instead. (Opt-in: always use
    the unlimited MCP path.)
 3. `ensureServer()` → `openBrowser()` → `askBridge(questions, {timeoutMs: 5
-   min})`.
+min})`.
 4. Wrap answers with `buildHookOutput()` and write to stdout.
 
 Fallback: any error / uncaught exception → `process.exit(0)`, letting Claude
@@ -125,18 +127,19 @@ Tool input schema: see [api.md](api.md).
 
 `bin/cli.js` — executable `askuserquestionspro`. Subcommands:
 
-| Command | What it does |
-|---------|--------------|
-| `init` | Alias for `install`. |
-| `install` | Register the `PreToolUse` hook in `~/.claude/settings.json` and register the MCP server via `claude mcp add --scope user askuserquestionspro -- node <mcp>`. |
-| `uninstall` | Remove the hook entry from settings. |
-| `serve` | Run `server/server.js` in foreground (debug). |
-| `mcp` | Run the MCP stdio server in foreground (debug). |
-| `settings` | `settings` / `settings list` prints all entries + the config file path; `settings get <key>` prints one value; `settings set <key> <val>` coerces + writes via `lib/settings.js` (unknown key / invalid value → error exit). |
-| `doctor` | Health check: hook present, hook file exists, bridge server reachable, MCP registered, settings file status (`_v` + resolved values, or defaults if missing/corrupt). |
-| `help` | Usage. |
+| Command     | What it does                                                                                                                                                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `init`      | Alias for `install`.                                                                                                                                                                                                         |
+| `install`   | Register the `PreToolUse` hook in `~/.claude/settings.json` and register the MCP server via `claude mcp add --scope user askuserquestionspro -- node <mcp>`.                                                                 |
+| `uninstall` | Remove the hook entry from settings.                                                                                                                                                                                         |
+| `serve`     | Run `server/server.js` in foreground (debug).                                                                                                                                                                                |
+| `mcp`       | Run the MCP stdio server in foreground (debug).                                                                                                                                                                              |
+| `settings`  | `settings` / `settings list` prints all entries + the config file path; `settings get <key>` prints one value; `settings set <key> <val>` coerces + writes via `lib/settings.js` (unknown key / invalid value → error exit). |
+| `doctor`    | Health check: hook present, hook file exists, bridge server reachable, MCP registered, settings file status (`_v` + resolved values, or defaults if missing/corrupt).                                                        |
+| `help`      | Usage.                                                                                                                                                                                                                       |
 
 `bin/install.js` — pure settings manipulation (testable):
+
 - `addHook(settings, hookAbsPath)` → `{ settings, status }` where status is
   `added` / `already` / `conflict` (conflict = another `AskUserQuestion` hook
   already present).

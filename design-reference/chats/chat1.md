@@ -43,9 +43,10 @@ So you want a **fullscreen webapp** that renders this question-answering experie
 ## User
 
 Questions answered:
+
 - fidelity: Explore a few options
 - interactivity: Fully interactive prototype
-- layout: side panelde tüm sorular var  ama eknraın çoğunu kaplayan inspectorda bir soru var. soruları sarası sağ sol yön okları ile sorular arası gezebiliyosun. 1 2 3 4 ile da 1. 2. 3. 4. şıkları seçbilyosun örneğin 2 yaptım o sçeildi 2 2 yparsam o onaylanıyor yani birinci ıtlama sçeme 2 tıkalma onaylama 4. şık custom 4 e bastımonu sçetim tekrar basarsam pop up bir yazı yazma ekranı geliyor oraya yazacğımaı yazoorum sonra enter ypaınca o yazdığam şey o şıkka doluyo. ve 4 hala seçili duruoyr sonra 4 veya entera basınca onaylamış oluyrum sonraki ekran ageçiyor. dlyiem onalamadna diğe ekrana geçtim geri delğimde o haal orada duruyor. 
+- layout: side panelde tüm sorular var ama eknraın çoğunu kaplayan inspectorda bir soru var. soruları sarası sağ sol yön okları ile sorular arası gezebiliyosun. 1 2 3 4 ile da 1. 2. 3. 4. şıkları seçbilyosun örneğin 2 yaptım o sçeildi 2 2 yparsam o onaylanıyor yani birinci ıtlama sçeme 2 tıkalma onaylama 4. şık custom 4 e bastımonu sçetim tekrar basarsam pop up bir yazı yazma ekranı geliyor oraya yazacğımaı yazoorum sonra enter ypaınca o yazdığam şey o şıkka doluyo. ve 4 hala seçili duruoyr sonra 4 veya entera basınca onaylamış oluyrum sonraki ekran ageçiyor. dlyiem onalamadna diğe ekrana geçtim geri delğimde o haal orada duruyor.
 - theme: Amoled
 - context: Standalone fullscreen question flow
 - variations: Decide for me
@@ -60,7 +61,7 @@ Got it — clear, detailed spec. Let me lock in what you described:
 - **AMOLED Geist** fullscreen, standalone question flow
 - **Left side panel** lists all questions; large **inspector** shows one at a time
 - **← →** navigate between questions (state preserved when you come back)
-- **1–4** select an option; **press the same number again** (or Enter) to *confirm* and advance
+- **1–4** select an option; **press the same number again** (or Enter) to _confirm_ and advance
 - **Custom "Other"** option: press its number to select → press again to open a popup → type → Enter fills it in → confirm to advance
 - Fully interactive; a few layout/motion variations via **Tweaks**
 
@@ -163,6 +164,7 @@ _[tool: fork_verifier_agent]_
 Built **AskUserQuestions.html** — a fullscreen, AMOLED Geist webapp for the Claude Agent SDK's `AskUserQuestion` tool.
 
 **Interaction model (exactly as you specced):**
+
 - **← →** move between questions; state persists when you come back
 - **1–4** select an option → **press the same number again** (or **↵**) to confirm and advance
 - **"Other"** (auto-appended last option): press its number to select → press again to open a popup → type → **↵** fills it into the option → confirm to advance
@@ -170,9 +172,10 @@ Built **AskUserQuestions.html** — a fullscreen, AMOLED Geist webapp for the Cl
 - Left side panel lists all 4 questions with live answered-state + green checks; ends in a **Review & submit** screen
 - Mouse mirrors keyboard (click = arm, click again = confirm)
 
-**Tweaks** (toolbar) explore your two axes — *layout*: panel side, question alignment; *motion*: transition style + speed; plus accent color and AMOLED/soft-black.
+**Tweaks** (toolbar) explore your two axes — _layout_: panel side, question alignment; _motion_: transition style + speed; plus accent color and AMOLED/soft-black.
 
 Two notes:
+
 - It's keyboard-first, so it's best viewed full-screen with the page focused.
 - I populated it with a realistic agent scenario (framework / database / features / deployment) since you didn't specify — easy to swap for your real questions in the `QUESTIONS` array.
 
@@ -218,13 +221,14 @@ Böylece insanlar uzun, çok satırlı cevaplar yazarken rahat bir deneyim yaş�
 
 ## User
 
-review ekranında back tuşu  cevaplanmayan ve sırası en yularıda olan soruya yollasın.  ayrıca hem back hem de submit answer için de klavye tuşları olması lazım sitenin tam kalsvye uyumluluğu için ve onların da diğerleri gibi belriltemsi lazım o butonun içinde
+review ekranında back tuşu cevaplanmayan ve sırası en yularıda olan soruya yollasın. ayrıca hem back hem de submit answer için de klavye tuşları olması lazım sitenin tam kalsvye uyumluluğu için ve onların da diğerleri gibi belriltemsi lazım o butonun içinde
 
 ## Assistant
 
 _[tool: str_replace_edit]_
 
 İyi noktalar. İki şey yapıyorum:
+
 1. Review ekranındaki **Back**, sırayla en yukarıdaki **cevaplanmamış** soruya gitsin (hepsi cevaplıysa son soruya).
 2. Hem **Back** hem **Submit** için klavye kısayolu — ve diğerleri gibi tuş rozeti butonun içinde görünsün.
 
@@ -301,6 +305,7 @@ _[tool: eval_js]_
 _[tool: done]_
 
 All correct now:
+
 - After confirming Q1 → **Database**, after Q2 → **Features** (advance works)
 - On summary, pressing **B** jumps to **Features** — the topmost unanswered question ✓
 - Both action buttons show their key badges (**B**, **↵**) and respond to the keyboard
@@ -311,4 +316,3 @@ Let me finalize.Tamamlandı:
 2. **Tam klavye uyumu** — review ekranında **B** = Back, **↵** = Submit. İkisinin de tuş rozeti, diğer kısayollar gibi butonun içinde görünüyor.
 
 Ayrıca bu sırada review ekranındaki dikey kaydırma sorununu da düzelttim — uzun cevap listelerinde artık Back/Submit butonlarına kaydırarak ulaşılabiliyor.
-

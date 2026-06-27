@@ -3,8 +3,12 @@
 // Tüm tanılama/log mesajları STDERR'e gider; STDOUT yalnızca protokol kanalıdır.
 // Node core dışında sıfır bağımlılık.
 
-process.on('uncaughtException', (e) => process.stderr.write(`[askuserquestionspro-mcp] uncaughtException: ${e}\n`));
-process.on('unhandledRejection', (r) => process.stderr.write(`[askuserquestionspro-mcp] unhandledRejection: ${r}\n`));
+process.on('uncaughtException', (e) =>
+  process.stderr.write(`[askuserquestionspro-mcp] uncaughtException: ${e}\n`)
+);
+process.on('unhandledRejection', (r) =>
+  process.stderr.write(`[askuserquestionspro-mcp] unhandledRejection: ${r}\n`)
+);
 
 // ASK aracı tanımı — maxItems YOK: sınırsız soru desteklenir.
 const ASK_TOOL = {
@@ -35,7 +39,8 @@ const ASK_TOOL = {
           children: {
             type: 'array',
             items: { $ref: '#/$defs/option' },
-            description: 'Alt seçenekler (yalnızca tree tipinde). Yoksa/boşsa bu düğüm yaprak (nihai cevap).',
+            description:
+              'Alt seçenekler (yalnızca tree tipinde). Yoksa/boşsa bu düğüm yaprak (nihai cevap).',
           },
         },
       },
@@ -53,13 +58,19 @@ const ASK_TOOL = {
           required: ['question', 'header'],
           properties: {
             question: { type: 'string', description: 'The full question text.' },
-            header: { type: 'string', description: 'A short section/group label (used to group questions in the UI).' },
+            header: {
+              type: 'string',
+              description: 'A short section/group label (used to group questions in the UI).',
+            },
             type: {
               type: 'string',
               enum: ['single', 'multi', 'binary', 'scale', 'ranking', 'tree'],
               description: 'Soru tipi. Belirtilmezse multiSelect:true→"multi", aksi→"single".',
             },
-            multiSelect: { type: 'boolean', description: 'Allow selecting multiple options (shorthand for type:"multi").' },
+            multiSelect: {
+              type: 'boolean',
+              description: 'Allow selecting multiple options (shorthand for type:"multi").',
+            },
             // scale alanları
             min: { type: 'number', description: 'Scale minimum değeri (scale tipinde zorunlu).' },
             max: { type: 'number', description: 'Scale maksimum değeri (scale tipinde zorunlu).' },
@@ -69,7 +80,8 @@ const ASK_TOOL = {
             options: {
               type: 'array',
               minItems: 1,
-              description: 'Seçenekler (single/multi/binary/ranking/tree). binary: tam 2 şık veya omit. scale: kullanılmaz.',
+              description:
+                'Seçenekler (single/multi/binary/ranking/tree). binary: tam 2 şık veya omit. scale: kullanılmaz.',
               items: { $ref: '#/$defs/option' },
             },
           },
@@ -99,15 +111,16 @@ async function handleAsk(args) {
   }
 
   // ESM modülü dinamik olarak içe aktar (hem hook hem MCP paylaşır).
-  const { ensureServer, openBrowser, askBridge } =
-    await import('../lib/bridge-client.mjs');
+  const { ensureServer, openBrowser, askBridge } = await import('../lib/bridge-client.mjs');
 
   if (!(await ensureServer())) {
     return {
-      content: [{
-        type: 'text',
-        text: 'askuserquestionspro bridge unavailable — could not start the local UI server. Fall back to the built-in AskUserQuestion tool (max 4 questions per call).',
-      }],
+      content: [
+        {
+          type: 'text',
+          text: 'askuserquestionspro bridge unavailable — could not start the local UI server. Fall back to the built-in AskUserQuestion tool (max 4 questions per call).',
+        },
+      ],
       isError: true,
     };
   }
@@ -119,10 +132,12 @@ async function handleAsk(args) {
     answers = await askBridge(args.questions, { timeoutMs: 30 * 60 * 1000 });
   } catch {
     return {
-      content: [{
-        type: 'text',
-        text: 'askuserquestionspro UI did not return answers (timeout, cancellation, or another set was pending). Fall back to the built-in AskUserQuestion tool.',
-      }],
+      content: [
+        {
+          type: 'text',
+          text: 'askuserquestionspro UI did not return answers (timeout, cancellation, or another set was pending). Fall back to the built-in AskUserQuestion tool.',
+        },
+      ],
       isError: true,
     };
   }
@@ -130,7 +145,9 @@ async function handleAsk(args) {
   // Kullanıcı tüm soruları iptal etti veya atladı.
   if (answers == null || (typeof answers === 'object' && Object.keys(answers).length === 0)) {
     return {
-      content: [{ type: 'text', text: 'The user submitted no answers (cancelled or skipped all).' }],
+      content: [
+        { type: 'text', text: 'The user submitted no answers (cancelled or skipped all).' },
+      ],
     };
   }
 
@@ -205,7 +222,9 @@ process.stdin.on('data', async (chunk) => {
       msg = JSON.parse(trimmed);
     } catch (e) {
       // Ayrıştırılamayan satır — id bilinmiyor, stderr'e logla ve devam et.
-      process.stderr.write(`[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`);
+      process.stderr.write(
+        `[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`
+      );
       continue;
     }
     try {
@@ -225,7 +244,16 @@ process.stdin.on('end', () => {
   const trimmed = buffer.trim();
   if (trimmed) {
     let msg;
-    try { msg = JSON.parse(trimmed); } catch (e) { process.stderr.write(`[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`); return; }
-    handleMessage(msg).catch((e) => process.stderr.write(`[askuserquestionspro-mcp] son satır hatası: ${e}\n`));
+    try {
+      msg = JSON.parse(trimmed);
+    } catch (e) {
+      process.stderr.write(
+        `[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`
+      );
+      return;
+    }
+    handleMessage(msg).catch((e) =>
+      process.stderr.write(`[askuserquestionspro-mcp] son satır hatası: ${e}\n`)
+    );
   }
 });

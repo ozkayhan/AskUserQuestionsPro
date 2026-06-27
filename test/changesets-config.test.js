@@ -9,7 +9,10 @@ const root = path.join(__dirname, '..');
 describe('Changesets kurulumu', () => {
   it('package.json devDependencies içinde @changesets/cli olmalı', () => {
     const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
-    assert.ok(pkg.devDependencies?.['@changesets/cli'], '@changesets/cli devDependencies içinde yok');
+    assert.ok(
+      pkg.devDependencies?.['@changesets/cli'],
+      '@changesets/cli devDependencies içinde yok'
+    );
   });
 
   it('package.json scripts: changeset, version, release olmalı', () => {
@@ -34,6 +37,9 @@ describe('Changesets kurulumu', () => {
   });
 
   it('.changeset/README.md mevcut olmalı', () => {
-    assert.ok(existsSync(path.join(root, '.changeset', 'README.md')), '.changeset/README.md bulunamadı');
+    assert.ok(
+      existsSync(path.join(root, '.changeset', 'README.md')),
+      '.changeset/README.md bulunamadı'
+    );
   });
 });

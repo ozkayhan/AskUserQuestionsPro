@@ -13,8 +13,9 @@ function withTmpConfig(fn) {
   process.env.XDG_CONFIG_HOME = dir;
   delete require.cache[require.resolve('../lib/settings.js')];
   const Settings = require('../lib/settings.js');
-  try { fn(Settings, dir); }
-  finally {
+  try {
+    fn(Settings, dir);
+  } finally {
     if (prev === undefined) delete process.env.XDG_CONFIG_HOME;
     else process.env.XDG_CONFIG_HOME = prev;
     delete require.cache[require.resolve('../lib/settings.js')];
@@ -30,7 +31,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
     qtypeBinary: true,
     qtypeScale: true,
     qtypeRanking: true,
-    qtypeTree: true
+    qtypeTree: true,
   });
 });
 
@@ -81,8 +82,11 @@ test('validate geçerli değer korunur', () => {
 });
 
 test('validate toggle tip zorlama → boolean', () => {
-  assert.strictEqual(Schema.validate({ reduceMotion: 'true' }).reduceMotion, false,
-    'string "true" geçerli boolean değil → default false');
+  assert.strictEqual(
+    Schema.validate({ reduceMotion: 'true' }).reduceMotion,
+    false,
+    'string "true" geçerli boolean değil → default false'
+  );
   assert.strictEqual(Schema.validate({ reduceMotion: 1 }).reduceMotion, false);
   assert.strictEqual(Schema.validate({ reduceMotion: true }).reduceMotion, true);
 });
@@ -141,7 +145,7 @@ test('qtype toggle validate: boolean korunur', () => {
     qtypeBinary: false,
     qtypeScale: true,
     qtypeRanking: false,
-    qtypeTree: true
+    qtypeTree: true,
   });
   assert.strictEqual(v.qtypeBinary, false);
   assert.strictEqual(v.qtypeScale, true);
@@ -165,9 +169,9 @@ test('qtype toggle coerce: on/off çalışır', () => {
 test('qtype entries: Question types grubu var', () => {
   const g = Schema.groups();
   assert.ok(g.includes('Question types'), 'Question types grubu olmalı');
-  const qtEntries = Schema.entries().filter(e => e.group === 'Question types');
+  const qtEntries = Schema.entries().filter((e) => e.group === 'Question types');
   assert.strictEqual(qtEntries.length, 4);
-  const keys = qtEntries.map(e => e.key).sort();
+  const keys = qtEntries.map((e) => e.key).sort();
   assert.deepStrictEqual(keys, ['qtypeBinary', 'qtypeRanking', 'qtypeScale', 'qtypeTree']);
   for (const e of qtEntries) {
     assert.strictEqual(e.type, 'toggle');
@@ -229,7 +233,6 @@ test('write: geçersiz değer diske ulaşmaz (validate)', () => {
 
 test('getPath: XDG_CONFIG_HOME altında settings.json', () => {
   withTmpConfig((Settings, dir) => {
-    assert.strictEqual(Settings.getPath(),
-      path.join(dir, 'askuserquestionspro', 'settings.json'));
+    assert.strictEqual(Settings.getPath(), path.join(dir, 'askuserquestionspro', 'settings.json'));
   });
 });

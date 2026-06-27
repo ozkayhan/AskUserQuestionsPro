@@ -18,7 +18,10 @@ test.before(async () => {
   bridgeClient = await import('../lib/bridge-client.mjs');
 });
 
-test.after(() => { server.close(); delete process.env.ASKUSER_PORT; });
+test.after(() => {
+  server.close();
+  delete process.env.ASKUSER_PORT;
+});
 
 test('ensureServer() sunucu zaten çalışıyorken true döner', async () => {
   const result = await bridgeClient.ensureServer();
@@ -48,6 +51,6 @@ test('askBridge() soruları gönderir, eşzamanlı /answer ile resolve olur', as
   assert.deepStrictEqual(
     answers,
     { [question]: label },
-    'askBridge() doğru answers nesnesini döndürmeli',
+    'askBridge() doğru answers nesnesini döndürmeli'
   );
 });

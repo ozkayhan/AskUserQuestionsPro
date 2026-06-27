@@ -49,7 +49,9 @@ test('removeHook: mevcut → removed, PreToolUse temizlenir', () => {
   const start = { hooks: { PreToolUse: [ourEntry()] } };
   const { settings, status } = removeHook(start, HOOK);
   assert.strictEqual(status, 'removed');
-  assert.ok(!settings.hooks || !settings.hooks.PreToolUse || settings.hooks.PreToolUse.length === 0);
+  assert.ok(
+    !settings.hooks || !settings.hooks.PreToolUse || settings.hooks.PreToolUse.length === 0
+  );
 });
 
 test('removeHook: yok → absent', () => {

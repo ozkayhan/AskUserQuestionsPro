@@ -40,12 +40,12 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
 
 ## npm scripts
 
-| Script | Command | Purpose |
-|--------|---------|---------|
-| `test` | `node --test` | Run the full test suite |
-| `serve` | `node server/server.js` | Start the bridge server in foreground |
-| `mcp` | `node mcp-server/askuserquestionspro-mcp.mjs` | Run the MCP stdio server |
-| `install-hook` | `node bin/cli.js install` | Register hook + MCP in Claude settings |
+| Script         | Command                                       | Purpose                                |
+| -------------- | --------------------------------------------- | -------------------------------------- |
+| `test`         | `node --test`                                 | Run the full test suite                |
+| `serve`        | `node server/server.js`                       | Start the bridge server in foreground  |
+| `mcp`          | `node mcp-server/askuserquestionspro-mcp.mjs` | Run the MCP stdio server               |
+| `install-hook` | `node bin/cli.js install`                     | Register hook + MCP in Claude settings |
 
 ## Config / environment
 

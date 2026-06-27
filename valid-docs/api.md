@@ -7,15 +7,15 @@ the hook's stdin/stdout shapes.
 
 All on `127.0.0.1`. No auth (localhost-only, single user).
 
-| Method & path | Body | Response | Purpose |
-|---------------|------|----------|---------|
-| `GET /health` | — | `{ ok: true }` | Liveness probe (used by `ensureServer`). |
-| `GET /current` | — | `{ id, questions }` or `{ id: null, questions: null }` | Peek at the pending set. |
-| `GET /events` | — | `text/event-stream` | SSE: pushes `{ id, questions }` on change + ~25s keepalive. |
-| `POST /ask` | `{ questions: [...] }` | `{ answers: {...} }` (blocks until answered) or error | Submit a question set; request stays open until answered/timeout. |
-| `POST /answer` | `{ answers: {...} }` | resolves the pending set | The browser submits the user's answers. |
-| `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` or `{ error }` (400) | Persist a UI-settings patch (schema-validated by `lib/settings.js`). |
-| `GET *` | — | static file | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`. |
+| Method & path    | Body                      | Response                                               | Purpose                                                                                                       |
+| ---------------- | ------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `GET /health`    | —                         | `{ ok: true }`                                         | Liveness probe (used by `ensureServer`).                                                                      |
+| `GET /current`   | —                         | `{ id, questions }` or `{ id: null, questions: null }` | Peek at the pending set.                                                                                      |
+| `GET /events`    | —                         | `text/event-stream`                                    | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                   |
+| `POST /ask`      | `{ questions: [...] }`    | `{ answers: {...} }` (blocks until answered) or error  | Submit a question set; request stays open until answered/timeout.                                             |
+| `POST /answer`   | `{ answers: {...} }`      | resolves the pending set                               | The browser submits the user's answers.                                                                       |
+| `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` or `{ error }` (400)   | Persist a UI-settings patch (schema-validated by `lib/settings.js`).                                          |
+| `GET *`          | —                         | static file                                            | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`. |
 
 Request bodies are capped at 8 MB. If the `/ask` client disconnects, the
 server cancels the pending set.
@@ -24,26 +24,30 @@ server cancels the pending set.
 
 ```jsonc
 {
-  "question":   "string",           // required — the prompt text (also the answer key)
-  "header":     "string",           // group/category label
-  "type":       "single|multi|binary|scale|ranking|tree", // optional; defaults per multiSelect
-  "options": [                      // for single/multi/binary/ranking/tree
+  "question": "string", // required — the prompt text (also the answer key)
+  "header": "string", // group/category label
+  "type": "single|multi|binary|scale|ranking|tree", // optional; defaults per multiSelect
+  "options": [
+    // for single/multi/binary/ranking/tree
     {
       "label": "string",
       "description": "string (optional)",
-      "children": [ /* recursive, tree only */ ]
-    }
+      "children": [
+        /* recursive, tree only */
+      ],
+    },
   ],
-  "multiSelect": false,             // optional; true = allow multiple selections (single/multi)
-  "min":        0,                  // scale only
-  "max":        10,                 // scale only
-  "step":       1,                  // scale only (default 1)
-  "leftLabel":  "string",           // scale only
-  "rightLabel": "string"            // scale only
+  "multiSelect": false, // optional; true = allow multiple selections (single/multi)
+  "min": 0, // scale only
+  "max": 10, // scale only
+  "step": 1, // scale only (default 1)
+  "leftLabel": "string", // scale only
+  "rightLabel": "string", // scale only
 }
 ```
 
 Type-specific field rules:
+
 - `binary`: `options` optional; omit for default `[{label:"Evet"},{label:"Hayır"}]`; exactly 2 options; no "Other".
 - `scale`: `min`, `max`, `step` required; no `options`.
 - `ranking`: `options` required (≥ 2 items); no "Other".
@@ -57,12 +61,12 @@ questions (`web/ui-kit.js`).
 ```jsonc
 {
   "answers": {
-    "<question text>": "Label",         // single, binary → string
-    "<question text>": ["A", "B"],      // multi → array of strings
-    "<question text>": 7,               // scale → number
-    "<question text>": ["First","Second"], // ranking → ordered string[]
-    "<question text>": ["Root","Child","Leaf"] // tree → path string[]
-  }
+    "<question text>": "Label", // single, binary → string
+    "<question text>": ["A", "B"], // multi → array of strings
+    "<question text>": 7, // scale → number
+    "<question text>": ["First", "Second"], // ranking → ordered string[]
+    "<question text>": ["Root", "Child", "Leaf"], // tree → path string[]
+  },
 }
 ```
 
@@ -89,31 +93,31 @@ Input schema (abbreviated):
         "type": "object",
         "required": ["question", "header"],
         "properties": {
-          "question":   { "type": "string" },
-          "header":     { "type": "string" },
-          "type":       { "enum": ["single","multi","binary","scale","ranking","tree"] },
-          "options":    { "type": "array", "items": { "$ref": "#/$defs/option" } },
-          "multiSelect":{ "type": "boolean" },
-          "min":        { "type": "number" },
-          "max":        { "type": "number" },
-          "step":       { "type": "number" },
-          "leftLabel":  { "type": "string" },
-          "rightLabel": { "type": "string" }
-        }
-      }
-    }
+          "question": { "type": "string" },
+          "header": { "type": "string" },
+          "type": { "enum": ["single", "multi", "binary", "scale", "ranking", "tree"] },
+          "options": { "type": "array", "items": { "$ref": "#/$defs/option" } },
+          "multiSelect": { "type": "boolean" },
+          "min": { "type": "number" },
+          "max": { "type": "number" },
+          "step": { "type": "number" },
+          "leftLabel": { "type": "string" },
+          "rightLabel": { "type": "string" },
+        },
+      },
+    },
   },
   "$defs": {
     "option": {
       "type": "object",
       "required": ["label"],
       "properties": {
-        "label":       { "type": "string" },
+        "label": { "type": "string" },
         "description": { "type": "string" },
-        "children":    { "type": "array", "items": { "$ref": "#/$defs/option" } }
-      }
-    }
-  }
+        "children": { "type": "array", "items": { "$ref": "#/$defs/option" } },
+      },
+    },
+  },
 }
 ```
 
@@ -131,6 +135,7 @@ Supported RPC methods: `initialize`, `tools/list`, `tools/call`, `ping`.
 ### Server-side validation (`server/server.js → validQuestions`)
 
 Returns `{ok:true}` or `{ok:false, error:"<human-readable>"}`. Rules per type:
+
 - All: `type` must be a valid enum value (or absent).
 - `single`/`multi`: `options` non-empty.
 - `binary`: `options` absent or length === 2.
@@ -146,7 +151,13 @@ caller can correct the question shape.
 **stdin** (from Claude Code `PreToolUse`):
 
 ```jsonc
-{ "tool_input": { "questions": [ /* question shape */ ] } }
+{
+  "tool_input": {
+    "questions": [
+      /* question shape */
+    ],
+  },
+}
 ```
 
 **stdout** (success) — from `buildHookOutput`:

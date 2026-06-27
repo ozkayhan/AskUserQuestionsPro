@@ -4,13 +4,13 @@
 
 Four cooperating pieces plus a shared client library:
 
-| Component | File(s) | Role |
-|-----------|---------|------|
-| **Hook** | `hooks/askuserquestionspro-bridge.mjs`, `hooks/hook-output.js` | `PreToolUse` interceptor for native `AskUserQuestion` calls (≤4 questions). |
-| **MCP server** | `mcp-server/askuserquestionspro-mcp.mjs` | Exposes the `ask` tool (`mcp__askuserquestionspro__ask`) for unlimited questions. |
-| **Bridge server** | `server/server.js`, `server/bridge.js` | Local HTTP server; holds one pending question set, serves the UI, streams via SSE. |
-| **Web UI** | `web/*` | Browser app where the user answers. |
-| **Shared client** | `lib/bridge-client.mjs` | Used by both hook and MCP: starts the server, opens the browser, POSTs questions. |
+| Component         | File(s)                                                        | Role                                                                               |
+| ----------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Hook**          | `hooks/askuserquestionspro-bridge.mjs`, `hooks/hook-output.js` | `PreToolUse` interceptor for native `AskUserQuestion` calls (≤4 questions).        |
+| **MCP server**    | `mcp-server/askuserquestionspro-mcp.mjs`                       | Exposes the `ask` tool (`mcp__askuserquestionspro__ask`) for unlimited questions.  |
+| **Bridge server** | `server/server.js`, `server/bridge.js`                         | Local HTTP server; holds one pending question set, serves the UI, streams via SSE. |
+| **Web UI**        | `web/*`                                                        | Browser app where the user answers.                                                |
+| **Shared client** | `lib/bridge-client.mjs`                                        | Used by both hook and MCP: starts the server, opens the browser, POSTs questions.  |
 
 ## Data flow
 
@@ -56,11 +56,11 @@ Step by step (both entry paths are identical after `bridge-client`):
 
 - **Long-poll over `/ask`, push over SSE.** The caller's HTTP request is the
   synchronization primitive — it blocks until `provideAnswers`/`cancel`. SSE
-  (`/events`) is only for pushing state *to* the browser. This avoids any
+  (`/events`) is only for pushing state _to_ the browser. This avoids any
   client-side polling loop and any shared state beyond the bridge.
 
 - **Graceful fallback everywhere.** The hook exits `0` (allowing Claude's
-  native picker) on *any* error — server won't start, timeout, no answers,
+  native picker) on _any_ error — server won't start, timeout, no answers,
   uncaught exception. The MCP tool returns a message telling Claude to use the
   built-in tool. The tool is never a hard dependency in the user's flow.
 
