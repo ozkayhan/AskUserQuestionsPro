@@ -328,6 +328,12 @@ const server = http.createServer(async (req, res) => {
   res.end();
 });
 
+// Node'un varsayılan requestTimeout'u 5 dk (300000ms) — /ask isteği cevabı
+// beklerken bu süre dolunca soketi kapatır ve pending iptal olur. Bekleme
+// süresini istemci (hook/MCP) AbortController ile yönetir, sunucu sınırı koymaz.
+// ponytail: requestTimeout=0 ile devre dışı; gerçek deadline istemci tarafında.
+server.requestTimeout = 0;
+
 // Daemon olarak başlatılırken port doluysa (eşzamanlı spawn yarışı) sessizce çekil.
 server.on('error', (e) => {
   if (e && e.code === 'EADDRINUSE') process.exit(0);

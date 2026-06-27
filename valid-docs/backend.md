@@ -80,7 +80,7 @@ Executable `.mjs`. Flow:
 2. If `ASKUI_FORCE_MCP` is set → **deny** the native call with a reason telling
    Claude to use `mcp__askuserquestionspro__ask` instead. (Opt-in: always use
    the unlimited MCP path.)
-3. `ensureServer()` → `openBrowser()` → `askBridge(questions, {timeoutMs: 5
+3. `ensureServer()` → `openBrowser()` → `askBridge(questions, {timeoutMs: 60
 min})`.
 4. Wrap answers with `buildHookOutput()` and write to stdout.
 
@@ -117,7 +117,7 @@ flushed and attempted to parse; JSON parse errors there are logged to STDERR
 
 `handleAsk(args)` imports `ensureServer/openBrowser/askBridge` from
 `lib/bridge-client.mjs`, ensures the server, opens the browser, and calls
-`askBridge(questions, {timeoutMs: 30 min})`. Returns answers as JSON text.
+`askBridge(questions, {timeoutMs: 60 min})`. Returns answers as JSON text.
 Server-down / timeout / cancel → a fallback message suggesting the built-in
 tool. All-skipped → `{ answers: {} }`.
 
@@ -149,7 +149,7 @@ Tool input schema: see [api.md](api.md).
   so the caller isn't silently working from a corrupt baseline.
 - `writeSettings(settingsPath, settings)` → atomic write (mkdir -p + writeFile).
 - Hook entry: `matcher: 'AskUserQuestion'`, command `node "<hookAbsPath>"`,
-  `timeout: 360`.
+  `timeout: 3600`.
 
 ## Install script (`install.sh`)
 

@@ -16,6 +16,10 @@ test.before(async () => {
 });
 test.after(() => server.close());
 
+test('requestTimeout devre dışı (uzun /ask beklemesi Node 5dk tavanına takılmaz)', () => {
+  assert.strictEqual(server.requestTimeout, 0);
+});
+
 test('/health ok döndürür', async () => {
   const r = await fetch(`${base}/health`);
   assert.deepStrictEqual(await r.json(), { ok: true, app: APP_ID });

@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const MATCHER = 'AskUserQuestion';
-const TIMEOUT = 360;
+const TIMEOUT = 3600;
 
 function hookCommand(hookAbsPath) {
   // Yolu çift tırnakla sar: "Application Support" gibi boşluk içeren yollarda

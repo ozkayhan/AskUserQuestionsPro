@@ -36,7 +36,9 @@ Step by step (both entry paths are identical after `bridge-client`):
    detached and polls for up to ~3s.
 3. `openBrowser()` opens `http://127.0.0.1:4517` with the OS opener.
 4. `askBridge()` does `POST /ask` with the questions; the request **stays open**
-   until answered or timed out (hook: 5 min; MCP: 30 min).
+   until answered or timed out (hook: 60 min; MCP: 60 min). Node's default
+   `server.requestTimeout` (5 min) is disabled (`requestTimeout = 0`); the
+   deadline is managed by the client's `AbortController`.
 5. `server.js` validates and calls `bridge.submitQuestions()`, which stores
    `{id, questions, resolve, reject}` and returns a promise. The server
    broadcasts the new state to all SSE clients via `broadcastCurrent()`.
