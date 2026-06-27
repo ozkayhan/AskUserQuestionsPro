@@ -33,8 +33,8 @@ describe('release.yml yapısı', () => {
     assert.match(releaseYml, /id-token:\s*write/);
   });
 
-  it('changesets/action@v1 kullanıyor', () => {
-    assert.match(releaseYml, /changesets\/action@v1/);
+  it('changesets/action SHA-pinned with v1 comment', () => {
+    assert.match(releaseYml, /changesets\/action@[0-9a-f]{40}\s*#\s*v1/);
   });
 
   it('npm ci kullanıyor', () => {
@@ -45,8 +45,20 @@ describe('release.yml yapısı', () => {
     assert.match(releaseYml, /npm test/);
   });
 
-  it('NPM_TOKEN / NODE_AUTH_TOKEN secrets referansı', () => {
-    assert.match(releaseYml, /NPM_TOKEN/);
+  it('NODE_AUTH_TOKEN secrets.NPM_TOKEN bağlantısı (tam pattern)', () => {
+    assert.match(releaseYml, /NODE_AUTH_TOKEN:\s*\$\{\{\s*secrets\.NPM_TOKEN\s*\}\}/);
+  });
+
+  it('registry-url npmjs.org olarak ayarlı', () => {
+    assert.match(releaseYml, /registry-url:\s*['"]?https:\/\/registry\.npmjs\.org/);
+  });
+
+  it('npm install yasak — sadece npm ci kullanılmalı', () => {
+    assert.doesNotMatch(releaseYml, /run:\s*npm install/);
+  });
+
+  it('fetch-depth: 0 — Changesets tam geçmiş gerektirir', () => {
+    assert.match(releaseYml, /fetch-depth:\s*0/);
   });
 
   it('timeout-minutes: 10', () => {
