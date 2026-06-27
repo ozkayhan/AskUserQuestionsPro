@@ -9,7 +9,7 @@ const CMD = `node "${HOOK}"`;
 function ourEntry() {
   return {
     matcher: 'AskUserQuestion',
-    hooks: [{ type: 'command', command: CMD, timeout: 360 }],
+    hooks: [{ type: 'command', command: CMD, timeout: 3600 }],
   };
 }
 

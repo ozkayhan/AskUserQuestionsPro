@@ -5,7 +5,7 @@ import { ensureServer, openBrowser, askBridge } from '../lib/bridge-client.mjs';
 const require = createRequire(import.meta.url);
 const { buildHookOutput } = require('./hook-output.js');
 
-const TIMEOUT_MS = 5 * 60 * 1000;
+const TIMEOUT_MS = 60 * 60 * 1000;
 
 // Her beklenmedik hata native picker'a düşmeli (ARCHITECTURE §7 değişmezi).
 process.on('uncaughtException', () => process.exit(0));

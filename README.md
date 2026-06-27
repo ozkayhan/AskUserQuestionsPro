@@ -205,7 +205,7 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
             {
               "type": "command",
               "command": "node \"/path/to/askuserquestionspro-bridge.mjs\"",
-              "timeout": 360
+              "timeout": 3600
             }
           ]
         }

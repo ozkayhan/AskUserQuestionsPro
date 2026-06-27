@@ -49,7 +49,7 @@ if command -v jq >/dev/null 2>&1; then
       .
     else
       .hooks.PreToolUse += [{ "matcher": "AskUserQuestion",
-        "hooks": [{ "type": "command", "command": $cmd, "timeout": 360 }] }]
+        "hooks": [{ "type": "command", "command": $cmd, "timeout": 3600 }] }]
     end
   ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
   echo "Hook eklendi (idempotent) → $SETTINGS"
@@ -60,7 +60,7 @@ jq bulunamadı. $SETTINGS dosyasına elle ekleyin:
   "hooks": {
     "PreToolUse": [
       { "matcher": "AskUserQuestion",
-        "hooks": [{ "type": "command", "command": "$CMD", "timeout": 360 }] }
+        "hooks": [{ "type": "command", "command": "$CMD", "timeout": 3600 }] }
     ]
   }
 EOF
