@@ -14,11 +14,13 @@ Start here to navigate. Real paths; "to change X, go to Y".
 ├── web/                  browser UI (React via in-browser Babel)
 ├── test/                 node:test suite (one file per module)
 ├── install.sh            curl|bash installer
+├── reinstall.sh          clean-reinstall helper (uninstall + fresh install, idempotent)
 ├── package.json          npm manifest, bin entries, scripts
-├── .github/workflows/    CI
-├── living_docs/          Turkish architecture/purpose/themes notes
-├── design-reference/     original design prototype + screenshots (not runtime)
-└── valid-docs/           ← you are here (English, code-verified)
+├── eslint.config.js      ESLint flat config (Node source; web/ excluded)
+├── .prettierrc.json      Prettier config
+├── .changeset/           Changesets config + pending changesets
+├── .github/workflows/    CI (ci.yml: lint + test matrix; release.yml: Changesets publish)
+└── docs/                 ← you are here (English, code-verified)
 ```
 
 ## Backend / Node side
@@ -63,6 +65,3 @@ Loaded by `web/index.html` in order: vendor libs → app files (`type="text/babe
 
 - `design-reference/` — original prototype (`app.jsx`, `styles.css`,
   screenshots) used to design the UI; not loaded at runtime.
-- `living_docs/`, `CODEMAP.md`, `BUG-REPORT.md`,
-  `PERFECT-V1-FINAL-RESOLUTION-SPRINT-REPORT.md` — Turkish documentation and
-  historical reports.

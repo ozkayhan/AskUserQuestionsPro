@@ -159,3 +159,12 @@ Tool input schema: see [api.md](api.md).
 idempotently registers the hook via `jq` (or prints manual steps), and
 registers the MCP server (`claude mcp remove` then `claude mcp add --scope
 user ...`).
+
+## Clean reinstall script (`reinstall.sh`)
+
+Idempotent, `set -uo pipefail`. Steps: (1) kill any running bridge process on
+`ASKUSER_PORT` (default 4517) — sends SIGTERM, waits up to 10×100ms, then
+SIGKILL if still alive; (2) remove `~/.local/share/askuserquestionspro/`,
+`~/.config/askuserquestionspro/` (UI settings), and the hook+MCP registration;
+(3) clone the repo fresh from GitHub and re-run `install.sh`. Use this to
+recover from a corrupted install or to pick up a breaking-change update.

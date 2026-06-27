@@ -12,8 +12,10 @@
 
 ## Dependencies
 
-- **None.** `package.json` declares no `dependencies` or `devDependencies`.
-  Everything is Node core + browser-vendored libs.
+- **Runtime:** none. `package.json` declares no `dependencies` — everything
+  is Node core + browser-vendored libs.
+- **Dev (tooling only):** `@changesets/cli`, `eslint`, `@eslint/js`, `globals`,
+  `prettier`, `eslint-config-prettier`. Not shipped in the npm package.
 
 ## Frontend libraries (vendored, not npm)
 
@@ -30,9 +32,12 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
 
 - **Test runner:** `node --test` (built-in). `npm test` runs the whole
   `test/` suite. No Jest/Mocha/etc.
-- **CI:** GitHub Actions (`.github/workflows/ci.yml`) — runs `npm install` +
-  `npm test` on Node `18`, `20`, `22` (matrix, `fail-fast: false`), on every
-  push and pull request.
+- **CI:** GitHub Actions — two jobs on every push/PR:
+  - `lint` (`ci.yml`): `npm ci` → ESLint + Prettier check + `npm audit --audit-level=high --omit=dev` on Node 20.
+  - `test` (`ci.yml`): `npm ci` + `npm test` matrix on Node `18`, `20`, `22` (`fail-fast: false`).
+  - `release` (`release.yml`): Changesets action — merges Version Packages PRs and runs `npm publish` + creates GitHub Release.
+- **Linting/formatting:** ESLint 9 (flat config `eslint.config.js`, `@eslint/js` recommended + prettier compat) + Prettier 3 (`.prettierrc.json`). `web/` and `web/vendor/` excluded from ESLint.
+- **Release management:** Changesets (`@changesets/cli`). Workflow: add a changeset → merge → bot opens Version Packages PR → merge that → auto-publish to npm.
 - **Packaging:** npm. `bin` exposes two executables:
   - `askuserquestionspro` → `bin/cli.js`
   - `askuserquestionspro-mcp` → `mcp-server/askuserquestionspro-mcp.mjs`
@@ -46,6 +51,12 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
 | `serve`        | `node server/server.js`                       | Start the bridge server in foreground  |
 | `mcp`          | `node mcp-server/askuserquestionspro-mcp.mjs` | Run the MCP stdio server               |
 | `install-hook` | `node bin/cli.js install`                     | Register hook + MCP in Claude settings |
+| `lint`         | `eslint .`                                    | Lint all non-excluded source files     |
+| `format`       | `prettier --write .`                          | Auto-format all files                  |
+| `format:check` | `prettier --check .`                          | Check formatting (used in CI)          |
+| `changeset`    | `changeset`                                   | Add a changeset for release tracking   |
+| `version`      | `changeset version`                           | Bump versions per pending changesets   |
+| `release`      | `changeset publish`                           | Publish to npm (run by release.yml)    |
 
 ## Config / environment
 
