@@ -2,12 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { Bridge } = require('../server/bridge.js');
 
-test('submitQuestions, provideAnswers gelince resolve olur', async () => {
+test('submitQuestions, provideAnswers(id) gelince resolve olur', async () => {
   const b = new Bridge();
   const p = b.submitQuestions([{ question: 'Q?' }]);
+  const { id } = b.peek();
   assert.deepStrictEqual(b.getCurrent(), [{ question: 'Q?' }]);
-  b.provideAnswers({ 'Q?': 'A' });
-  assert.deepStrictEqual(await p, { 'Q?': 'A' });
+  assert.strictEqual(b.provideAnswers(id, ['A']), true);
+  assert.deepStrictEqual(await p, ['A']);
   assert.strictEqual(b.getCurrent(), null);
 });
 
@@ -17,28 +18,57 @@ test('bekleyen varken ikinci submit reject olur', async () => {
   await assert.rejects(() => b.submitQuestions([{ question: 'Q2' }]));
 });
 
-test('bekleyen yokken provideAnswers throw eder', () => {
+test('bekleyen yokken provideAnswers false doner (throw etmez)', () => {
   const b = new Bridge();
-  assert.throws(() => b.provideAnswers({}));
+  assert.strictEqual(b.provideAnswers(1, ['A']), false);
+});
+
+test('provideAnswers id eslesmezse false doner, pending temizlenmez', async () => {
+  const b = new Bridge();
+  const p = b.submitQuestions([{ question: 'Q?' }]);
+  const { id } = b.peek();
+  // stale id → eşleşmez → false, resolve etmez.
+  assert.strictEqual(b.provideAnswers(id + 99, ['stale']), false);
+  assert.ok(b.peek(), 'pending hâlâ açık olmalı');
+  // doğru id → resolve.
+  assert.strictEqual(b.provideAnswers(id, ['real']), true);
+  assert.deepStrictEqual(await p, ['real']);
 });
 
 test('cancel bekleyen promise i reject eder', async () => {
   const b = new Bridge();
   const p = b.submitQuestions([{ question: 'Q?' }]);
-  b.cancel('timeout');
+  assert.strictEqual(b.cancel('timeout'), true);
   await assert.rejects(() => p, /timeout/);
   assert.strictEqual(b.getCurrent(), null);
+});
+
+test('cancel pending yokken false doner', () => {
+  const b = new Bridge();
+  assert.strictEqual(b.cancel('x'), false);
+});
+
+test('cancel(reason, expectedId) eslesmeyen id ile iptal etmez (cross-round)', async () => {
+  const b = new Bridge();
+  const p = b.submitQuestions([{ question: 'Q?' }]);
+  const { id } = b.peek();
+  // gec gelen onClose, sahiplenmediği başka id ile iptal etmeye çalışır → no-op.
+  assert.strictEqual(b.cancel('stale onClose', id + 5), false);
+  assert.ok(b.peek(), 'eşleşmeyen expectedId pending i bozmamalı');
+  // doğru id ile iptal → reject.
+  assert.strictEqual(b.cancel('client disconnected', id), true);
+  await assert.rejects(() => p, /client disconnected/);
 });
 
 test('her submit artan benzersiz id verir; peek {id,questions} doner', async () => {
   const b = new Bridge();
   assert.strictEqual(b.peek(), null);
-  const p1promise = b.submitQuestions([{ question: 'Q1' }]);
+  const q1promise = b.submitQuestions([{ question: 'Q1' }]);
+  q1promise.catch(() => {}); // reject'i tüket (unhandled rejection olmasın).
   const p1 = b.peek();
   assert.ok(typeof p1.id === 'number');
   assert.deepStrictEqual(p1.questions, [{ question: 'Q1' }]);
-  b.cancel('x');
-  await p1promise.catch(() => {}); // handle rejection
+  b.cancel('x', p1.id);
   b.submitQuestions([{ question: 'Q2' }]);
   const p2 = b.peek();
   assert.ok(p2.id > p1.id, 'id artmali');

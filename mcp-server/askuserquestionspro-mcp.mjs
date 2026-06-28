@@ -3,12 +3,12 @@
 // Tüm tanılama/log mesajları STDERR'e gider; STDOUT yalnızca protokol kanalıdır.
 // Node core dışında sıfır bağımlılık.
 
-process.on('uncaughtException', (e) =>
-  process.stderr.write(`[askuserquestionspro-mcp] uncaughtException: ${e}\n`)
-);
-process.on('unhandledRejection', (r) =>
-  process.stderr.write(`[askuserquestionspro-mcp] unhandledRejection: ${r}\n`)
-);
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { log } = require('../lib/log.cjs');
+
+process.on('uncaughtException', (e) => log('mcp', e));
+process.on('unhandledRejection', (r) => log('mcp', r));
 
 // ASK aracı tanımı — maxItems YOK: sınırsız soru desteklenir.
 const ASK_TOOL = {
@@ -92,8 +92,14 @@ const ASK_TOOL = {
 };
 
 // JSON-RPC yanıtı oluştur ve STDOUT'a yaz.
+// stdout broken pipe (EPIPE) atarsa logla — uncaughtException'a düşürmeyelim,
+// aksi halde tek bir yazma hatası tüm sunucuyu çökertir.
 function sendResponse(obj) {
-  process.stdout.write(JSON.stringify(obj) + '\n');
+  try {
+    process.stdout.write(JSON.stringify(obj) + '\n');
+  } catch (e) {
+    log('mcp', e);
+  }
 }
 
 // JSON-RPC hata yanıtı gönder.
@@ -130,12 +136,15 @@ async function handleAsk(args) {
   let answers;
   try {
     answers = await askBridge(args.questions, { timeoutMs: 60 * 60 * 1000 });
-  } catch {
+  } catch (e) {
+    log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
+    const cause =
+      e?.name === 'TimeoutError' ? 'timed out waiting for the user' : `error: ${e?.message || e}`;
     return {
       content: [
         {
           type: 'text',
-          text: 'askuserquestionspro UI did not return answers (timeout, cancellation, or another set was pending). Fall back to the built-in AskUserQuestion tool.',
+          text: `askuserquestionspro UI did not return answers (${cause}). Fall back to the built-in AskUserQuestion tool.`,
         },
       ],
       isError: true,
@@ -160,9 +169,10 @@ async function handleAsk(args) {
 async function handleMessage(msg) {
   const { id, method, params } = msg;
 
-  // Bildirim (id yok) — yanıt gönderme.
-  if (id === undefined || id === null) {
-    process.stderr.write(`[askuserquestionspro-mcp] bildirim alındı: ${method}\n`);
+  // Bildirim (id ALANI YOK) — yanıt gönderme. JSON-RPC 2.0'a göre id:null bir
+  // bildirim DEĞİL; istek olarak işlenip yanıtlanmalı (yalnızca absent → bildirim).
+  if (id === undefined) {
+    log('mcp', `bildirim alındı: ${method}`);
     return;
   }
 
@@ -221,18 +231,16 @@ process.stdin.on('data', async (chunk) => {
     try {
       msg = JSON.parse(trimmed);
     } catch (e) {
-      // Ayrıştırılamayan satır — id bilinmiyor, stderr'e logla ve devam et.
-      process.stderr.write(
-        `[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`
-      );
+      // Ayrıştırılamayan satır — id bilinmiyor, logla ve devam et.
+      log('mcp', `JSON parse error: ${e.message} — line: ${trimmed.slice(0, 100)}`);
       continue;
     }
     try {
       await handleMessage(msg);
     } catch (e) {
-      process.stderr.write(`[askuserquestionspro-mcp] mesaj işleme hatası: ${e}\n`);
-      // id varsa hata yanıtı gönder.
-      if (msg.id !== undefined && msg.id !== null) {
+      log('mcp', e);
+      // id alanı varsa (null dahil; yalnızca bildirimde absent) hata yanıtı gönder.
+      if (msg.id !== undefined) {
         sendError(msg.id, -32603, 'internal error');
       }
     }
@@ -247,13 +255,9 @@ process.stdin.on('end', () => {
     try {
       msg = JSON.parse(trimmed);
     } catch (e) {
-      process.stderr.write(
-        `[askuserquestionspro-mcp] JSON ayrıştırma hatası: ${e.message} — satır: ${trimmed.slice(0, 100)}\n`
-      );
+      log('mcp', `JSON parse error: ${e.message} — line: ${trimmed.slice(0, 100)}`);
       return;
     }
-    handleMessage(msg).catch((e) =>
-      process.stderr.write(`[askuserquestionspro-mcp] son satır hatası: ${e}\n`)
-    );
+    handleMessage(msg).catch((e) => log('mcp', e));
   }
 });

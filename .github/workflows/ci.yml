@@ -19,21 +19,26 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm
 
       - run: npm ci
 
+      - name: Shellcheck
+        # severity=warning: SC2015 (A && B || C) gibi info-level notları geçer; bilinçli
+        # echo/true kalıpları için false-positive. Warning+ (SC2034, SC2115 vb.) yine fail eder.
+        run: find . -name '*.sh' -not -path './node_modules/*' -print0 | xargs -0 shellcheck --severity=warning
+
       - run: npm run lint
 
       - run: npm run format:check
 
-      # ponytail: --omit=dev skips known moderate CVE in @changesets/cli transitive dep (js-yaml)
-      # No non-breaking fix exists upstream; production code is clean.
+      # ponytail: --omit=dev — no production dependencies; flag prevents devDependency CVEs
+      # from triggering the high-severity gate (e.g. transitive deps of @changesets/cli).
       - run: npm audit --audit-level=high --omit=dev
 
   test:
@@ -47,9 +52,9 @@ jobs:
         node-version: [18, 20, 22]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm

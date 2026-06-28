@@ -56,7 +56,7 @@
     {
       id: 'amoled',
       name: 'AMOLED',
-      swatch: { bg: '#000000', accent: '#0070f3' },
+      swatch: { bg: '#000000', accent: '#4d8dff' }, // ponytail: match styles.css :root --accent
       font: null,
       tokens: {},
     },
@@ -187,7 +187,7 @@
     {
       id: 'aurora',
       name: 'Aurora',
-      swatch: { bg: '#1a1340', accent: '#8b5cf6' },
+      swatch: { bg: '#0a0a1f', accent: '#8b5cf6' }, // ponytail: match aurora --bg token
       font: 'Space+Grotesk:wght@400;500;600;700',
       tokens: {
         '--bg': '#0a0a1f',
@@ -237,9 +237,15 @@
     BY_ID[t.id] = t;
   });
 
-  // Tüm temalarda kullanılan anahtarların birleşimi — apply() reset için.
+  // apply() reset anahtar kümesi. Her tema-override'ının birleşimi YETMEZ:
+  // hiçbir tema set etmediği bir KNOWN_TOKEN (örn. --motion-ms/--ease/--font-mono)
+  // birleşim dışında kalırsa apply() onu temizleyemez → bir önceki temadan kaçak
+  // inline değer kalır. Bu yüzden KNOWN_TOKENS'ı da içer → USED_KEYS ⊇ KNOWN_TOKENS.
   var USED_KEYS = (function () {
     var set = {};
+    KNOWN_TOKENS.forEach(function (k) {
+      set[k] = true;
+    });
     LIST.forEach(function (t) {
       Object.keys(t.tokens).forEach(function (k) {
         set[k] = true;
@@ -291,6 +297,7 @@
   // Google Fonts <link>'ini tema fontuna göre enjekte/değiştir/kaldır.
   function swapFont(font) {
     if (typeof document === 'undefined') return;
+    if (!document.head) return; // ponytail: null-guard for frameless/test envs
     var id = 'askuserquestionspro-theme-font';
     var link = document.getElementById(id);
     if (!font) {
@@ -339,8 +346,10 @@
     apply: apply,
     current: current,
     get: get,
+    read: read, // exported for testability
     DEFAULT_ID: DEFAULT_ID,
     KNOWN_TOKENS: KNOWN_TOKENS,
     STORAGE_KEY: STORAGE_KEY,
+    _USED_KEYS: USED_KEYS, // exported for USED_KEYS⊇KNOWN_TOKENS drift test
   };
 });

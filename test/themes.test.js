@@ -101,3 +101,441 @@ test('styles.css :root tokenları KNOWN_TOKENS sözleşmesiyle birebir eşleşir
   // bidirectional eşitlik → aynı boyut
   assert.strictEqual(rootSet.size, KNOWN.size);
 });
+
+// ── Regression: swatch renk doğruluğu ────────────────────────────────────────
+// Picker'ın gösterdiği renk gerçek uygulanan tokenla eşleşmeli.
+
+test('amoled swatch.accent styles.css :root --accent ile eşleşir', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'web', 'styles.css'), 'utf8');
+  const block = /:root\s*\{([\s\S]*?)^}/m.exec(css);
+  assert.ok(block, 'styles.css içinde :root bloğu bulunmalı');
+  const m = /--accent\s*:\s*([^;]+);/.exec(block[1]);
+  assert.ok(m, ':root içinde --accent tanımı bulunmalı');
+  const cssAccent = m[1].trim();
+  const amoled = Themes.get('amoled');
+  assert.strictEqual(
+    amoled.swatch.accent,
+    cssAccent,
+    `amoled swatch.accent (${amoled.swatch.accent}) styles.css --accent (${cssAccent}) ile uyuşmuyor`
+  );
+});
+
+test('aurora swatch.bg aurora --bg token değeriyle eşleşir', () => {
+  const aurora = Themes.get('aurora');
+  assert.strictEqual(
+    aurora.swatch.bg,
+    aurora.tokens['--bg'],
+    `aurora swatch.bg (${aurora.swatch.bg}) --bg token (${aurora.tokens['--bg']}) ile uyuşmuyor`
+  );
+});
+
+// ── Regression: USED_KEYS ⊇ KNOWN_TOKENS drift ───────────────────────────────
+// apply() yalnızca USED_KEYS'i sıfırlar; eğer KNOWN_TOKENS'taki bir token
+// hiçbir tema tarafından set edilmiyorsa USED_KEYS dışında kalır → apply() o
+// tokenu temizleyemez. USED_KEYS en az KNOWN_TOKENS'un süperkümesi olmalı.
+
+test("USED_KEYS en az KNOWN_TOKENS'ın tüm elemanlarını içerir (sıfırlama güvencesi)", () => {
+  const usedSet = new Set(Themes._USED_KEYS);
+  const missing = Themes.KNOWN_TOKENS.filter((k) => !usedSet.has(k));
+  // M-47 fix: USED_KEYS artık KNOWN_TOKENS'ı da içeriyor (birleşim değil, süperküme).
+  // Hiçbir tema set etmese bile --motion-ms/--ease/--font-mono gibi tokenlar
+  // apply()'ın removeProperty döngüsünde temizlenir → tema geçişinde kaçak inline
+  // değer kalmaz. Bu yüzden eksik küme BOŞ olmalı.
+  assert.deepStrictEqual(
+    missing,
+    [],
+    `USED_KEYS, KNOWN_TOKENS'ın süperkümesi olmalı. Eksik: ${missing.join(', ')}`
+  );
+});
+
+test('apply() hiçbir temanın set etmediği KNOWN_TOKEN inline değerini de temizler (M-47)', () => {
+  // --motion-ms hiçbir tema tarafından override edilmiyor; yine de apply() onu
+  // root.style'dan silmeli (önceki sayfa/test tarafından bırakılmış olabilir).
+  const props = { '--motion-ms': '999ms', '--ease': 'linear', '--font-mono': 'Foo' };
+  const mockRoot = {
+    style: {
+      removeProperty: (k) => {
+        delete props[k];
+      },
+      setProperty: (k, v) => {
+        props[k] = v;
+      },
+    },
+    setAttribute: () => {},
+  };
+  const mockDoc = {
+    head: { appendChild: () => {} },
+    getElementById: () => null,
+    createElement: () => ({
+      rel: '',
+      id: '',
+      setAttribute() {},
+      getAttribute: () => null,
+      remove() {},
+    }),
+    documentElement: mockRoot,
+  };
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prev = g.document;
+  g.document = mockDoc;
+  try {
+    Themes.apply('paper');
+    assert.ok(!('--motion-ms' in props), 'apply() --motion-ms inline değerini temizlemeli');
+    assert.ok(!('--ease' in props), 'apply() --ease inline değerini temizlemeli');
+    assert.ok(!('--font-mono' in props), 'apply() --font-mono inline değerini temizlemeli');
+  } finally {
+    if (prev === undefined) delete g.document;
+    else g.document = prev;
+  }
+});
+
+// ── Regression: swapFont — null-head guard ───────────────────────────────────
+
+test('swapFont document.head null ise TypeError atmaz', () => {
+  // Node ortamında document undefined — apply() guard'ı zaten koruyor.
+  // Burada head===null senaryosunu minimal mock ile test ediyoruz.
+  const props = {};
+  const mockRoot = {
+    style: {
+      removeProperty: (k) => {
+        delete props[k];
+      },
+      setProperty: (k, v) => {
+        props[k] = v;
+      },
+    },
+    setAttribute: () => {},
+  };
+  const mockDoc = {
+    head: null, // ← test hedefi
+    getElementById: () => null,
+    createElement: () => ({
+      rel: '',
+      id: '',
+      setAttribute() {},
+      getAttribute: () => null,
+      remove() {},
+    }),
+    documentElement: mockRoot,
+  };
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prev = g.document;
+  g.document = mockDoc;
+  try {
+    // apply() → swapFont(font) → !document.head → return (TypeError olmamalı)
+    assert.doesNotThrow(() => Themes.apply('paper'));
+  } finally {
+    if (prev === undefined) delete g.document;
+    else g.document = prev;
+  }
+});
+
+// ── Regression: swapFont idempotency ve null-font geçişi ─────────────────────
+
+test("swapFont mock DOM: aynı font href'i iki kez set etmez (idempotency)", () => {
+  let setCount = 0;
+  let currentHref = null;
+  const mockLink = {
+    rel: '',
+    id: '',
+    getAttribute: (a) => (a === 'href' ? currentHref : null),
+    setAttribute: (a, v) => {
+      if (a === 'href') {
+        setCount++;
+        currentHref = v;
+      }
+    },
+    remove: () => {},
+  };
+  const props = {};
+  const mockRoot = {
+    style: {
+      removeProperty: (k) => {
+        delete props[k];
+      },
+      setProperty: (k, v) => {
+        props[k] = v;
+      },
+    },
+    setAttribute: () => {},
+  };
+  const mockDoc = {
+    head: { appendChild: () => {} },
+    getElementById: (id) => (id === 'askuserquestionspro-theme-font' ? mockLink : null),
+    createElement: () => mockLink,
+    documentElement: mockRoot,
+  };
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prev = g.document;
+  g.document = mockDoc;
+  try {
+    // İlk apply: paper teması (font var) → link oluşturulur, href set edilir
+    Themes.apply('paper');
+    const firstCount = setCount;
+    assert.ok(firstCount >= 1, 'İlk apply sonrası href set edilmeli');
+    const hrefAfterFirst = currentHref;
+
+    // İkinci apply: aynı tema → href aynıysa set çağrılmamalı
+    Themes.apply('paper');
+    // Aynı href ise setAttribute çağrılmamalı
+    assert.strictEqual(
+      setCount,
+      firstCount,
+      'Aynı font için setAttribute tekrar çağrılmamalı (idempotent)'
+    );
+    assert.strictEqual(currentHref, hrefAfterFirst, 'href değişmemeli');
+  } finally {
+    if (prev === undefined) delete g.document;
+    else g.document = prev;
+  }
+});
+
+test('swapFont mock DOM: font null olan temaya geçişte link kaldırılır', () => {
+  let removed = false;
+  let currentHref =
+    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap';
+  const mockLink = {
+    rel: '',
+    id: '',
+    getAttribute: (a) => (a === 'href' ? currentHref : null),
+    setAttribute: (a, v) => {
+      if (a === 'href') currentHref = v;
+    },
+    remove: () => {
+      removed = true;
+    },
+  };
+  const props = {};
+  const mockRoot = {
+    style: {
+      removeProperty: (k) => {
+        delete props[k];
+      },
+      setProperty: (k, v) => {
+        props[k] = v;
+      },
+    },
+    setAttribute: () => {},
+  };
+  const mockDoc = {
+    head: { appendChild: () => {} },
+    getElementById: (id) => (id === 'askuserquestionspro-theme-font' ? mockLink : null),
+    createElement: () => mockLink,
+    documentElement: mockRoot,
+  };
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prev = g.document;
+  g.document = mockDoc;
+  try {
+    // amoled teması font=null → link.remove() çağrılmalı
+    Themes.apply('amoled');
+    assert.ok(removed, 'font=null olan temaya geçişte link.remove() çağrılmalı');
+  } finally {
+    if (prev === undefined) delete g.document;
+    else g.document = prev;
+  }
+});
+
+// ── Regression: aurora→paper geçişinde --surface-blur temizlenir ─────────────
+
+test('apply aurora→paper: --surface-blur inline style temizlenir', () => {
+  // jsdom olmadan minimal style mock
+  const props = {};
+  const mockRoot = {
+    style: {
+      removeProperty: (k) => {
+        delete props[k];
+      },
+      setProperty: (k, v) => {
+        props[k] = v;
+      },
+    },
+    setAttribute: () => {},
+  };
+  const mockDoc = {
+    head: { appendChild: () => {} },
+    getElementById: () => null,
+    createElement: () => ({
+      rel: '',
+      id: '',
+      setAttribute() {},
+      getAttribute: () => null,
+      remove() {},
+    }),
+    documentElement: mockRoot,
+  };
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prev = g.document;
+  g.document = mockDoc;
+  try {
+    Themes.apply('aurora');
+    assert.ok('--surface-blur' in props, 'aurora apply sonrası --surface-blur set edilmeli');
+    assert.ok(props['--surface-blur'].includes('blur'), '--surface-blur değeri blur içermeli');
+
+    Themes.apply('paper');
+    assert.ok(
+      !('--surface-blur' in props),
+      'paper apply sonrası --surface-blur inline style temizlenmeli (USED_KEYS reset)'
+    );
+  } finally {
+    if (prev === undefined) delete g.document;
+    else g.document = prev;
+  }
+});
+
+// ── Regression: read() cascade dalları ───────────────────────────────────────
+
+test('read(): window.__ASKUSER_SETTINGS__.theme geçerli id ise onu döndürür', () => {
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prevWin = g.window;
+  g.window = { __ASKUSER_SETTINGS__: { theme: 'dusk' } };
+  try {
+    assert.strictEqual(Themes.read(), 'dusk');
+  } finally {
+    if (prevWin === undefined) delete g.window;
+    else g.window = prevWin;
+  }
+});
+
+test('read(): window.__ASKUSER_SETTINGS__.theme bilinmeyen id ise sonraki dala düşer', () => {
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prevWin = g.window;
+  // Geçersiz tema id → BY_ID'de yok → false → location/localStorage dalına geç
+  g.window = { __ASKUSER_SETTINGS__: { theme: 'nonexistent' } };
+  // localStorage da yokken DEFAULT_ID beklenir
+  const prevLS = g.localStorage;
+  g.localStorage = { getItem: () => null };
+  const prevLoc = g.location;
+  g.location = { search: '' };
+  try {
+    assert.strictEqual(Themes.read(), Themes.DEFAULT_ID);
+  } finally {
+    if (prevWin === undefined) delete g.window;
+    else g.window = prevWin;
+    if (prevLS === undefined) delete g.localStorage;
+    else g.localStorage = prevLS;
+    if (prevLoc === undefined) delete g.location;
+    else g.location = prevLoc;
+  }
+});
+
+test('read(): ?theme= URL param geçerli id ise onu döndürür', () => {
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prevWin = g.window;
+  // window yokken sadece location mock'la
+  delete g.window;
+  const prevLoc = g.location;
+  g.location = { search: '?theme=phosphor' };
+  try {
+    assert.strictEqual(Themes.read(), 'phosphor');
+  } finally {
+    if (prevWin !== undefined) g.window = prevWin;
+    if (prevLoc === undefined) delete g.location;
+    else g.location = prevLoc;
+  }
+});
+
+test('read(): ?theme= bilinmeyen id ise localStorage dalına düşer', () => {
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prevWin = g.window;
+  delete g.window;
+  const prevLoc = g.location;
+  g.location = { search: '?theme=unknown-id' };
+  const prevLS = g.localStorage;
+  g.localStorage = { getItem: () => 'aurora' };
+  try {
+    assert.strictEqual(Themes.read(), 'aurora');
+  } finally {
+    if (prevWin !== undefined) g.window = prevWin;
+    if (prevLoc === undefined) delete g.location;
+    else g.location = prevLoc;
+    if (prevLS === undefined) delete g.localStorage;
+    else g.localStorage = prevLS;
+  }
+});
+
+test('read(): localStorage.getItem throw ederse DEFAULT_ID döner (Safari private mode)', () => {
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  const prevWin = g.window;
+  delete g.window;
+  const prevLoc = g.location;
+  g.location = { search: '' };
+  const prevLS = g.localStorage;
+  g.localStorage = {
+    getItem: () => {
+      throw new Error('QuotaExceededError');
+    },
+  };
+  try {
+    assert.strictEqual(Themes.read(), Themes.DEFAULT_ID);
+  } finally {
+    if (prevWin !== undefined) g.window = prevWin;
+    if (prevLoc === undefined) delete g.location;
+    else g.location = prevLoc;
+    if (prevLS === undefined) delete g.localStorage;
+    else g.localStorage = prevLS;
+  }
+});
+
+test('read(): Node ortamında (window/location/localStorage yok) DEFAULT_ID döner', () => {
+  const g = typeof globalThis !== 'undefined' ? globalThis : global;
+  // Node test ortamında bunlar zaten undefined; sadece varsa geçici sil
+  const prevWin = g.window;
+  const prevLoc = g.location;
+  const prevLS = g.localStorage;
+  delete g.window;
+  delete g.location;
+  delete g.localStorage;
+  try {
+    assert.strictEqual(Themes.read(), Themes.DEFAULT_ID);
+  } finally {
+    if (prevWin !== undefined) g.window = prevWin;
+    if (prevLoc !== undefined) g.location = prevLoc;
+    if (prevLS !== undefined) g.localStorage = prevLS;
+  }
+});
+
+// ── Regression: token CSS değer sözdizimi doğrulaması ────────────────────────
+// rgba/hex/px değerleri pattern'e uymalı; yazım hatası sessizce geçmemeli.
+
+test('renk tokenları geçerli CSS renk sözdiziminde (hex veya rgba/rgb)', () => {
+  const colorTokens = [
+    '--bg',
+    '--surface-1',
+    '--surface-2',
+    '--surface-3',
+    '--fg',
+    '--fg-muted',
+    '--fg-subtle',
+    '--fg-faint',
+    '--accent',
+    '--accent-fg',
+    '--success',
+    '--selection-bg',
+  ];
+  // Kabul: #rrggbb, #rgb, rgba(...), rgb(...), var(...) referansı
+  const validColor = /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|var\(--.+\))$/;
+
+  for (const t of Themes.list) {
+    if (t.id === 'amoled') continue; // tokens boş
+    for (const key of colorTokens) {
+      if (!(key in t.tokens)) continue;
+      const val = t.tokens[key].trim();
+      assert.ok(validColor.test(val), `${t.id} ${key}: geçersiz CSS renk sözdizimi: "${val}"`);
+    }
+  }
+});
+
+test('boyut tokenları geçerli px değeri (rakam+px)', () => {
+  const sizeTokens = ['--radius', '--radius-sm', '--radius-lg', '--overlay-blur'];
+  const validPx = /^\d+(\.\d+)?px$/;
+
+  for (const t of Themes.list) {
+    if (t.id === 'amoled') continue;
+    for (const key of sizeTokens) {
+      if (!(key in t.tokens)) continue;
+      const val = t.tokens[key].trim();
+      assert.ok(validPx.test(val), `${t.id} ${key}: geçersiz px değeri: "${val}"`);
+    }
+  }
+});

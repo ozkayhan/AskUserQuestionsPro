@@ -8,6 +8,16 @@
   var ENABLED = { binary: true, scale: true, ranking: true, tree: true };
   var RICH_TYPES = { binary: true, scale: true, ranking: true, tree: true };
 
+  // optionLabel: TEK GERÇEK KAYNAK guarded accessor.
+  // q.options[i] OOB/undefined ise null döner — ranking/summaryText/mapAnswers
+  // hepsi bunun üstünden geçer, böylece OOB indeks TypeError yerine atlanır.
+  function optionLabel(q, i) {
+    var opts = q && q.options;
+    if (!opts) return null;
+    var o = opts[i];
+    return o ? o.label : null;
+  }
+
   // setEnabled({binary,scale,ranking,tree}) — app boot'ta çağrılır.
   function setEnabled(map) {
     Object.keys(map).forEach(function (k) {
@@ -62,25 +72,22 @@
         out[q.question] = s.value;
       } else if (t === 'ranking') {
         if (!s.order || s.order.length === 0) return;
-        out[q.question] = s.order.map(function (i) {
-          return q.options[i].label;
-        });
+        var rLabels = s.order
+          .map(function (i) {
+            return optionLabel(q, i);
+          })
+          .filter(function (x) {
+            return x != null;
+          });
+        if (rLabels.length === 0) return;
+        out[q.question] = rLabels;
       } else if (t === 'tree') {
         if (!s.path || s.path.length === 0) return;
-        var pathLabels = [];
-        var cur = q.options;
-        var lastNode = null;
-        for (var pi = 0; pi < s.path.length; pi++) {
-          var node = cur[s.path[pi]];
-          if (!node) break;
-          pathLabels.push(node.label);
-          lastNode = node;
-          cur = node.children || [];
-        }
-        if (pathLabels.length === 0) return;
-        // ponytail: yalnızca yaprak düğümde gönder — eksik yol göndermemek için
-        if (!lastNode || (lastNode.children && lastNode.children.length > 0)) return;
-        out[q.question] = pathLabels;
+        // ponytail: treeNodeAt/isLeaf TEK kaynak — truncated path null döner,
+        // yalnızca tam (yaprağa ulaşan) yol gönderilir. isAnswered ile aynı invariant.
+        var leaf = treeNodeAt(q, s.path);
+        if (!leaf || !isLeaf(leaf)) return;
+        out[q.question] = treePathLabels(q, s.path);
       }
     });
     return out;
@@ -107,7 +114,7 @@
     if (t === 'multi') {
       var inSel = a.sel.indexOf(optIdx) !== -1;
       if (inSel) {
-        if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText };
+        if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText || '' };
         return {
           type: 'toggle',
           sel: a.sel.filter(function (i) {
@@ -115,8 +122,9 @@
           }),
         };
       }
-      // Yeni custom: metin kaydedilene dek seçimi işaretleme.
-      if (isCustom && !a.customText) return { type: 'popup', optIdx: optIdx, draft: '' };
+      // Custom seçili değilken tekrar tıklanırsa: stale customText olsa bile
+      // kullanıcı onaylasın diye popup aç (sessiz re-add yok).
+      if (isCustom) return { type: 'popup', optIdx: optIdx, draft: a.customText || '' };
       return { type: 'toggle', sel: a.sel.concat([optIdx]) };
     }
 
@@ -152,7 +160,12 @@
       return a.value != null;
     }
     if (t === 'ranking') {
-      return !!(a.order && a.order.length > 0);
+      // bounds: en az bir geçerli indeks olmalı; OOB-only order false döner
+      // (mapAnswers ile aynı invariant — true dönüp crash etmesin).
+      if (!a.order || a.order.length === 0) return false;
+      return a.order.some(function (i) {
+        return optionLabel(q, i) != null;
+      });
     }
     if (t === 'tree') {
       if (!a.path || a.path.length === 0) return false;
@@ -183,22 +196,17 @@
       if (!a.order || a.order.length === 0) return '';
       return a.order
         .map(function (i) {
-          return q.options[i].label;
+          return optionLabel(q, i);
+        })
+        .filter(function (x) {
+          return x != null;
         })
         .join(' → ');
     }
 
     if (t === 'tree') {
       if (!a.path || a.path.length === 0) return '';
-      var pathLabels = [];
-      var cur = q.options;
-      for (var pi = 0; pi < a.path.length; pi++) {
-        var node = cur[a.path[pi]];
-        if (!node) break;
-        pathLabels.push(node.label);
-        cur = node.children || [];
-      }
-      return pathLabels.join(' → ');
+      return treePathLabels(q, a.path).join(' → ');
     }
 
     // single / multi
@@ -241,11 +249,15 @@
 
   // clampScale: v değerini min/max/step'e oturtulmuş sayı olarak döndürür.
   function clampScale(q, v) {
+    var min = q.min == null ? 0 : q.min;
+    var max = q.max == null ? 0 : q.max;
+    var n = Number(v);
+    if (!isFinite(n)) return min; // NaN/Infinity → alt sınır
     var step = q.step || 1;
-    var clamped = Math.min(q.max, Math.max(q.min, v));
+    var clamped = Math.min(max, Math.max(min, n));
     // step'e yuvarlama
-    var snapped = Math.round((clamped - q.min) / step) * step + q.min;
-    return Math.min(q.max, Math.max(q.min, snapped));
+    var snapped = Math.round((clamped - min) / step) * step + min;
+    return Math.min(max, Math.max(min, snapped));
   }
 
   // --- tree saf yardımcılar ---
@@ -279,8 +291,23 @@
     return !node.children || node.children.length === 0;
   }
 
+  // treePathLabels: path boyunca geçerli (mevcut) düğümlerin label'ları.
+  // Kırık adımda durur — TEK kaynak, mapAnswers/summaryText paylaşır.
+  function treePathLabels(q, path) {
+    var labels = [];
+    var cur = q.options;
+    for (var i = 0; i < path.length; i++) {
+      var node = cur[path[i]];
+      if (!node) break;
+      labels.push(node.label);
+      cur = node.children || [];
+    }
+    return labels;
+  }
+
   return {
     setEnabled: setEnabled,
+    optionLabel: optionLabel,
     qType: qType,
     mapAnswers: mapAnswers,
     decideActivate: decideActivate,

@@ -6,6 +6,10 @@ const path = require('node:path');
 
 const ciYml = readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
 
+// Expected SHA pins (resolve from tag at bundle-fix time; update when action releases new v4.x)
+const CHECKOUT_SHA = '34e114876b0b11c390a56381ad16ebd13914f8d5'; // actions/checkout v4.3.1
+const SETUP_NODE_SHA = '49933ea5288caeca8642d1e84afbd3f7d6820020'; // actions/setup-node v4.4.0
+
 describe('ci.yml yapısı', () => {
   it('pull_request tetikleyicisi var', () => {
     assert.match(ciYml, /pull_request/);
@@ -42,12 +46,22 @@ describe('ci.yml yapısı', () => {
     assert.match(ciYml, /timeout-minutes:\s*10/);
   });
 
-  it('actions/checkout@v4 pinli', () => {
-    assert.match(ciYml, /actions\/checkout@v4/);
+  it('actions/checkout SHA-pinned (not floating @v4 tag)', () => {
+    // Must reference by full commit SHA, not mutable tag
+    assert.ok(
+      ciYml.includes(`actions/checkout@${CHECKOUT_SHA}`),
+      `actions/checkout must be pinned to ${CHECKOUT_SHA}`
+    );
+    // Floating tag must not appear (supply-chain guard)
+    assert.doesNotMatch(ciYml, /actions\/checkout@v4(?!\s*#)/);
   });
 
-  it('actions/setup-node@v4 pinli', () => {
-    assert.match(ciYml, /actions\/setup-node@v4/);
+  it('actions/setup-node SHA-pinned (not floating @v4 tag)', () => {
+    assert.ok(
+      ciYml.includes(`actions/setup-node@${SETUP_NODE_SHA}`),
+      `actions/setup-node must be pinned to ${SETUP_NODE_SHA}`
+    );
+    assert.doesNotMatch(ciYml, /actions\/setup-node@v4(?!\s*#)/);
   });
 
   it('npm run lint adımı var', () => {
@@ -60,5 +74,16 @@ describe('ci.yml yapısı', () => {
 
   it('fail-fast: false', () => {
     assert.match(ciYml, /fail-fast:\s*false/);
+  });
+
+  it('shellcheck step in lint job', () => {
+    assert.match(ciYml, /shellcheck/i);
+  });
+
+  it('npm audit comment is accurate (no misleading js-yaml claim)', () => {
+    // Old comment mentioned js-yaml specifically; new comment must not
+    assert.doesNotMatch(ciYml, /js-yaml/);
+    // Must still have --omit=dev flag
+    assert.match(ciYml, /--omit=dev/);
   });
 });

@@ -218,12 +218,14 @@ Themes are stored in `web/themes.js` as pure data: AMOLED is the base, and every
 
 ## Troubleshooting
 
-- **The native picker shows up instead of the browser UI.** This is the safe fallback — it means the bridge was down, timed out, or returned an error. Check the bridge with `curl http://127.0.0.1:4517/health` (expects `{"ok":true}`), or run `askuserquestionspro doctor` for a full status check.
+- **The native picker shows up instead of the browser UI.** This is the safe fallback — it means the bridge was down, timed out, or returned an error. Check the bridge with `curl http://127.0.0.1:4517/health` (expects `{"ok":true,"app":"..."}`) or run `askuserquestionspro doctor` for a full status check. Error details are logged to stderr with the prefix `[askuser:<scope>]` — check your terminal or shell log.
 - **The UI doesn't open at all.** Start the bridge manually with `askuserquestionspro serve` (or `node server/server.js`) and open `http://127.0.0.1:4517` in your browser.
+- **Settings not saved / "settings write failed" error.** The `POST /settings` endpoint returns HTTP 500 (not a silent success) when the disk write fails. Check that `~/.config/askuserquestionspro/` is writable. The bridge logs the error to stderr with the prefix `[askuser:settings]`.
 - **Spaces in the install path** (for example `Application Support`). The hook command is written with the path wrapped in double quotes, so paths with spaces work. If you hand-edited `settings.json`, make sure the `node "<path>"` command keeps those quotes.
 - **Two questions at once.** The bridge holds exactly one question set at a time. A second concurrent set — whether from the hook or from `mcp__askuserquestionspro__ask` — is rejected (409) and falls back to the native picker. There must be only one `PreToolUse` hook for `AskUserQuestion` (Claude Code issue #15897) — `askuserquestionspro doctor` flags conflicts.
 - **`mcp__askuserquestionspro__ask` is not available.** Run `askuserquestionspro doctor` to check MCP registration. If the server is not registered, run `askuserquestionspro install` again or manually execute `claude mcp add --scope user askuserquestionspro -- node ~/.local/share/askuserquestionspro/mcp-server/askuserquestionspro-mcp.mjs`.
 - **The MCP tool times out before you finish answering.** The default MCP tool timeout in Claude Code is effectively unlimited. If you've set `MCP_TOOL_TIMEOUT` explicitly, make sure it's at least as long as your longest expected answering session (e.g., `MCP_TOOL_TIMEOUT=3600000` for 1 hour).
+- **The hook hangs without producing output.** The hook has a 30-second stdin watchdog. If it triggers, the hook exits cleanly (`exit 0`) and Claude Code falls back to the native picker. Check that the bridge is healthy (`/health`) and reachable.
 - **Offline / air-gapped.** No internet is required at runtime: React, ReactDOM, and Babel are served from local vendored files under `web/vendor/`. (Web fonts are loaded from Google Fonts for styling only; the UI works without them.)
 
 ## Tests

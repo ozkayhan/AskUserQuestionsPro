@@ -6,6 +6,7 @@ const { useState, useEffect, useRef, useCallback } = React;
 
 function App() {
   const { id, questions } = useLiveQuestions();
+  const roundId = id;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const screen =
@@ -15,7 +16,7 @@ function App() {
       </div>
     ) : (
       // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
-      <Flow questions={questions} key={id == null ? 'q' : 'round-' + id} />
+      <Flow questions={questions} roundId={roundId} key={id == null ? 'q' : 'round-' + id} />
     );
 
   return (
@@ -27,7 +28,7 @@ function App() {
   );
 }
 
-function Flow({ questions }) {
+function Flow({ questions, roundId }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
 
@@ -50,7 +51,10 @@ function Flow({ questions }) {
   const [dir, setDir] = useState('right');
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
-  const [sendError, setSendError] = useState(false);
+  // sendError: null | 'network' | 'server' (net=kurtarılabilir, server=4xx/5xx kalıcı).
+  const [sendError, setSendError] = useState(null);
+  // In-flight POST guard: setSubmitted async olduğundan reject sonrası ikinci Enter'ı yakalar (B17).
+  const inflight = useRef(false);
 
   // Büyük soru seti: arama + filtre durumu (N > 8)
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,11 +63,20 @@ function Flow({ questions }) {
 
   const isSummary = current >= n;
   const ref = useRef({});
-  ref.current = { answers, current, popup, n, isSummary, submitted };
+  ref.current = { answers, current, popup, n, isSummary, submitted, sendError };
 
   const inputRef = useRef(null);
+  // Popup açılırken tetikleyen elemanı sakla; kapanınca odağı oraya geri ver (B-a11y return-focus).
+  const triggerRef = useRef(null);
   useEffect(() => {
-    if (popup && inputRef.current) inputRef.current.focus();
+    if (popup) {
+      // ponytail: tetikleyen eleman, popup state'i true olduğunda hâlâ activeElement.
+      if (!triggerRef.current) triggerRef.current = document.activeElement;
+      if (inputRef.current) inputRef.current.focus();
+    } else if (triggerRef.current) {
+      triggerRef.current.focus();
+      triggerRef.current = null;
+    }
   }, [popup]);
 
   const goTo = useCallback(
@@ -82,10 +95,14 @@ function Flow({ questions }) {
     [goTo, n]
   );
 
+  // goBack: bulunulan pozisyondan bir adım geri (Summary'deyken son soruya). "Son ziyaret"
+  // semantiği; confirmed back-nav'da sıfırlanmadığından findIndex tabanlı eski mantık
+  // tüm sorular confirmed iken yanlışlıkla son soruya atlardı (B-stateui goBack).
   const goBack = useCallback(() => {
-    const idx = QUESTIONS.findIndex((q) => !ref.current.answers[q.question].confirmed);
-    goTo(idx === -1 ? n - 1 : idx, 'left');
-  }, [goTo, n, QUESTIONS]);
+    const cur = ref.current.current;
+    const idx = cur >= n ? n - 1 : Math.max(0, cur - 1);
+    goTo(idx, 'left');
+  }, [goTo, n]);
 
   const setQ = useCallback((qid, patch) => {
     setAnswers((prev) => ({ ...prev, [qid]: { ...prev[qid], ...patch } }));
@@ -97,6 +114,10 @@ function Flow({ questions }) {
       const a = ref.current.answers[q.question];
       // binary: tek basış onay — sel set et + confirmed:true + ilerle (popup/armed yok).
       if (AnswerMap.qType(q) === 'binary') {
+        // Bounds: binary'nin yalnızca 2 şıkkı var. '3'..'9' tuşları aksi halde sel=[2..8]
+        // confirmed:true yazıp soruyu "cevaplanmış" gösterir ama mapAnswers'ta sessizce
+        // düşer (veri kaybı). decideActivate'i aynala (B-correctness binary bounds).
+        if (optIdx < 0 || optIdx > 1) return;
         setQ(q.question, { sel: [optIdx], confirmed: true });
         advance(qIndex);
         return;
@@ -173,6 +194,7 @@ function Flow({ questions }) {
     const text = (p.draft || '').trim();
     setAnswers((prev) => {
       const a = prev[p.qid];
+      if (!a) return prev; // stale round: qid artık yok → updater'da throw etme (B-errorhandling)
       const next = AnswerMap.savePopupState(a, p.optIdx, text); // boş metin = kaldır (B4)
       return {
         ...prev,
@@ -188,6 +210,7 @@ function Flow({ questions }) {
     if (!p) return;
     setAnswers((prev) => {
       const a = prev[p.qid];
+      if (!a) return prev; // stale round guard (B-errorhandling)
       const next = AnswerMap.savePopupState(a, p.optIdx, '');
       return {
         ...prev,
@@ -203,42 +226,58 @@ function Flow({ questions }) {
     const idx = QUESTIONS.findIndex(
       (q) => !AnswerMap.isAnswered(q, ref.current.answers[q.question])
     );
-    goTo(idx === -1 ? n : idx, idx === -1 || idx > ref.current.current ? 'right' : 'left');
-  }, [QUESTIONS, goTo, n]);
+    // Yön, render'lı `current` state'inden hesaplanır; stale ref hızlı ardışık "u"'da
+    // yönü ters çevirip bir frame yanlış slide gösteriyordu (B-stateui jump direction).
+    goTo(idx === -1 ? n : idx, idx === -1 || idx > current ? 'right' : 'left');
+  }, [QUESTIONS, goTo, n, current]);
 
   // "Skip remaining & review": doğrudan Summary ekranına geç.
   const skipAll = useCallback(() => {
     goTo(n, 'right');
   }, [goTo, n]);
 
-  const mappedAnswers = useCallback(() => {
-    const stateForMap = {};
-    QUESTIONS.forEach((q) => {
-      const a = ref.current.answers[q.question];
-      // value/order/path yeni tipler için stateForMap'e eklenir.
-      stateForMap[q.question] = {
-        sel: a.sel,
-        customText: a.customText,
-        value: a.value,
-        order: a.order,
-        path: a.path,
-      };
-    });
-    return AnswerMap.mapAnswers(QUESTIONS, stateForMap);
-  }, [QUESTIONS]);
+  // answers'ı parametre olarak alır: submit() aynı event batch'inde çağrılınca stale
+  // ref.current.answers'a değil, çağrı anındaki canlı state'e map eder (B-errorhandling stale).
+  const mappedAnswers = useCallback(
+    (src) => {
+      const stateForMap = {};
+      QUESTIONS.forEach((q) => {
+        const a = src[q.question];
+        // value/order/path yeni tipler için stateForMap'e eklenir.
+        stateForMap[q.question] = {
+          sel: a.sel,
+          customText: a.customText,
+          value: a.value,
+          order: a.order,
+          path: a.path,
+        };
+      });
+      return AnswerMap.mapAnswers(QUESTIONS, stateForMap);
+    },
+    [QUESTIONS]
+  );
 
   const submit = useCallback(() => {
-    if (ref.current.submitted) return; // double-submit guard (B17)
-    const mapped = mappedAnswers();
+    // Double-submit guard: submitted (render'lı) VEYA inflight (async, henüz settle olmamış)
+    // her ikisi de bloklar; reject sonrası ikinci hızlı Enter mükerrer POST'u başlatamaz (B17).
+    if (ref.current.submitted || inflight.current) return;
+    const mapped = mappedAnswers(ref.current.answers);
     if (Object.keys(mapped).length === 0) return; // boş submit guard (B8)
-    setSendError(false);
+    setSendError(null);
     setSubmitted(true);
-    postAnswers(mapped).catch(() => {
-      // B6: hata → kilidi aç, uyar
-      setSubmitted(false);
-      setSendError(true);
-    });
-  }, [mappedAnswers]);
+    inflight.current = true;
+    postAnswers(roundId, mapped)
+      .then(() => {
+        inflight.current = false;
+      })
+      .catch((err) => {
+        // B6: hata → kilidi aç, uyar. Ağ (TypeError/abort, kurtarılabilir) ile sunucu
+        // (HTTP 4xx/5xx, err.server) ayrılır; 4xx'te sonsuz retry yerine "server" mesajı.
+        inflight.current = false;
+        setSubmitted(false);
+        setSendError(err && err.server ? 'server' : 'network');
+      });
+  }, [mappedAnswers, roundId]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -266,6 +305,13 @@ function Flow({ questions }) {
           submit();
           return;
         }
+        // Summary dışındayken yalnızca KURTARILABİLİR (network) hatada Enter retry'ı yapsın:
+        // toast "Press Enter to retry" der. 'server' (4xx/5xx, kalıcı) toast'u retry demez, o
+        // yüzden Enter confirmCurrent'a düşmeli — aksi halde talimat yalan olurdu (B-errorhandling).
+        if (R.sendError === 'network') {
+          submit();
+          return;
+        }
         confirmCurrent();
       } else if (R.isSummary && (e.key === 'b' || e.key === 'B')) {
         if (inTextField) return;
@@ -273,6 +319,11 @@ function Flow({ questions }) {
         goBack();
       } else if (!R.isSummary && /^[1-9]$/.test(e.key)) {
         if (inTextField) return;
+        // Number-key yalnızca seçilebilir-şıklı tipler için: scale/ranking/tree kart gövdesi
+        // onActivate kullanmaz; aksi halde activate() 'single' fallback'ine düşüp sahte sel +
+        // sahte 'Other' popup yazardı (B-correctness number-key guard).
+        const qType = AnswerMap.qType(QUESTIONS[R.current]);
+        if (qType !== 'binary' && qType !== 'single' && qType !== 'multi') return;
         e.preventDefault();
         activate(R.current, parseInt(e.key, 10) - 1);
       } else if (!R.isSummary && (e.key === 'u' || e.key === 'U')) {
@@ -284,7 +335,7 @@ function Flow({ questions }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goTo, confirmCurrent, activate, goBack, submit, jumpToNextUnanswered]);
+  }, [goTo, confirmCurrent, activate, goBack, submit, jumpToNextUnanswered, QUESTIONS]);
 
   // "answered" = AnswerMap.isAnswered ile tüm tipler için doğru sayım (B16 + yeni tipler).
   const answered = QUESTIONS.filter((q) => AnswerMap.isAnswered(q, answers[q.question])).length;
@@ -292,6 +343,21 @@ function Flow({ questions }) {
 
   // qid'e bağlı setQ helper: QuestionCard'a prop olarak geçilir.
   const makeSetQ = useCallback((qid) => (patch) => setQ(qid, patch), [setQ]);
+
+  // Açık popup'ın sorusu güncel turda var mı? Yoksa (stale round push) popupQ null olur.
+  const popupQ = popup ? QUESTIONS.find((q) => q.question === popup.qid) : null;
+  // Stale popup'ı otomatik kapat: soru artık yoksa CustomPopup'a undefined q geçip
+  // ilk prop erişiminde çökmek yerine popup'ı düşür (B-errorhandling stale-q + auto-dismiss).
+  useEffect(() => {
+    if (popup && !popupQ) setPopup(null);
+  }, [popup, popupQ]);
+
+  // sendError toast auto-dismiss: kalıcı hata olsa bile ~8s sonra kapanır (B-stateui dismiss).
+  useEffect(() => {
+    if (!sendError) return undefined;
+    const t = setTimeout(() => setSendError(null), 8000);
+    return () => clearTimeout(t);
+  }, [sendError]);
 
   return (
     <div className="app" data-panel="left" data-align="center">
@@ -313,7 +379,8 @@ function Flow({ questions }) {
         searchRef={searchInputRef}
       />
       <main className="inspector">
-        <div className="stage">
+        {/* aria-live: soru kartı key ile takas edilince ekran okuyucu yeni içeriği duyursun. */}
+        <div className="stage" aria-live="polite" aria-atomic="true">
           {isSummary ? (
             <Summary
               answers={answers}
@@ -326,7 +393,7 @@ function Flow({ questions }) {
             />
           ) : (
             <QuestionCard
-              key={QUESTIONS[current].question}
+              key={current}
               q={QUESTIONS[current]}
               qIndex={current}
               ans={answers[QUESTIONS[current].question]}
@@ -340,11 +407,11 @@ function Flow({ questions }) {
         </div>
         {!isSummary && <Hints q={QUESTIONS[current]} />}
       </main>
-      {popup && (
+      {popup && popupQ && (
         <CustomPopup
-          q={QUESTIONS.find((q) => q.question === popup.qid)}
+          q={popupQ}
           draft={popup.draft}
-          selected={answers[popup.qid].sel.includes(popup.optIdx)}
+          selected={(answers[popup.qid]?.sel || []).includes(popup.optIdx)}
           inputRef={inputRef}
           onChange={(v) => setPopup((p) => ({ ...p, draft: v }))}
           onSave={savePopup}
@@ -353,7 +420,7 @@ function Flow({ questions }) {
         />
       )}
       {submitted && (
-        <div className="toast">
+        <div className="toast" role="status" aria-live="polite" aria-atomic="true">
           <span className="ok">
             <Check c="var(--success)" />
           </span>
@@ -361,8 +428,18 @@ function Flow({ questions }) {
         </div>
       )}
       {sendError && (
-        <div className="toast toast--err">
-          Couldn't send — bridge unavailable. Press Enter to retry.
+        <div className="toast toast--err" role="alert" aria-live="assertive" aria-atomic="true">
+          {sendError === 'server'
+            ? "Couldn't send — the agent rejected this round. "
+            : "Couldn't send — bridge unavailable. Press Enter to retry. "}
+          <button
+            type="button"
+            className="toast__close"
+            aria-label="Dismiss error"
+            onClick={() => setSendError(null)}
+          >
+            ×
+          </button>
         </div>
       )}
     </div>

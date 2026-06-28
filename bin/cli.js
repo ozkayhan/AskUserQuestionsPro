@@ -42,7 +42,14 @@ Kurulumdan sonra yeni bir 'claude' oturumu açın.
 }
 
 function cmdInstall() {
-  const settings = readSettings(SETTINGS);
+  // ponytail: readSettings/writeSettings throw edebilir → try/catch (HIGH #149).
+  let settings;
+  try {
+    settings = readSettings(SETTINGS);
+  } catch (err) {
+    process.stderr.write(`Hata: ${err.message}\n`);
+    process.exit(1);
+  }
   const { settings: next, status } = addHook(settings, HOOK_ABS);
   if (status === 'conflict') {
     process.stderr.write(
@@ -55,7 +62,12 @@ function cmdInstall() {
     process.stdout.write(`Zaten kurulu → ${SETTINGS}\n`);
     return;
   }
-  writeSettings(SETTINGS, next);
+  try {
+    writeSettings(SETTINGS, next);
+  } catch (err) {
+    process.stderr.write(`Hata: ayarlar yazılamadı: ${err.message}\n`);
+    process.exit(1);
+  }
   process.stdout.write(
     `Hook eklendi → ${SETTINGS}\n` +
       `Yeni bir 'claude' oturumu açın; AskUserQuestion artık özel arayüzde açılır.\n`
@@ -88,25 +100,49 @@ function cmdInstall() {
 }
 
 function cmdUninstall() {
-  const settings = readSettings(SETTINGS);
+  // ponytail: readSettings/writeSettings throw edebilir → try/catch (HIGH #149).
+  let settings;
+  try {
+    settings = readSettings(SETTINGS);
+  } catch (err) {
+    process.stderr.write(`Hata: ${err.message}\n`);
+    process.exit(1);
+  }
   const { settings: next, status } = removeHook(settings, HOOK_ABS);
   if (status === 'absent') {
     process.stdout.write(`Hook zaten yok → ${SETTINGS}\n`);
     return;
   }
-  writeSettings(SETTINGS, next);
+  try {
+    writeSettings(SETTINGS, next);
+  } catch (err) {
+    process.stderr.write(`Hata: ayarlar yazılamadı: ${err.message}\n`);
+    process.exit(1);
+  }
   process.stdout.write(`Hook kaldırıldı → ${SETTINGS}\n`);
 }
 
 function cmdServe() {
   const child = spawn(process.execPath, [SERVER_ABS], { stdio: 'inherit', env: process.env });
-  child.on('exit', (code) => process.exit(code || 0));
+  // ponytail: 'error' listener olmadan ENOENT unhandled EventEmitter crash verir (HIGH #156).
+  child.on('error', (err) => {
+    process.stderr.write(`serve: spawn hatası: ${err.message}\n`);
+    process.exit(1);
+  });
+  // ponytail: signal ile öldürülen child exit code=null; code ?? (signal ? 1 : 0) (LOW #927).
+  child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
 }
 
 // MCP stdio sunucusunu foreground'da çalıştır (debug / manuel test için).
 function cmdMcp() {
   const child = spawn(process.execPath, [MCP_ABS], { stdio: 'inherit', env: process.env });
-  child.on('exit', (code) => process.exit(code || 0));
+  // ponytail: 'error' listener olmadan ENOENT unhandled EventEmitter crash verir (HIGH #156).
+  child.on('error', (err) => {
+    process.stderr.write(`mcp: spawn hatası: ${err.message}\n`);
+    process.exit(1);
+  });
+  // ponytail: signal ile öldürülen child exit code=null; code ?? (signal ? 1 : 0) (LOW #927).
+  child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
 }
 
 function cmdSettings(sub, key, val) {
@@ -151,13 +187,23 @@ function cmdSettings(sub, key, val) {
     const c = Schema.coerce(key, val);
     if (!c.ok) {
       const e = Schema.byKey(key);
+      // ponytail: 'yes/no' da kabul ediliyor ama hint'te eksikti (LOW #907).
       const hint =
-        e.type === 'toggle' ? 'on/off/true/false/1/0' : e.options.map((o) => o.value).join('/');
+        e.type === 'toggle'
+          ? 'on/off/yes/no/true/false/1/0'
+          : e.options.map((o) => o.value).join('/');
       process.stderr.write(`Geçersiz değer "${val}" for ${key}. Beklenen: ${hint}\n`);
       process.exit(1);
     }
-    const next = Settings.write({ [key]: c.value });
-    process.stdout.write(`${key} = ${JSON.stringify(next[key])} kaydedildi\n`);
+    // Contract W: write() → { ok, value, error? } — başarısızlığı caller'a ilet.
+    const r = Settings.write({ [key]: c.value });
+    if (!r.ok) {
+      process.stderr.write(
+        `Hata: ${key} kaydedilemedi: ${r.error ? r.error.message : 'bilinmeyen hata'}\n`
+      );
+      process.exit(1);
+    }
+    process.stdout.write(`${key} = ${JSON.stringify(r.value[key])} kaydedildi\n`);
     if (Schema.byKey(key).applies === 'reload')
       process.stdout.write(`Not: açık tarayıcı sekmesini yenileyince tam etkili olur.\n`);
     return;
@@ -169,7 +215,13 @@ function cmdSettings(sub, key, val) {
 async function cmdDoctor() {
   let ok = true;
   // 1. settings.json'da hook kurulu mu?
-  const settings = readSettings(SETTINGS);
+  let settings;
+  try {
+    settings = readSettings(SETTINGS);
+  } catch (err) {
+    process.stderr.write(`Hata: ${err.message}\n`);
+    process.exit(1);
+  }
   const { status } = addHook(settings, HOOK_ABS); // 'already' beklenir
   if (status === 'already') {
     process.stdout.write(`✓ Hook kurulu (${SETTINGS})\n`);
@@ -190,8 +242,16 @@ async function cmdDoctor() {
     ok = false;
   }
   // 3. Köprü ayakta mı? (opsiyonel — talep gelince spawn olur)
+  // ponytail: fetch() timeout yok → AbortController + 2s (HIGH #163).
   try {
-    const r = await fetch(`${BASE}/health`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    let r;
+    try {
+      r = await fetch(`${BASE}/health`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     process.stdout.write(
       r.ok ? `✓ Köprü çalışıyor (${BASE})\n` : `· Köprü yanıt verdi ama health başarısız\n`
     );
@@ -259,4 +319,8 @@ async function main() {
   }
 }
 
-main();
+// ponytail: main() ciplak çağrı → unhandled rejection (HIGH #169). .catch() ile yakala.
+main().catch((err) => {
+  process.stderr.write(`Beklenmedik hata: ${err.message}\n`);
+  process.exit(1);
+});
