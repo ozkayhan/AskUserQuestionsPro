@@ -21,7 +21,7 @@ fi
 INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
 mkdir -p "$INSTALL_DIR"
 # Re-run'da bayat dosya kalmasın diye hedefi önce temizle (içerik idempotency).
-rm -rf "$INSTALL_DIR/hooks" "$INSTALL_DIR/web" "$INSTALL_DIR/server" "$INSTALL_DIR/lib" "$INSTALL_DIR/mcp-server"
+rm -rf "${INSTALL_DIR:?}/hooks" "${INSTALL_DIR:?}/web" "${INSTALL_DIR:?}/server" "${INSTALL_DIR:?}/lib" "${INSTALL_DIR:?}/mcp-server"
 cp -R "$DIR/hooks" "$INSTALL_DIR/" || { echo "HATA: hooks kopyalanamadı ($DIR/hooks → $INSTALL_DIR/)" >&2; exit 1; }
 [ -d "$DIR/web" ]        && cp -R "$DIR/web"        "$INSTALL_DIR/"
 [ -d "$DIR/server" ]     && cp -R "$DIR/server"     "$INSTALL_DIR/"

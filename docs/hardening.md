@@ -18,6 +18,7 @@ diagnostic).
 **Fix:** Created `lib/log.cjs` (`log(scope, x)`) as the single structured
 stderr logger (Contract L). Every former silent catch now calls `log` before
 taking the safe action (exit, fallback, return error). Covers:
+
 - `ensureServer` spawn error
 - `openBrowser` OS-command error
 - settings disk write failure
@@ -37,6 +38,7 @@ others duplicated across layers, with no single authoritative source.
 **Fix:** `validQuestions()` in `server/server.js` became the **single
 validation authority** for the HTTP boundary that both the hook and MCP server
 cross. Additions:
+
 - `validLabel(label)` — shared label guard (string, 1–500 chars).
 - `checkTreeNodes(opts)` — **recursive** tree node label validation; the
   previous version only checked top-level nodes, leaving deep labels
@@ -64,6 +66,7 @@ decision path, the bug class cannot exist.
 
 **CI guard:** ESLint `eslint-plugin-react-hooks` on `web/**` (parsed by
 `@babel/eslint-parser` + `@babel/preset-react`):
+
 - `react-hooks/rules-of-hooks` — error
 - `react-hooks/exhaustive-deps` — warn
 
@@ -112,14 +115,14 @@ trivial to filter and identify the failing component.
 
 New shared primitives created once, tested once, reused across the codebase:
 
-| Artifact | Purpose | Reused by | Closes |
-| --- | --- | --- | --- |
-| `lib/log.cjs` — `log(scope, x)` | Structured stderr logger (Contract L) | hook, bridge-client, settings, server | Theme A + E |
-| `lib/atomic-write.cjs` — `writeFileAtomic(file, data)` | `.tmp.<pid>` + `rename` + `O_EXCL` lock | `lib/settings.js`, `bin/install.js` | Critical #1 (data loss on concurrent write) |
-| `server/server.js` — deepened `validQuestions` + `validLabel` + `checkTreeNodes` | Single validation authority | `/ask`, `/answer` (hook + MCP funnel here) | Theme B input class |
-| `test/helpers/isolation.js` — `withClean(t, fn)` | Test isolation (Contract T) | all stateful tests | Theme D |
-| Contract R — round `id` ownership | `provideAnswers(id, answers)` + `cancel(reason, expectedId)` + `/answer` body `{id, answers}` + `postAnswers(id, answers)` | bridge, server, live.js, app.js | Cross-round answer mix-up (the #1 theme) |
-| Contract W — settings write result | `write(patch) → { ok, value, error? }` | `lib/settings.js` → `POST /settings`, `bin/cli.js` | Fake-success on disk failure |
+| Artifact                                                                         | Purpose                                                                                                                    | Reused by                                          | Closes                                      |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------- |
+| `lib/log.cjs` — `log(scope, x)`                                                  | Structured stderr logger (Contract L)                                                                                      | hook, bridge-client, settings, server              | Theme A + E                                 |
+| `lib/atomic-write.cjs` — `writeFileAtomic(file, data)`                           | `.tmp.<pid>` + `rename` + `O_EXCL` lock                                                                                    | `lib/settings.js`, `bin/install.js`                | Critical #1 (data loss on concurrent write) |
+| `server/server.js` — deepened `validQuestions` + `validLabel` + `checkTreeNodes` | Single validation authority                                                                                                | `/ask`, `/answer` (hook + MCP funnel here)         | Theme B input class                         |
+| `test/helpers/isolation.js` — `withClean(t, fn)`                                 | Test isolation (Contract T)                                                                                                | all stateful tests                                 | Theme D                                     |
+| Contract R — round `id` ownership                                                | `provideAnswers(id, answers)` + `cancel(reason, expectedId)` + `/answer` body `{id, answers}` + `postAnswers(id, answers)` | bridge, server, live.js, app.js                    | Cross-round answer mix-up (the #1 theme)    |
+| Contract W — settings write result                                               | `write(patch) → { ok, value, error? }`                                                                                     | `lib/settings.js` → `POST /settings`, `bin/cli.js` | Fake-success on disk failure                |
 
 These consolidations **reduce** total scattered logic while adding tests and
 guards. Net code complexity goes down; safety goes up.
@@ -128,34 +131,34 @@ guards. Net code complexity goes down; safety goes up.
 
 ## CI guards summary
 
-| Guard | Catches |
-| --- | --- |
-| `no-empty { allowEmptyCatch: false }` (ESLint, all Node files) | New silent swallow (Theme A) |
-| `react-hooks/rules-of-hooks` + `exhaustive-deps` (ESLint, `web/**`) | New stale-ref / missing dep (Theme C) |
-| `shellcheck install.sh reinstall.sh` (CI lint job) | Shell-quoting / portability regressions (Theme B shell) |
-| SHA-pinned `actions/checkout` + `actions/setup-node` | Workflow supply-chain substitution |
-| Validator fuzz tests (server.test.js) | Validation regression (Theme B) |
-| Wire round-trip tests (correct id resolves, stale → 409, Array check → 400) | Contract R regression |
-| `withClean` in every stateful test | Global-state leak (Theme D) |
+| Guard                                                                       | Catches                                                 |
+| --------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `no-empty { allowEmptyCatch: false }` (ESLint, all Node files)              | New silent swallow (Theme A)                            |
+| `react-hooks/rules-of-hooks` + `exhaustive-deps` (ESLint, `web/**`)         | New stale-ref / missing dep (Theme C)                   |
+| `shellcheck install.sh reinstall.sh` (CI lint job)                          | Shell-quoting / portability regressions (Theme B shell) |
+| SHA-pinned `actions/checkout` + `actions/setup-node`                        | Workflow supply-chain substitution                      |
+| Validator fuzz tests (server.test.js)                                       | Validation regression (Theme B)                         |
+| Wire round-trip tests (correct id resolves, stale → 409, Array check → 400) | Contract R regression                                   |
+| `withClean` in every stateful test                                          | Global-state leak (Theme D)                             |
 
 ---
 
 ## Key source changes at a glance
 
-| File | What changed |
-| --- | --- |
-| `lib/log.cjs` | **Created** — Contract L structured logger |
-| `lib/atomic-write.cjs` | **Created** — `writeFileAtomic` with lockfile |
-| `lib/settings.js` | `write()` returns `{ ok, value, error? }` (Contract W); uses `writeFileAtomic` |
-| `lib/bridge-client.mjs` | `ensureServer` single-flight; `isUp` checks `app` identity; `TimeoutError` class; `waitForPending`; `openBrowser` logs error |
-| `server/bridge.js` | `provideAnswers(id, answers)` and `cancel(reason, expectedId)` — Contract R id ownership |
-| `server/server.js` | Deep `validQuestions` + `validLabel` + `checkTreeNodes`; `/answer` parses `{id,answers}`, validates Array, calls `provideAnswers(id, ...)`; `/ask` captures `myId`; settings memory cache; ETag; `requestTimeout=0`; `app` in `/health`; Contract W on `/settings` |
-| `hooks/askuserquestionspro-bridge.mjs` | `readStdin` 30 s watchdog; `writeAndExit` EPIPE flush; `uncaughtException`/`unhandledRejection` → `log` + exit 0; `waitForPending()` before `openBrowser` |
-| `web/live.js` | `postAnswers(id, answers)` (Contract R); exponential backoff + jitter SSE reconnect; 10 s timeout; `err.server` flag; `setRound` equality guard |
-| `web/app.js` | Passes `round.id` to `postAnswers`; delegates stale-prone decisions to pure AnswerMap helpers |
-| `web/views.js` | ARIA annotations across all question types; `CustomPopup` focus-trap + `role=dialog` |
-| `eslint.config.js` | `no-empty {allowEmptyCatch:false}` on Node files; `@babel/eslint-parser` + `eslint-plugin-react-hooks` on `web/**` |
-| `install.sh` | Shell hardening: `WORKDIR`, single-quoted trap, `jq -e` validate-before-mv, intent-based dedupe |
-| `.github/workflows/ci.yml` | `shellcheck` step; SHA-pinned action refs |
-| `test/helpers/isolation.js` | **Created** — `withClean` (Contract T) |
-| `test/server.test.js` | Fuzz/boundary tests; Contract R wire tests; poll helpers; `requestTimeout` assertion |
+| File                                   | What changed                                                                                                                                                                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lib/log.cjs`                          | **Created** — Contract L structured logger                                                                                                                                                                                                                         |
+| `lib/atomic-write.cjs`                 | **Created** — `writeFileAtomic` with lockfile                                                                                                                                                                                                                      |
+| `lib/settings.js`                      | `write()` returns `{ ok, value, error? }` (Contract W); uses `writeFileAtomic`                                                                                                                                                                                     |
+| `lib/bridge-client.mjs`                | `ensureServer` single-flight; `isUp` checks `app` identity; `TimeoutError` class; `waitForPending`; `openBrowser` logs error                                                                                                                                       |
+| `server/bridge.js`                     | `provideAnswers(id, answers)` and `cancel(reason, expectedId)` — Contract R id ownership                                                                                                                                                                           |
+| `server/server.js`                     | Deep `validQuestions` + `validLabel` + `checkTreeNodes`; `/answer` parses `{id,answers}`, validates Array, calls `provideAnswers(id, ...)`; `/ask` captures `myId`; settings memory cache; ETag; `requestTimeout=0`; `app` in `/health`; Contract W on `/settings` |
+| `hooks/askuserquestionspro-bridge.mjs` | `readStdin` 30 s watchdog; `writeAndExit` EPIPE flush; `uncaughtException`/`unhandledRejection` → `log` + exit 0; `waitForPending()` before `openBrowser`                                                                                                          |
+| `web/live.js`                          | `postAnswers(id, answers)` (Contract R); exponential backoff + jitter SSE reconnect; 10 s timeout; `err.server` flag; `setRound` equality guard                                                                                                                    |
+| `web/app.js`                           | Passes `round.id` to `postAnswers`; delegates stale-prone decisions to pure AnswerMap helpers                                                                                                                                                                      |
+| `web/views.js`                         | ARIA annotations across all question types; `CustomPopup` focus-trap + `role=dialog`                                                                                                                                                                               |
+| `eslint.config.js`                     | `no-empty {allowEmptyCatch:false}` on Node files; `@babel/eslint-parser` + `eslint-plugin-react-hooks` on `web/**`                                                                                                                                                 |
+| `install.sh`                           | Shell hardening: `WORKDIR`, single-quoted trap, `jq -e` validate-before-mv, intent-based dedupe                                                                                                                                                                    |
+| `.github/workflows/ci.yml`             | `shellcheck` step; SHA-pinned action refs                                                                                                                                                                                                                          |
+| `test/helpers/isolation.js`            | **Created** — `withClean` (Contract T)                                                                                                                                                                                                                             |
+| `test/server.test.js`                  | Fuzz/boundary tests; Contract R wire tests; poll helpers; `requestTimeout` assertion                                                                                                                                                                               |

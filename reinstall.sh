@@ -16,7 +16,7 @@ readarray -t pids < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
 if [ "${#pids[@]}" -gt 0 ]; then
   kill "${pids[@]}" 2>/dev/null && echo "  SIGTERM gönderildi: ${pids[*]}"
   # Sürecin kapanmasını bekle; 1 sn sonra hâlâ yaşıyorsa -9
-  for i in $(seq 1 10); do
+  for _ in $(seq 1 10); do
     sleep 0.1
     readarray -t remaining < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
     [ "${#remaining[@]}" -eq 0 ] && break

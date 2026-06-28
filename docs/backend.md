@@ -25,7 +25,7 @@ Responsibilities:
   `req.destroy()` on overflow; single-settle guard prevents double
   reject/resolve on the concurrent `data`/`close`/`error` race).
 - On client disconnect during an open `/ask`, call `bridge.cancel('client
-  disconnected', myId)` where `myId` is the round id captured at submit time
+disconnected', myId)` where `myId` is the round id captured at submit time
   (Contract R — only the owning round is cancelled, not a concurrently
   submitted new one).
 - `POST /answer` parses `{ id, answers }`. Validates `Array.isArray(answers)`
@@ -58,13 +58,13 @@ Responsibilities:
 The single-flight coordinator. State: `_pending` (`{id, questions, resolve,
 reject}` or `null`) and `_seq` (monotonic counter for ids).
 
-| Method                            | Behavior                                                                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `submitQuestions(questions)`      | Stores a new pending set, returns a Promise that resolves on answers. **Throws if one is already pending.**                                            |
-| `peek()`                          | `{ id, questions }` or `null` — side-effect free.                                                                                                     |
-| `getCurrent()`                    | Just the questions array (or `null`).                                                                                                                  |
-| `provideAnswers(id, answers)`     | **Contract R:** resolves only if `id` matches the current pending round's id. Returns `true` on resolve, `false` on mismatch/no pending (no throw).   |
-| `cancel(reason, expectedId?)`     | **Contract R:** rejects the pending promise only if `expectedId` is absent or matches. Returns `true` on cancel, `false` on mismatch/no pending.      |
+| Method                        | Behavior                                                                                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `submitQuestions(questions)`  | Stores a new pending set, returns a Promise that resolves on answers. **Throws if one is already pending.**                                         |
+| `peek()`                      | `{ id, questions }` or `null` — side-effect free.                                                                                                   |
+| `getCurrent()`                | Just the questions array (or `null`).                                                                                                               |
+| `provideAnswers(id, answers)` | **Contract R:** resolves only if `id` matches the current pending round's id. Returns `true` on resolve, `false` on mismatch/no pending (no throw). |
+| `cancel(reason, expectedId?)` | **Contract R:** rejects the pending promise only if `expectedId` is absent or matches. Returns `true` on cancel, `false` on mismatch/no pending.    |
 
 Round identity (`_seq` monotonically incremented) is the mechanism that makes
 cross-round answer mix-up structurally impossible: a late `/answer` carrying

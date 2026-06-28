@@ -11,7 +11,8 @@ module.exports = [
     // .context/ holds orchestrator artifacts (agent-run workflow specs whose
     // bodies execute inside an injected async wrapper with injected globals).
     // They are not importable source modules, so they are not linted as such.
-    ignores: ['web/vendor/**', 'node_modules/**', '.context/**'],
+    // docs/old/ holds archived sprint docs (e.g. workflow-spec JS snippets), not source.
+    ignores: ['web/vendor/**', 'node_modules/**', '.context/**', 'docs/old/**'],
   },
   // Node files (server, lib, bin, mcp-server, hooks, test)
   {
