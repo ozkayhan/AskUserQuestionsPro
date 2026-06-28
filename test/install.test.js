@@ -1,7 +1,16 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { addHook, removeHook } = require('../bin/install.js');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const {
+  addHook,
+  removeHook,
+  readSettings,
+  writeSettings,
+  hookCommand,
+} = require('../bin/install.js');
 
 const HOOK = '/abs/path/hooks/askuserquestionspro-bridge.mjs';
 const CMD = `node "${HOOK}"`;
@@ -82,4 +91,105 @@ test('addHook girdiyi mutasyona uğratmaz (saf)', () => {
   const snapshot = JSON.stringify(start);
   addHook(start, HOOK);
   assert.strictEqual(JSON.stringify(start), snapshot);
+});
+
+// ── Conflict-before-already (LOW #914) ───────────────────────────────
+// Bizim entry + yabancı AskUserQuestion entry birlikte iken 'conflict' dönmeli,
+// 'already' conflict'i maskelememeli.
+test('addHook: bizim entry + yabancı AskUserQuestion birlikte → conflict (maskeleme yok)', () => {
+  const foreign = {
+    matcher: 'AskUserQuestion',
+    hooks: [{ type: 'command', command: 'node /other/bridge.js' }],
+  };
+  const start = { hooks: { PreToolUse: [ourEntry(), foreign] } };
+  const { status } = addHook(start, HOOK);
+  assert.strictEqual(status, 'conflict', 'yabancı hook varsa conflict döndürmeli');
+});
+
+// ── isOurEntry exact-match (LOW #921) ────────────────────────────────
+// Path-prefix çakışmasında yanlış pozitif olmamalı.
+test('isOurEntry: prefix içeren farklı path → false (yanlış pozitif yok)', () => {
+  // Modülü içe aktarıp isOurEntry'e ulaş — export edilmemişse hookCommand üzerinden test et.
+  // Farklı bir path (HOOK'u prefix olarak içeren) bizim entry sayılmamalı.
+  const longerHook = HOOK + '-extra';
+  const longerCmd = `node "${longerHook}"`;
+  const entry = {
+    matcher: 'AskUserQuestion',
+    hooks: [{ type: 'command', command: longerCmd, timeout: 3600 }],
+  };
+  // addHook ile test: longer path'li entry varken ekleme yapılmalı (already değil).
+  const start = { hooks: { PreToolUse: [entry] } };
+  // longer entry yabancı (bizim değil, AskUser matcher) → conflict
+  const { status } = addHook(start, HOOK);
+  assert.strictEqual(status, 'conflict', 'farklı path → bizim entry sayılmamalı → conflict');
+});
+
+test('hookCommand: path boşluk içeriyorsa çift tırnakla sarılır', () => {
+  const cmd = hookCommand('/path/with spaces/hook.mjs');
+  assert.ok(cmd.includes('"'), 'çift tırnak içermeli');
+  assert.strictEqual(cmd, 'node "/path/with spaces/hook.mjs"');
+});
+
+// ── writeSettings atomik (Critical #1) ───────────────────────────────
+test('writeSettings: tmp→rename atomik, sonuç okunabilir', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-ws-'));
+  try {
+    const file = path.join(dir, 'settings.json');
+    writeSettings(file, { hooks: { PreToolUse: [] } });
+    assert.ok(fs.existsSync(file), 'dosya oluşturulmalı');
+    assert.ok(!fs.existsSync(file + '.tmp.' + process.pid), '.tmp kalmamali');
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.deepStrictEqual(parsed, { hooks: { PreToolUse: [] } });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('writeSettings: yazılamaz dizin → throw eder, orijinal korunur', () => {
+  if (process.getuid && process.getuid() === 0) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-ws-'));
+  const file = path.join(dir, 'settings.json');
+  // Önce geçerli içerik yaz.
+  fs.writeFileSync(file, '{"original":true}\n', 'utf8');
+  fs.chmodSync(dir, 0o555);
+  try {
+    assert.throws(() => writeSettings(file, { overwrite: true }), /EACCES/);
+    // Orijinal bozulmamış olmalı.
+    const content = fs.readFileSync(file, 'utf8');
+    assert.ok(content.includes('"original"'), 'orijinal içerik korunmalı');
+  } finally {
+    fs.chmodSync(dir, 0o755);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── readSettings ─────────────────────────────────────────────────────
+test('readSettings: ENOENT → boş obje döner', () => {
+  const result = readSettings('/non/existent/path/settings.json');
+  assert.deepStrictEqual(result, {});
+});
+
+test('readSettings: bozuk JSON → throw eder', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-rs-'));
+  try {
+    const file = path.join(dir, 'settings.json');
+    fs.writeFileSync(file, '{ bozuk', 'utf8');
+    assert.throws(() => readSettings(file), /Invalid JSON/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('readSettings: EACCES → throw eder', () => {
+  if (process.getuid && process.getuid() === 0) return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-rs-'));
+  try {
+    const file = path.join(dir, 'settings.json');
+    fs.writeFileSync(file, '{}', 'utf8');
+    fs.chmodSync(file, 0o000);
+    assert.throws(() => readSettings(file), /Cannot read settings file/);
+  } finally {
+    fs.chmodSync(path.join(dir, 'settings.json'), 0o644);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

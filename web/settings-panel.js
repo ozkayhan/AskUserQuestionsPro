@@ -1,7 +1,7 @@
 /* global React, Settings_Schema */
 /* askuseroz · settings-panel — ortada modal ayar paneli + sol-alt fab. Şema-tabanlı:
    tüm kontroller Settings_Schema.entries()'ten türer. Canlı önizleme + Kaydet. */
-const { useState: useStateSet, useEffect: useEffectSet } = React;
+const { useState: useStateSet, useEffect: useEffectSet, useRef: useRefSet } = React;
 
 function currentSettings() {
   return (
@@ -42,6 +42,7 @@ function SettingRow({ entry, value, onChange }) {
           type="button"
           role="switch"
           aria-checked={value === true}
+          aria-label={entry.label}
           onClick={() => onChange(!value)}
         >
           <span className="setting-toggle__dot" />
@@ -66,13 +67,19 @@ function SettingRow({ entry, value, onChange }) {
 }
 
 function SettingsModal({ onClose }) {
+  // ponytail: sessionBaseline frozen at open-time; used for sticky needsReload comparison.
+  const sessionBaseline = useRefSet(() => ({ ...currentSettings() })).current;
   const [baseline, setBaseline] = useStateSet(() => ({ ...currentSettings() }));
   const [draft, setDraft] = useStateSet(() => ({ ...currentSettings() }));
   const [saved, setSaved] = useStateSet(false);
   const [saveError, setSaveError] = useStateSet(false);
   const [needsReload, setNeedsReload] = useStateSet(false);
+  // ponytail: isSaving guard — prevents double-save and guards cancel/Escape during fetch.
+  const [isSaving, setIsSaving] = useStateSet(false);
+  // AbortController ref for in-flight save fetch; aborted on unmount.
+  const abortRef = useRefSet(null);
 
-  // Esc ile kapat (cancel = revert).
+  // Esc ile kapat (cancel = revert) — blocked while saving.
   useEffectSet(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -82,12 +89,18 @@ function SettingsModal({ onClose }) {
       }
     };
     window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      // Abort any in-flight save fetch on unmount.
+      if (abortRef.current) abortRef.current.abort();
+    };
   }, []);
 
   function change(key, value) {
     setDraft((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
+    // Clear stale error/reload notices when the user makes a new change.
+    setSaveError(false);
     const e = Settings_Schema.byKey(key);
     if (e && e.applies === 'live') {
       try {
@@ -99,31 +112,46 @@ function SettingsModal({ onClose }) {
   }
 
   function cancel() {
+    // Block cancel while save is in-flight to avoid state inconsistency.
+    if (isSaving) return;
     // Kaydedilmişse revert etme — sadece önizleme yapılıp vazgeçilmişse geri al.
     if (!saved) Settings_Schema.applyAll(baseline);
     onClose();
   }
 
   function save() {
+    // ponytail: reentrancy guard — double-save protection.
+    if (isSaving) return;
     setSaveError(false);
+    setIsSaving(true);
+    // Capture draft at submit time; only accept response if draft hasn't changed.
+    const submittedDraft = draft;
+    const ac = new AbortController();
+    abortRef.current = ac;
     fetch('/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(draft),
+      body: JSON.stringify(submittedDraft),
+      signal: ac.signal,
     })
       .then((r) => r.json())
       .then((res) => {
         if (!res || !res.ok) throw new Error('save failed');
         window.__ASKUSER_SETTINGS__ = res.settings;
-        // reload gerektiren bir ayar değiştiyse kullanıcıyı uyar.
+        // ponytail: compare against sessionBaseline so needsReload stays sticky across
+        // multiple saves (e.g. save reduceMotion, then save theme — reload notice persists).
         const reloadChanged = Settings_Schema.entries().some(
-          (e) => e.applies === 'reload' && res.settings[e.key] !== baseline[e.key]
+          (e) => e.applies === 'reload' && res.settings[e.key] !== sessionBaseline[e.key]
         );
-        setNeedsReload(reloadChanged);
+        setNeedsReload((prev) => prev || reloadChanged);
         setBaseline({ ...res.settings });
+        setIsSaving(false);
         setSaved(true);
       })
-      .catch(() => {
+      .catch((err) => {
+        // Ignore abort errors (unmount cleanup).
+        if (err && err.name === 'AbortError') return;
+        setIsSaving(false);
         setSaved(false);
         setSaveError(true);
       });
@@ -161,11 +189,11 @@ function SettingsModal({ onClose }) {
         <div className="settings__foot">
           <span className="settings__saved">{saved ? 'Saved ✓' : ''}</span>
           <div className="settings__actions">
-            <button className="btn" onClick={cancel}>
+            <button className="btn" onClick={cancel} disabled={isSaving}>
               Cancel
             </button>
-            <button className="btn btn--primary" onClick={save}>
-              Save
+            <button className="btn btn--primary" onClick={save} disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>

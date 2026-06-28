@@ -7,12 +7,13 @@ if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
   DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
   # curl | bash: GitHub'dan indir ve temp dir'de aç (temp betik bitince silinir)
-  TMPDIR="$(mktemp -d)"
-  trap "rm -rf $TMPDIR" EXIT
+  # ponytail: WORKDIR adı kullanılıyor; standart TMPDIR gölgelemiyoruz.
+  WORKDIR="$(mktemp -d)"
+  trap 'rm -rf "$WORKDIR"' EXIT
   echo "📥 AskUserQuestionsPro GitHub'dan indiriliyor..."
-  curl -fsSL "https://github.com/ozkayhan/AskUserQuestionsPro/archive/refs/heads/main.zip" -o "$TMPDIR/repo.zip"
-  unzip -q "$TMPDIR/repo.zip" -d "$TMPDIR"
-  DIR="$TMPDIR/AskUserQuestionsPro-main"
+  curl -fsSL "https://github.com/ozkayhan/AskUserQuestionsPro/archive/refs/heads/main.zip" -o "$WORKDIR/repo.zip"
+  unzip -q "$WORKDIR/repo.zip" -d "$WORKDIR"
+  DIR="$WORKDIR/AskUserQuestionsPro-main"
 fi
 
 # Hook ve web dosyalarını KALICI bir konuma kopyala. $DIR temp dir olabilir
@@ -21,7 +22,7 @@ INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
 mkdir -p "$INSTALL_DIR"
 # Re-run'da bayat dosya kalmasın diye hedefi önce temizle (içerik idempotency).
 rm -rf "$INSTALL_DIR/hooks" "$INSTALL_DIR/web" "$INSTALL_DIR/server" "$INSTALL_DIR/lib" "$INSTALL_DIR/mcp-server"
-cp -R "$DIR/hooks" "$INSTALL_DIR/"
+cp -R "$DIR/hooks" "$INSTALL_DIR/" || { echo "HATA: hooks kopyalanamadı ($DIR/hooks → $INSTALL_DIR/)" >&2; exit 1; }
 [ -d "$DIR/web" ]        && cp -R "$DIR/web"        "$INSTALL_DIR/"
 [ -d "$DIR/server" ]     && cp -R "$DIR/server"     "$INSTALL_DIR/"
 [ -d "$DIR/lib" ]        && cp -R "$DIR/lib"        "$INSTALL_DIR/"
@@ -34,25 +35,26 @@ CMD="node \"$HOOK\""
 mkdir -p "$HOME/.claude"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 
-# AskUserQuestion için zaten bizim olmayan bir PreToolUse hook var mı uyar (issue #15897).
-if grep -q '"AskUserQuestion"' "$SETTINGS" 2>/dev/null; then
-  echo "UYARI: settings.json içinde zaten 'AskUserQuestion' geçiyor — tek PreToolUse hook olmalı. Elle kontrol edin."
-fi
-
-# jq ile hook'u idempotent ekle: aynı komut zaten varsa TEKRAR EKLEME.
+# jq ile hook'u niyet-bazlı idempotent ekle:
+#   1. askuserquestionspro içeren tüm mevcut AskUserQuestion PreToolUse entry'lerini sil
+#      (farklı path/quoting kaynaklı çift entry sorununu engeller — issue #15897).
+#   2. Tek kanonik entry ekle.
 if command -v jq >/dev/null 2>&1; then
   tmp="$(mktemp)"
+  # ponytail: niyet-bazlı dedupe → reinstall.sh'deki test("askuserquestionspro") yaklaşımıyla tutarlı.
   jq --arg cmd "$CMD" '
     .hooks //= {} |
     .hooks.PreToolUse //= [] |
-    if any(.hooks.PreToolUse[]?; .hooks[]?.command == $cmd) then
-      .
-    else
-      .hooks.PreToolUse += [{ "matcher": "AskUserQuestion",
-        "hooks": [{ "type": "command", "command": $cmd, "timeout": 3600 }] }]
-    end
-  ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-  echo "Hook eklendi (idempotent) → $SETTINGS"
+    .hooks.PreToolUse |= map(select(
+      ([.hooks[]?.command // ""] | join(" ") | test("askuserquestionspro") | not)
+    )) |
+    .hooks.PreToolUse += [{ "matcher": "AskUserQuestion",
+      "hooks": [{ "type": "command", "command": $cmd, "timeout": 3600 }] }]
+  ' "$SETTINGS" > "$tmp" \
+    && jq -e . "$tmp" >/dev/null \
+    && mv "$tmp" "$SETTINGS" \
+    && echo "Hook eklendi (idempotent) → $SETTINGS" \
+    || { rm -f "$tmp"; echo "HATA: jq hook yazımı başarısız — settings dokunulmadı" >&2; exit 1; }
 else
   cat <<EOF
 jq bulunamadı. $SETTINGS dosyasına elle ekleyin:

@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Bridge } = require('./bridge.js');
 const APP_ID = require('../lib/app-id.cjs');
 const Settings = require('../lib/settings.js');
+const { log } = require('../lib/log.cjs');
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
@@ -25,23 +26,37 @@ function sendJson(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+const MAX_BODY = 8e6; // 8 MB sert tavan.
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let data = '';
+    const chunks = [];
     let size = 0;
+    let done = false; // tek-atislik settle: cift-reject/resolve'i engeller.
+    const fail = (msg) => {
+      if (done) return;
+      done = true;
+      reject(new Error(msg));
+      req.destroy(); // 'data' akisini durdur; close-yarisini deterministik kapat.
+    };
+    const ok = () => {
+      if (done) return;
+      done = true;
+      resolve(Buffer.concat(chunks).toString('utf8'));
+    };
     req.on('data', (c) => {
       size += c.length;
-      if (size > 8e6) {
-        req.destroy();
-        return;
-      }
-      data += c;
+      // Asimda destroy'dan ÖNCE senkron reject — buffered 'data'/'end' kismi gövdeyi
+      // sessizce resolve edemez (boyut guard'i atlanmaz).
+      if (size > MAX_BODY) return fail('request body too large');
+      chunks.push(c);
     });
-    req.on('end', () => resolve(data));
-    req.on('error', reject);
-    // req.destroy() (8 MB boyut aşımı) yalnızca 'close' yayar; promise'in asılı kalmaması için.
+    req.on('end', ok);
+    req.on('error', (e) => fail(e.message));
+    // destroy 'close' garantilemese de (socket zaten dead ise) 'data'/'end'/'error'
+    // yollarindan biri done'i set eder; bu yol yalniz erken kopuslarda calisir.
     req.on('close', () => {
-      if (!req.readableEnded) reject(new Error('connection closed'));
+      if (!req.readableEnded) fail('connection closed');
     });
   });
 }
@@ -59,6 +74,29 @@ function treeDepth(options, depth) {
     }
   }
   return max;
+}
+
+// Tek bir option label'ı doğrula (string, 1..500). Tek gerçek kaynak (server).
+function validLabel(label) {
+  return typeof label === 'string' && label.length >= 1 && label.length <= 500;
+}
+
+// Tree düğümlerini özyinelemeli doğrula: her düğüm label + children(varsa) array
+// + her çocuk da geçerli label. Hata mesajı (string) ya da null döner.
+function checkTreeNodes(opts) {
+  for (const opt of opts) {
+    if (!opt || !validLabel(opt.label)) {
+      return 'each tree option label must be a non-empty string, max 500 characters';
+    }
+    if (opt.children !== undefined && !Array.isArray(opt.children)) {
+      return `tree option "${opt.label}" has invalid children (must be array)`;
+    }
+    if (Array.isArray(opt.children) && opt.children.length > 0) {
+      const err = checkTreeNodes(opt.children);
+      if (err) return err;
+    }
+  }
+  return null;
 }
 
 // Soru setinin tipe özgü doğrulaması.
@@ -126,20 +164,10 @@ function validQuestions(q) {
       if (depth > 6) {
         return { ok: false, error: `tree question "${it.question}" exceeds maximum depth of 6` };
       }
-      // children'ların array olduğunu doğrula (özyinelemeli)
-      function checkChildren(opts) {
-        for (const opt of opts) {
-          if (opt.children !== undefined && !Array.isArray(opt.children)) {
-            return `tree option "${opt.label}" has invalid children (must be array)`;
-          }
-          if (Array.isArray(opt.children) && opt.children.length > 0) {
-            const err = checkChildren(opt.children);
-            if (err) return err;
-          }
-        }
-        return null;
-      }
-      const childErr = checkChildren(it.options);
+      // Her düğümü özyinelemeli doğrula: label string+1..500 VE children (varsa) array.
+      // Eski sürüm yalnızca en-üst label'leri ve children-array'i kontrol ediyordu;
+      // derinlik 2+ bir label string-dışı/boş/>500 olabiliyordu (HIGH bulgu).
+      const childErr = checkTreeNodes(it.options);
       if (childErr) return { ok: false, error: childErr };
     } else {
       // single / multi: options dizisi boş olmamalı
@@ -147,10 +175,10 @@ function validQuestions(q) {
         return { ok: false, error: `question "${it.question}" requires a non-empty options array` };
       }
     }
-    // options varsa label string ve max 500 karakter olmalı
+    // options varsa label string ve 1..500 karakter olmalı (tek gerçek kaynak: validLabel).
     if (Array.isArray(it.options)) {
       for (const opt of it.options) {
-        if (typeof opt.label !== 'string' || opt.label.length === 0 || opt.label.length > 500) {
+        if (!opt || !validLabel(opt.label)) {
           return {
             ok: false,
             error: 'each option label must be a non-empty string, max 500 characters',
@@ -165,13 +193,31 @@ function validQuestions(q) {
 function broadcastCurrent() {
   const payload = JSON.stringify(bridge.peek() || { id: null, questions: null });
   for (const res of sseClients) {
-    try {
-      res.write(`data: ${payload}\n\n`);
-    } catch {
+    // res.write() hatayı çoğu Node yolunda ASENKRON 'error' ile yayar; senkron
+    // try/catch ölü soketi yakalamaz. writable kontrolü deterministik guard'dır;
+    // gerçek temizlik /events 'close' listener'ında yapılır (zombi birikmez).
+    if (!res.writable) {
       sseClients.delete(res);
+      continue;
     }
+    res.write(`data: ${payload}\n\n`);
   }
 }
+
+// Ayarlar bellek cache'i: her index.html / POST /settings'te fs.readFileSync ile
+// event loop'u bloke etmemek için. write yolundan invalidate edilir.
+let settingsCache = null;
+function readSettings() {
+  if (settingsCache === null) settingsCache = Settings.read();
+  return settingsCache;
+}
+function invalidateSettings(value) {
+  settingsCache = value || null; // value verilirse direkt cache'le, yoksa lazy re-read.
+}
+
+// index.html taban HTML'i ilk istekte cache'lenir (UTF-8 decode bir kez). Ayar
+// inject'i her istekte yapılır ama disk okuması/decode tekrarlanmaz.
+let indexBaseHtml = null;
 
 function serveStatic(req, res) {
   let rel = req.url.split('?')[0];
@@ -184,23 +230,56 @@ function serveStatic(req, res) {
     res.end();
     return;
   }
+  // index.html: ayarları DOM'a inject et (flash yok). Taban HTML cache'lenir;
+  // dinamik ayar inject'i nedeniyle ETag verilmez (gövde her istekte değişebilir).
+  if (isIndex) {
+    if (indexBaseHtml !== null) return sendIndex(res, indexBaseHtml);
+    fs.readFile(file, (err, buf) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Not found');
+        return;
+      }
+      indexBaseHtml = buf.toString('utf8');
+      sendIndex(res, indexBaseHtml);
+    });
+    return;
+  }
   fs.readFile(file, (err, buf) => {
     if (err) {
       res.writeHead(404);
       res.end('Not found');
       return;
     }
-    // index.html: ayarları DOM'a inject et (flash yok — değerler sayfa gelmeden hazır).
-    if (isIndex) {
-      const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(Settings.read())}</script>`;
-      const html = buf.toString('utf8').replace('</head>', tag + '</head>');
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(html);
+    // İçerikten zayıf ETag: değişmemiş asset'te 304 → tarayıcı cache'i kullanır.
+    const etag = `W/"${buf.length.toString(16)}-${hashBuf(buf)}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag });
+      res.end();
       return;
     }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
+      ETag: etag,
+      'Cache-Control': 'no-cache', // her zaman revalidate et (ETag ile ucuz).
+    });
     res.end(buf);
   });
+}
+
+function sendIndex(res, baseHtml) {
+  const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(readSettings())}</script>`;
+  const html = baseHtml.replace('</head>', tag + '</head>');
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(html);
+}
+
+// ponytail: zero-dep hızlı içerik hash'i (DJB2). Kriptografik değil; yalnızca
+// ETag revalidation için "değişti mi" ayrımına yeter, çakışma riski önemsiz.
+function hashBuf(buf) {
+  let h = 5381;
+  for (let i = 0; i < buf.length; i++) h = ((h << 5) + h + buf[i]) >>> 0;
+  return h.toString(16);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -218,16 +297,19 @@ const server = http.createServer(async (req, res) => {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     });
+    // Önce ekle, sonra ilk snapshot'ı yaz: add-write penceresinde araya giren bir
+    // broadcast'i kaçırmamak için (eklenme-yazma sırasına kırılgan değil).
+    sseClients.add(res);
     res.write(`data: ${JSON.stringify(bridge.peek() || { id: null, questions: null })}\n\n`);
     // 25 sn'de bir yorum-ping: bağlantı/proxy timeout'una karşı keepalive.
     const ping = setInterval(() => {
-      try {
-        res.write(': ping\n\n');
-      } catch {
-        /* yok say */
+      if (!res.writable) {
+        clearInterval(ping);
+        sseClients.delete(res);
+        return;
       }
+      res.write(': ping\n\n');
     }, 25000);
-    sseClients.add(res);
     req.on('close', () => {
       clearInterval(ping);
       sseClients.delete(res);
@@ -250,18 +332,17 @@ const server = http.createServer(async (req, res) => {
     }
     const vq = validQuestions(questions);
     if (!vq.ok) return sendJson(res, 400, { error: vq.error });
-    let answersPromise;
-    try {
-      answersPromise = bridge.submitQuestions(questions);
-    } catch (e) {
-      return sendJson(res, 409, { error: e.message });
-    }
-    // Bu istek pending'i sahiplendi; istemci yanıttan önce giderse iptal et ki
-    // sonraki sorular kilitlenmesin. Cancel sonrası UI'ı da bilgilendir (broadcast).
+    // Senkron erken 409: zaten pending varsa close handler kaydetmeden çık. Aksi
+    // halde reddedilmiş istek, sahiplenmediği turu (gec onClose ile) iptal edebilir.
+    if (bridge.peek()) return sendJson(res, 409, { error: 'A question set is already pending' });
+    const answersPromise = bridge.submitQuestions(questions);
+    // Bu istek pending'i sahiplendi; submit'ten dönen id ile sahipliği işaretle.
+    const myId = bridge.peek().id;
+    // İstemci yanıttan önce giderse SADECE kendi turunu iptal et (Contract R:
+    // expectedId). Yeni bir tur kurulmuşsa gec onClose onu iptal edemez.
     let settled = false;
     const onClose = () => {
-      if (!settled) {
-        bridge.cancel('client disconnected');
+      if (!settled && bridge.cancel('client disconnected', myId)) {
         broadcastCurrent();
       }
     };
@@ -286,21 +367,20 @@ const server = http.createServer(async (req, res) => {
     } catch {
       return sendJson(res, 400, { error: 'read error' });
     }
-    let answers;
+    let id, answers;
     try {
-      answers = JSON.parse(body).answers;
+      ({ id, answers } = JSON.parse(body));
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
-    if (answers === null || typeof answers !== 'object' || Array.isArray(answers))
-      return sendJson(res, 400, { error: 'invalid answers' });
-    try {
-      bridge.provideAnswers(answers);
-      broadcastCurrent();
-      return sendJson(res, 200, { ok: true });
-    } catch (e) {
-      return sendJson(res, 409, { error: e.message });
+    // Contract R: answers Array olmalı; aksi 400.
+    if (!Array.isArray(answers)) return sendJson(res, 400, { error: 'invalid answers' });
+    // Contract R: id eşleşen pending turu resolve eder; eşleşmezse (stale/yok) 409.
+    if (!bridge.provideAnswers(id, answers)) {
+      return sendJson(res, 409, { error: 'no matching pending question set' });
     }
+    broadcastCurrent();
+    return sendJson(res, 200, { ok: true });
   }
 
   if (req.method === 'POST' && url === '/settings') {
@@ -318,8 +398,14 @@ const server = http.createServer(async (req, res) => {
     }
     if (!patch || typeof patch !== 'object' || Array.isArray(patch))
       return sendJson(res, 400, { error: 'invalid settings' });
-    // Settings.write zaten validate eder → kötü değer diske ulaşmaz.
-    const { _v, ...clientSettings } = Settings.write(patch); // _v disk formatı; tarayıcıya sızdırma
+    // Contract W: write → {ok,value,error?}. Settings.write zaten validate eder.
+    const r = Settings.write(patch);
+    if (!r.ok)
+      return sendJson(res, 500, {
+        error: (r.error && r.error.message) || 'settings write failed',
+      });
+    invalidateSettings(r.value); // bellek cache'i taze değerle güncelle.
+    const { _v, ...clientSettings } = r.value; // _v disk formatı; tarayıcıya sızdırma
     return sendJson(res, 200, { ok: true, settings: clientSettings });
   }
 
@@ -335,9 +421,12 @@ const server = http.createServer(async (req, res) => {
 server.requestTimeout = 0;
 
 // Daemon olarak başlatılırken port doluysa (eşzamanlı spawn yarışı) sessizce çekil.
+// Diğer hatalar: detached/stdio:'ignore' süreçte 'throw' stack'siz/sessiz kaybolur;
+// onun yerine stderr'e logla + exit(1) ile deterministik başarısız ol (orphan yok).
 server.on('error', (e) => {
   if (e && e.code === 'EADDRINUSE') process.exit(0);
-  throw e;
+  log('server', e);
+  process.exit(1);
 });
 
 if (require.main === module) {

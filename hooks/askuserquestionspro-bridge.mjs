@@ -1,29 +1,53 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
-import { ensureServer, openBrowser, askBridge } from '../lib/bridge-client.mjs';
+import { ensureServer, openBrowser, askBridge, waitForPending } from '../lib/bridge-client.mjs';
 
 const require = createRequire(import.meta.url);
 const { buildHookOutput } = require('./hook-output.js');
+const { log } = require('../lib/log.cjs');
 
 const TIMEOUT_MS = 60 * 60 * 1000;
+// stdin EOF gelmezse (parent yazma ucunu açık tutarsa) süresiz asılmamak için watchdog.
+const STDIN_TIMEOUT_MS = 30 * 1000;
 
 // Her beklenmedik hata native picker'a düşmeli (ARCHITECTURE §7 değişmezi).
-process.on('uncaughtException', () => process.exit(0));
-process.on('unhandledRejection', () => process.exit(0));
+// Hata nesnesini logla — yoksa neden native'e düştüğümüz görünmez (operasyonel kör nokta).
+process.on('uncaughtException', (err) => {
+  log('hook', err);
+  process.exit(0);
+});
+process.on('unhandledRejection', (err) => {
+  log('hook', err);
+  process.exit(0);
+});
 
 function readStdin() {
   return new Promise((resolve) => {
     let d = '';
+    let done = false;
+    const finish = (v) => {
+      if (done) return;
+      done = true;
+      clearTimeout(watchdog);
+      resolve(v);
+    };
+    // EOF hiç gelmezse boş string ile çöz → main() JSON.parse('') fail → native fallback.
+    const watchdog = setTimeout(() => finish(''), STDIN_TIMEOUT_MS);
     process.stdin.on('data', (c) => (d += c));
-    process.stdin.on('end', () => resolve(d));
-    process.stdin.on('error', () => resolve(d));
+    process.stdin.on('end', () => finish(d));
+    // 'error'da kısmi veri taşımayı bırak — yarım payload yanlış parse'a yol açmasın.
+    process.stdin.on('error', () => finish(''));
   });
 }
 
 // stdout'u flush ederek çık: process.exit() bekleyen pipe yazımını kesebilir (B5).
+// Callback (err) imzasıyla gelir; EPIPE/EBADF'i yutmayıp loglayalım, yine de exit(0).
 function writeAndExit(payload) {
   process.exitCode = 0;
-  process.stdout.write(payload, () => process.exit(0));
+  process.stdout.write(payload, (err) => {
+    if (err) log('hook', err);
+    process.exit(0);
+  });
 }
 
 async function main() {
@@ -58,6 +82,11 @@ async function main() {
   let answers;
   try {
     const askPromise = askBridge(toolInput.questions, { timeoutMs: TIMEOUT_MS });
+    // L-8 race guard: tarayıcıyı yalnızca /ask sunucuda tur olarak kaydedildikten
+    // sonra aç. Aksi halde tarayıcı /current'ı POST işlenmeden sorgulayıp boş
+    // ("no pending question") sayfa gösterebilirdi. waitForPending best-effort:
+    // süre dolsa bile (false dönse) yine de açıp askPromise'i bekleriz.
+    await waitForPending();
     openBrowser();
     answers = await askPromise;
   } catch {
@@ -71,4 +100,7 @@ async function main() {
   writeAndExit(JSON.stringify(buildHookOutput(toolInput, answers)));
 }
 
-main().catch(() => process.exit(0)); // her sapma → native fallback
+main().catch((err) => {
+  log('hook', err);
+  process.exit(0); // her sapma → native fallback
+});

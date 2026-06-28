@@ -57,10 +57,18 @@ Arrow/number shortcuts are suppressed while focus is in an `<input>`/`<textarea>
 ## Server communication (`web/live.js`)
 
 - `useLiveQuestions()` — opens `new EventSource('/events')`. `onmessage`
-  parses `{ id, questions }`; `questions` is `null` while idle. Reconnects
-  ~1s after `onerror`. Returns `{ id, questions }`.
-- `postAnswers(answers)` — `POST /answer` with `{ answers }`; throws on
-  non-OK (UI surfaces a toast).
+  parses `{ id, questions }`; `questions` is `null` while idle. `onerror`
+  closes the broken connection and reconnects after an exponential-backoff
+  delay with full jitter (`reconnectDelay(attempt)`: base 1 s, cap 30 s,
+  random in `[0, min(cap, base * 2^attempt))`). A `timerRef` prevents orphan
+  timers on rapid error cycling. `setRound` uses an equality guard so an
+  identical heartbeat payload skips a React re-render. Returns `{ id, questions }`.
+- `postAnswers(id, answers)` — `POST /answer` with `{ id, answers }` (Contract R:
+  `id` is the current round id from `useLiveQuestions`). Has a 10 s
+  `AbortController` timeout to prevent infinite hangs. On non-OK response,
+  attaches `err.server = true` so callers can distinguish a server 4xx/5xx
+  from a transient network error and avoid infinite retry loops. Throws on
+  failure; UI surfaces a toast.
 
 ## Question types
 
@@ -96,16 +104,30 @@ disabled, it degrades to `"multi"` or `"single"` based on `q.multiSelect`.
   footer hints.
 - `QItem` — one question row; states done/current/pending; click to jump.
 - `SidebarGrouped` — accordion grouped by `q.header` ("General" if missing),
-  per-group done/total badge.
+  per-group done/total badge. Accordion headers carry `aria-expanded`.
 - `SidebarSearch` — text filter + "show unanswered only" toggle (large forms).
+  The toggle renders as a labelled switch (`role="switch"`, `aria-checked`).
 - `Hints` — dynamic keyboard-shortcut footer; hint text adapts to `AnswerMap.qType(q)`.
 - `QuestionCard` — dispatcher: delegates to `BinaryCard`, `ScaleCard`,
   `RankingCard`, or `TreeCard` based on `AnswerMap.qType(q)`; falls back to
   the original select-style card for single/multi.
-- `CustomPopup` — modal textarea for the "Other" option; Save / Remove /
-  Cancel; `Enter` save, `Shift+Enter` newline, `Esc` cancel.
+  - `BinaryCard` — `aria-pressed` on each button.
+  - `ScaleCard` — `<input type="range">` with `aria-valuetext` (human label).
+  - `RankingCard` — list carries `role="listbox"`; items have `aria-selected`.
+  - `TreeCard` — tree root carries `role="tree"`; nodes have `role="treeitem"`.
+- `CustomPopup` — modal textarea for the "Other" option; `role="dialog"`,
+  `aria-modal="true"`, focus-trap; Save / Remove / Cancel; `Enter` save,
+  `Shift+Enter` newline, `Esc` cancel.
 - `Summary` — review all answers as tags; per-question Edit; Submit disabled
   until ≥1 answer. Answer text uses `AnswerMap.summaryText(q, a)`.
+
+### Accessibility
+
+Components carry ARIA annotations verified by axe-core: `aria-expanded` on
+accordions, `aria-valuetext` on range inputs, `role=listbox/option` on
+ranking, `role=tree/treeitem` on tree, `aria-pressed` on binary/single/multi
+option buttons, labelled search input, `aria-current` on active sidebar item,
+`role=progressbar` on progress bar, `aria-hidden` on decorative SVG icons.
 
 ## UI primitives (`web/ui-kit.js`)
 
@@ -116,6 +138,18 @@ disabled, it degrades to `"multi"` or `"single"` based on `q.multiSelect`.
   For binary, the default `[{label:"Evet"},{label:"Hayır"}]` is injected here
   when `q.options` is absent. For ranking/tree the options are returned as-is
   (no "Other").
+
+## State machine delegation (`web/app.js`)
+
+Stale-prone decisions (choices that depend on the current question or answer
+state) are **delegated to pure `AnswerMap` helpers** rather than inlined as
+closures over `ref.current`. This eliminates the class of "stale ref" bugs:
+there is no ref in the decision path, so the bug cannot exist. It also lets
+`eslint-plugin-react-hooks` (`exhaustive-deps`) statically verify that hook
+dependencies are complete.
+
+`app.js` passes the current `round.id` (from `useLiveQuestions`) to
+`postAnswers(id, answers)` on submit (Contract R).
 
 ## Answer logic (`web/answer-map.js`) — pure, no DOM
 

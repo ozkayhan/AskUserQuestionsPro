@@ -109,6 +109,7 @@ t2('savePopupState: zaten secili custom metin gunceller (cift eklemez)', () => {
 const { test: t3 } = require('node:test');
 const assert3 = require('node:assert');
 const AM3 = require('../web/answer-map.js');
+const { withClean } = require('./helpers/isolation.js');
 
 // --- qType ---
 t3('qType: type yoksa multiSelect->multi, yoksa->single', () => {
@@ -124,21 +125,23 @@ t3('qType: q.type açıkça verilmişse kullanır', () => {
   assert3.strictEqual(AM3.qType({ type: 'tree' }), 'tree');
 });
 
-t3('qType: setEnabled false -> RICH tip degrade olur', () => {
-  AM3.setEnabled({ binary: false, scale: false, ranking: false, tree: false });
-  assert3.strictEqual(AM3.qType({ type: 'binary' }), 'single');
-  assert3.strictEqual(AM3.qType({ type: 'scale' }), 'single');
-  assert3.strictEqual(AM3.qType({ type: 'ranking', multiSelect: true }), 'multi');
-  assert3.strictEqual(AM3.qType({ type: 'tree' }), 'single');
-  // Geri aç
-  AM3.setEnabled({ binary: true, scale: true, ranking: true, tree: true });
-});
+t3('qType: setEnabled false -> RICH tip degrade olur', (t) =>
+  withClean(t, () => {
+    AM3.setEnabled({ binary: false, scale: false, ranking: false, tree: false });
+    assert3.strictEqual(AM3.qType({ type: 'binary' }), 'single');
+    assert3.strictEqual(AM3.qType({ type: 'scale' }), 'single');
+    assert3.strictEqual(AM3.qType({ type: 'ranking', multiSelect: true }), 'multi');
+    assert3.strictEqual(AM3.qType({ type: 'tree' }), 'single');
+  })
+);
 
-t3('qType: setEnabled true sonrası RICH tip düzgün döner', () => {
-  AM3.setEnabled({ binary: true, scale: true, ranking: true, tree: true });
-  assert3.strictEqual(AM3.qType({ type: 'binary' }), 'binary');
-  assert3.strictEqual(AM3.qType({ type: 'scale' }), 'scale');
-});
+t3('qType: setEnabled true sonrası RICH tip düzgün döner', (t) =>
+  withClean(t, () => {
+    AM3.setEnabled({ binary: true, scale: true, ranking: true, tree: true });
+    assert3.strictEqual(AM3.qType({ type: 'binary' }), 'binary');
+    assert3.strictEqual(AM3.qType({ type: 'scale' }), 'scale');
+  })
+);
 
 // --- mapAnswers binary ---
 t3('mapAnswers: binary — varsayılan şıklar', () => {
@@ -439,29 +442,167 @@ t3('isLeaf: children varsa -> false', () => {
 });
 
 // --- setEnabled degrade entegrasyon ---
-t3('setEnabled kapalıyken mapAnswers ranking degrades to single', () => {
-  AM3.setEnabled({ binary: true, scale: true, ranking: false, tree: true });
-  // type:ranking ama ENABLED kapalı → qType single döner
-  // mapAnswers single gibi davranır: sel[0] değerini string olarak verir
-  const q = [
-    {
-      question: 'R?',
-      type: 'ranking',
-      multiSelect: false,
-      options: [{ label: 'X' }, { label: 'Y' }],
-    },
-  ];
-  const s = { 'R?': { sel: [0], customText: '', value: null, order: [1, 0], path: null } };
-  // degrade -> single -> options[0].label = 'X'
-  assert3.deepStrictEqual(AM3.mapAnswers(q, s), { 'R?': 'X' });
-  AM3.setEnabled({ ranking: true });
+t3('setEnabled kapalıyken mapAnswers ranking degrades to single', (t) =>
+  withClean(t, () => {
+    AM3.setEnabled({ binary: true, scale: true, ranking: false, tree: true });
+    // type:ranking ama ENABLED kapalı → qType single döner
+    // mapAnswers single gibi davranır: sel[0] değerini string olarak verir
+    const q = [
+      {
+        question: 'R?',
+        type: 'ranking',
+        multiSelect: false,
+        options: [{ label: 'X' }, { label: 'Y' }],
+      },
+    ];
+    const s = { 'R?': { sel: [0], customText: '', value: null, order: [1, 0], path: null } };
+    // degrade -> single -> options[0].label = 'X'
+    assert3.deepStrictEqual(AM3.mapAnswers(q, s), { 'R?': 'X' });
+  })
+);
+
+t3('setEnabled kapalıyken isAnswered scale degrades', (t) =>
+  withClean(t, () => {
+    AM3.setEnabled({ scale: false });
+    // type:scale degrade -> single -> sel[]
+    const sq = { type: 'scale', min: 1, max: 10, step: 1 };
+    assert3.strictEqual(AM3.isAnswered(sq, { sel: [], value: 7 }), false);
+    assert3.strictEqual(AM3.isAnswered(sq, { sel: [0], value: 7 }), true);
+  })
+);
+
+// ─── REGRESYON: ranking/tree OOB bounds, stale customText, fuzz ─────────────
+
+const rankQ = {
+  question: 'R?',
+  type: 'ranking',
+  options: [{ label: 'Auth' }, { label: 'Cache' }],
+};
+
+t3('REGRESSION: mapAnswers ranking OOB indeks crash etmez, geçerli label kalır', () => {
+  // order:[0,5] → 5 OOB; filtrelenir, Auth kalır.
+  assert3.deepStrictEqual(AM3.mapAnswers([rankQ], { 'R?': { order: [0, 5] } }), { 'R?': ['Auth'] });
 });
 
-t3('setEnabled kapalıyken isAnswered scale degrades', () => {
-  AM3.setEnabled({ scale: false });
-  // type:scale degrade -> single -> sel[]
-  const sq = { type: 'scale', min: 1, max: 10, step: 1 };
-  assert3.strictEqual(AM3.isAnswered(sq, { sel: [], value: 7 }), false);
-  assert3.strictEqual(AM3.isAnswered(sq, { sel: [0], value: 7 }), true);
-  AM3.setEnabled({ scale: true });
+t3('REGRESSION: mapAnswers ranking TÜM indeksler OOB ise soru atlanır', () => {
+  assert3.deepStrictEqual(AM3.mapAnswers([rankQ], { 'R?': { order: [5, 9] } }), {});
+});
+
+t3('REGRESSION: summaryText ranking OOB indeks crash etmez', () => {
+  assert3.strictEqual(AM3.summaryText(rankQ, { order: [0, 5] }), 'Auth');
+  assert3.strictEqual(AM3.summaryText(rankQ, { order: [5, 0] }), 'Auth');
+  assert3.strictEqual(AM3.summaryText(rankQ, { order: [9] }), '');
+});
+
+t3('REGRESSION: isAnswered ranking OOB-only order için false (mapAnswers ile tutarlı)', () => {
+  assert3.strictEqual(AM3.isAnswered(rankQ, { order: [0, 99] }), true); // 0 geçerli
+  assert3.strictEqual(AM3.isAnswered(rankQ, { order: [99] }), false); // hiç geçerli yok
+  assert3.strictEqual(AM3.isAnswered(rankQ, { order: [5, 9] }), false);
+});
+
+const treeQ = {
+  question: 'K?',
+  type: 'tree',
+  options: [
+    { label: 'AI', children: [{ label: 'LLM', children: [{ label: 'ft' }] }] },
+    { label: 'DB' },
+  ],
+};
+
+t3('REGRESSION: mapAnswers tree depth-1 OOB -> {}', () => {
+  assert3.deepStrictEqual(AM3.mapAnswers([treeQ], { 'K?': { path: [9] } }), {});
+});
+
+t3('REGRESSION: mapAnswers tree depth-2 non-leaf (truncated) -> {}', () => {
+  // [0] = AI (yaprak değil); [0,99] kırık → yaprağa ulaşmaz → {}
+  assert3.deepStrictEqual(AM3.mapAnswers([treeQ], { 'K?': { path: [0] } }), {});
+  assert3.deepStrictEqual(AM3.mapAnswers([treeQ], { 'K?': { path: [0, 99] } }), {});
+});
+
+t3('REGRESSION: mapAnswers tree tam yaprak yolu -> tam etiketler', () => {
+  assert3.deepStrictEqual(AM3.mapAnswers([treeQ], { 'K?': { path: [0, 0, 0] } }), {
+    'K?': ['AI', 'LLM', 'ft'],
+  });
+  assert3.deepStrictEqual(AM3.mapAnswers([treeQ], { 'K?': { path: [1] } }), { 'K?': ['DB'] });
+});
+
+t3('REGRESSION: mapAnswers tree truncated leaf ile isAnswered tutarlı (ikisi de boş/false)', () => {
+  const st = { path: [0, 2] }; // [0,2] kırık (AI'nin 2. child yok)
+  assert3.deepStrictEqual(AM3.mapAnswers([treeQ], { 'K?': st }), {});
+  assert3.strictEqual(AM3.isAnswered(treeQ, st), false);
+});
+
+t3(
+  'REGRESSION: decideActivate multi — seçili-DEĞİL custom + stale customText -> popup, sessiz re-add yok',
+  () => {
+    const r = AM3.decideActivate(multiQ, { sel: [], customText: 'stale answer' }, customIdx);
+    assert3.deepStrictEqual(r, { type: 'popup', optIdx: customIdx, draft: 'stale answer' });
+  }
+);
+
+t3('decideActivate multi — seçili custom (inSel) + boş text -> popup', () => {
+  const r = AM3.decideActivate(multiQ, { sel: [0, customIdx], customText: '' }, customIdx);
+  assert3.deepStrictEqual(r, { type: 'popup', optIdx: customIdx, draft: '' });
+});
+
+t3('decideActivate multi — seçili custom (inSel) + mevcut text -> popup düzenleme', () => {
+  const r = AM3.decideActivate(multiQ, { sel: [0, customIdx], customText: 'var' }, customIdx);
+  assert3.deepStrictEqual(r, { type: 'popup', optIdx: customIdx, draft: 'var' });
+});
+
+t3('clampScale: NaN/Infinity -> min (NaN dönmez)', () => {
+  // non-finite (NaN/±Infinity/non-numeric) → q.min (önerilen fix davranışı)
+  assert3.strictEqual(AM3.clampScale({ min: 0, max: 10, step: 1 }, NaN), 0);
+  assert3.strictEqual(AM3.clampScale({ min: 3, max: 10 }, Infinity), 3);
+  assert3.strictEqual(AM3.clampScale({ min: 3, max: 10 }, -Infinity), 3);
+  assert3.strictEqual(AM3.clampScale({ min: 3, max: 10 }, 'abc'), 3);
+});
+
+t3('clampScale: min/max undefined -> NaN üretmez', () => {
+  assert3.ok(isFinite(AM3.clampScale({ step: 1 }, 5)));
+});
+
+// ─── PROPERTY/FUZZ: rastgele + OOB state hiçbir API'yi crash ettirmemeli ─────
+
+function randInt(n) {
+  return Math.floor(Math.random() * n);
+}
+
+t3(
+  'FUZZ: ranking/tree/scale rastgele+OOB state için mapAnswers/summaryText/isAnswered asla throw etmez',
+  () => {
+    const qs = [
+      { question: 'R', type: 'ranking', options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }] },
+      { question: 'T', type: 'tree', options: treeQ.options },
+      { question: 'S', type: 'scale', min: 0, max: 10, step: 2 },
+    ];
+    for (let iter = 0; iter < 500; iter++) {
+      const order = Array.from({ length: randInt(6) }, () => randInt(12) - 2);
+      const path = Array.from({ length: randInt(5) }, () => randInt(8) - 1);
+      const value = [NaN, Infinity, -5, 3, 100, null][randInt(6)];
+      const state = {
+        R: { order: order },
+        T: { path: path },
+        S: { value: value },
+      };
+      assert3.doesNotThrow(() => AM3.mapAnswers(qs, state));
+      qs.forEach((q) => {
+        assert3.doesNotThrow(() => AM3.summaryText(q, state[q.question]));
+        assert3.doesNotThrow(() => AM3.isAnswered(q, state[q.question]));
+        if (q.type === 'scale') {
+          assert3.doesNotThrow(() => AM3.clampScale(q, state.S.value));
+        }
+      });
+    }
+  }
+);
+
+t3('FUZZ: optionLabel rastgele indeks (negatif/OOB dahil) asla throw etmez', () => {
+  const q = { options: [{ label: 'A' }, { label: 'B' }] };
+  for (let i = -10; i < 20; i++) {
+    assert3.doesNotThrow(() => AM3.optionLabel(q, i));
+  }
+  assert3.strictEqual(AM3.optionLabel({}, 0), null);
+  assert3.strictEqual(AM3.optionLabel(q, 5), null);
+  assert3.strictEqual(AM3.optionLabel(q, 0), 'A');
 });

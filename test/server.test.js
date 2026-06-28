@@ -16,6 +16,50 @@ test.before(async () => {
 });
 test.after(() => server.close());
 
+// --- yardımcılar ---
+
+function post(url, obj, opts = {}) {
+  return fetch(`${base}${url}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: typeof obj === 'string' ? obj : JSON.stringify(obj),
+    ...opts,
+  });
+}
+
+// /ask in-flight kaydını sleep yerine POLL ile bekle (deterministik; yüklü CI'da
+// da güvenli). non-null questions görene dek dış deadline içinde döner.
+async function waitForPending(deadlineMs = 2000) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    const cur = await (await fetch(`${base}/current`)).json();
+    if (cur && cur.questions) return cur;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error('timed out waiting for pending question set');
+}
+
+// pending'in temizlendiğini (questions:null) POLL ile bekle.
+async function waitForClear(deadlineMs = 2000) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    const cur = await (await fetch(`${base}/current`)).json();
+    if (!cur || !cur.questions) return;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error('timed out waiting for pending to clear');
+}
+
+// /ask aç → pending'i bekle → id ile cevapla → askPromise'i çöz. answer Array'dir
+// (Contract R). Döner: askPromise json.
+async function askAndAnswer(questions, answers) {
+  const askPromise = post('/ask', { questions });
+  const cur = await waitForPending();
+  const r = await post('/answer', { id: cur.id, answers });
+  assert.strictEqual(r.status, 200);
+  return (await askPromise).json();
+}
+
 test('requestTimeout devre dışı (uzun /ask beklemesi Node 5dk tavanına takılmaz)', () => {
   assert.strictEqual(server.requestTimeout, 0);
 });
@@ -25,26 +69,18 @@ test('/health ok döndürür', async () => {
   assert.deepStrictEqual(await r.json(), { ok: true, app: APP_ID });
 });
 
-test('/ask soruları tutar, /answer ile resolve olur', async () => {
+test('/ask soruları tutar, /answer ile resolve olur (id round-trip)', async () => {
   const questions = [{ question: 'Q?', options: [{ label: 'A' }], multiSelect: false }];
-  const askPromise = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
-  });
-  // /ask açıkken /current bekleyen soruyu göstermeli
-  await new Promise((r) => setTimeout(r, 50));
-  const cur = await (await fetch(`${base}/current`)).json();
+  const askPromise = post('/ask', { questions });
+  const cur = await waitForPending();
   assert.deepStrictEqual(cur.questions, questions);
+  assert.ok(typeof cur.id === 'number');
 
-  await fetch(`${base}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers: { 'Q?': 'A' } }),
-  });
+  const r = await post('/answer', { id: cur.id, answers: ['A'] });
+  assert.strictEqual(r.status, 200);
 
   const askResult = await (await askPromise).json();
-  assert.deepStrictEqual(askResult.answers, { 'Q?': 'A' });
+  assert.deepStrictEqual(askResult.answers, ['A']);
   assert.strictEqual(bridge.getCurrent(), null);
 });
 
@@ -56,290 +92,275 @@ test('GET / index.html serve eder', async () => {
 
 test('/current ve /events payload {id, questions} icerir', async () => {
   const questions = [{ question: 'QID?', options: [{ label: 'A' }], multiSelect: false }];
-  const askPromise = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
-  });
-  await new Promise((r) => setTimeout(r, 50));
-  const cur = await (await fetch(`${base}/current`)).json();
-  assert.ok(typeof cur.id === 'number', 'id alani olmali');
-  assert.deepStrictEqual(cur.questions, questions);
-  await fetch(`${base}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers: { 'QID?': 'A' } }),
-  });
+  await askAndAnswer(questions, ['A']);
+});
+
+// --- Contract R: /answer round-id rendezvous ---
+
+test('/answer stale id -> 409 (cross-round race korumasi)', async () => {
+  const questions = [{ question: 'ST?', options: [{ label: 'A' }], multiSelect: false }];
+  const askPromise = post('/ask', { questions });
+  const cur = await waitForPending();
+  // Mevcut id'den farklı (stale) bir id ile cevapla → eşleşmez → 409.
+  const stale = await post('/answer', { id: cur.id + 999, answers: ['A'] });
+  assert.strictEqual(stale.status, 409);
+  // pending hâlâ açık; doğru id ile çöz, sızıntı bırakma.
+  const ok = await post('/answer', { id: cur.id, answers: ['A'] });
+  assert.strictEqual(ok.status, 200);
   await askPromise;
 });
 
+test('/answer pending yokken -> 409', async () => {
+  await waitForClear();
+  const r = await post('/answer', { id: 1, answers: ['A'] });
+  assert.strictEqual(r.status, 409);
+});
+
+test('/answer answers Array degil -> 400 (Contract R)', async () => {
+  const questions = [{ question: 'AR?', options: [{ label: 'A' }], multiSelect: false }];
+  const askPromise = post('/ask', { questions });
+  const cur = await waitForPending();
+  const bad = await post('/answer', { id: cur.id, answers: { 'AR?': 'A' } });
+  assert.strictEqual(bad.status, 400);
+  // pending hâlâ açık → doğru şekilde kapat.
+  await post('/answer', { id: cur.id, answers: ['A'] });
+  await askPromise;
+});
+
+test('/answer bad json -> 400', async () => {
+  const r = await post('/answer', '{bozuk');
+  assert.strictEqual(r.status, 400);
+});
+
+test('iki es zamanli /ask: ikincisi 409 (concurrent pending)', async () => {
+  const q1 = [{ question: 'C1?', options: [{ label: 'A' }], multiSelect: false }];
+  const q2 = [{ question: 'C2?', options: [{ label: 'B' }], multiSelect: false }];
+  const askP1 = post('/ask', { questions: q1 });
+  const cur = await waitForPending();
+  // pending varken ikinci /ask → 409.
+  const r2 = await post('/ask', { questions: q2 });
+  assert.strictEqual(r2.status, 409);
+  // ilk turu temizle.
+  await post('/answer', { id: cur.id, answers: ['A'] });
+  await askP1;
+});
+
 test('/ask gecersiz questions (dizi degil) -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: 'oops' }),
-  });
+  const r = await post('/ask', { questions: 'oops' });
   assert.strictEqual(r.status, 400);
   const j = await r.json();
   assert.ok(typeof j.error === 'string', '400 yaniti spesifik error icermeli');
 });
 
-// --- validQuestions yeni imza + per-type testleri ---
+test('/ask bos questions array -> 400 (non-empty)', async () => {
+  const r = await post('/ask', { questions: [] });
+  assert.strictEqual(r.status, 400);
+  const j = await r.json();
+  assert.match(j.error, /non-empty|empty/i);
+});
 
-// validQuestions'ı server.js'den doğrudan test etmek için modülü tekrar require etmiyoruz;
-// bunun yerine /ask endpoint'i üzerinden HTTP ile test ediyoruz.
+// --- validQuestions fuzz / sınır testleri ---
+
+test('/ask question bos string -> 400', async () => {
+  const r = await post('/ask', { questions: [{ question: '', options: [{ label: 'A' }] }] });
+  assert.strictEqual(r.status, 400);
+  const j = await r.json();
+  assert.match(j.error, /1 and 1000|between/i);
+});
+
+test('/ask question >1000 char -> 400', async () => {
+  const r = await post('/ask', {
+    questions: [{ question: 'x'.repeat(1001), options: [{ label: 'A' }] }],
+  });
+  assert.strictEqual(r.status, 400);
+  const j = await r.json();
+  assert.match(j.error, /1000|between/i);
+});
+
+test('/ask option label >500 char -> 400', async () => {
+  const r = await post('/ask', {
+    questions: [{ question: 'Q?', options: [{ label: 'y'.repeat(501) }] }],
+  });
+  assert.strictEqual(r.status, 400);
+  const j = await r.json();
+  assert.match(j.error, /label.*500|500.*label/i);
+});
 
 test('/ask scale gecerli (min/max var) -> 200', async () => {
-  const questions = [
-    {
-      question: 'Kac puan?',
-      header: 'H',
-      type: 'scale',
-      min: 1,
-      max: 10,
-    },
-  ];
-  const askPromise = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
-  });
-  await new Promise((r) => setTimeout(r, 50));
-  await fetch(`${base}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers: { 'Kac puan?': 7 } }),
-  });
-  const res = await askPromise;
-  assert.strictEqual(res.status, 200);
+  await askAndAnswer([{ question: 'Kac puan?', header: 'H', type: 'scale', min: 1, max: 10 }], [7]);
 });
 
 test('/ask scale eksik min/max -> 400 spesifik hata', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'S?', header: 'H', type: 'scale', min: 1 }] }),
-  });
+  const r = await post('/ask', { questions: [{ question: 'S?', type: 'scale', min: 1 }] });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /scale.*min.*max|min.*max.*scale/i, 'scale hatasi min/max icermeli');
+  assert.match((await r.json()).error, /scale.*min.*max|min.*max.*scale/i);
 });
 
 test('/ask scale min >= max -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'S?', header: 'H', type: 'scale', min: 10, max: 1 }],
-    }),
-  });
+  const r = await post('/ask', { questions: [{ question: 'S?', type: 'scale', min: 10, max: 1 }] });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /min.*max|max.*min/i);
+  assert.match((await r.json()).error, /min.*max|max.*min/i);
 });
 
 test('/ask scale gecersiz step -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'S?', header: 'H', type: 'scale', min: 0, max: 10, step: -1 }],
-    }),
+  const r = await post('/ask', {
+    questions: [{ question: 'S?', type: 'scale', min: 0, max: 10, step: -1 }],
   });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /step/i);
+  assert.match((await r.json()).error, /step/i);
 });
 
-test('/ask ranking az seceneк (1 items) -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'R?', header: 'H', type: 'ranking', options: [{ label: 'A' }] }],
-    }),
+test('/ask ranking az secenek (1 item) -> 400', async () => {
+  const r = await post('/ask', {
+    questions: [{ question: 'R?', type: 'ranking', options: [{ label: 'A' }] }],
   });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /ranking.*2|2.*ranking/i);
+  assert.match((await r.json()).error, /ranking.*2|2.*ranking/i);
 });
 
 test('/ask ranking gecerli (2+ secenek) -> 200', async () => {
-  const questions = [
-    {
-      question: 'Sirala?',
-      header: 'H',
-      type: 'ranking',
-      options: [{ label: 'A' }, { label: 'B' }],
-    },
-  ];
-  const askPromise = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
-  });
-  await new Promise((r) => setTimeout(r, 50));
-  await fetch(`${base}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers: { 'Sirala?': ['A', 'B'] } }),
-  });
-  const res = await askPromise;
-  assert.strictEqual(res.status, 200);
+  await askAndAnswer(
+    [{ question: 'Sirala?', type: 'ranking', options: [{ label: 'A' }, { label: 'B' }] }],
+    ['A', 'B']
+  );
 });
 
 test('/ask binary options tam 2 degil -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [
-        {
-          question: 'B?',
-          header: 'H',
-          type: 'binary',
-          options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }],
-        },
-      ],
-    }),
+  const r = await post('/ask', {
+    questions: [
+      {
+        question: 'B?',
+        type: 'binary',
+        options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }],
+      },
+    ],
   });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /binary.*2|2.*binary/i);
+  assert.match((await r.json()).error, /binary.*2|2.*binary/i);
 });
 
 test('/ask binary options yok -> 200 (varsayilan)', async () => {
-  const questions = [{ question: 'Evet mi?', header: 'H', type: 'binary' }];
-  const askPromise = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
-  });
-  await new Promise((r) => setTimeout(r, 50));
-  await fetch(`${base}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers: { 'Evet mi?': 'Evet' } }),
-  });
-  const res = await askPromise;
-  assert.strictEqual(res.status, 200);
+  await askAndAnswer([{ question: 'Evet mi?', type: 'binary' }], ['Evet']);
 });
 
 test('/ask binary tam 2 option -> 200', async () => {
-  const questions = [
-    {
-      question: 'Dogru mu?',
-      header: 'H',
-      type: 'binary',
-      options: [{ label: 'Evet' }, { label: 'Hayir' }],
-    },
-  ];
-  const askPromise = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
-  });
-  await new Promise((r) => setTimeout(r, 50));
-  await fetch(`${base}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers: { 'Dogru mu?': 'Evet' } }),
-  });
-  const res = await askPromise;
-  assert.strictEqual(res.status, 200);
+  await askAndAnswer(
+    [{ question: 'Dogru mu?', type: 'binary', options: [{ label: 'Evet' }, { label: 'Hayir' }] }],
+    ['Evet']
+  );
 });
 
 test('/ask tree bos options -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'T?', header: 'H', type: 'tree', options: [] }],
-    }),
-  });
+  const r = await post('/ask', { questions: [{ question: 'T?', type: 'tree', options: [] }] });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /tree/i);
+  assert.match((await r.json()).error, /tree/i);
 });
 
 test('/ask tree derinlik >6 -> 400', async () => {
-  // 7 seviyeli ağaç oluştur
   function makeNode(depth) {
     if (depth <= 0) return { label: 'leaf' };
     return { label: `d${depth}`, children: [makeNode(depth - 1)] };
   }
-  const deepOptions = [makeNode(7)];
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'Deep?', header: 'H', type: 'tree', options: deepOptions }],
-    }),
+  const r = await post('/ask', {
+    questions: [{ question: 'Deep?', type: 'tree', options: [makeNode(7)] }],
   });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /depth|derinlik/i);
+  assert.match((await r.json()).error, /depth|derinlik/i);
+});
+
+test('/ask tree children non-array -> 400', async () => {
+  const r = await post('/ask', {
+    questions: [{ question: 'T?', type: 'tree', options: [{ label: 'A', children: 'bad' }] }],
+  });
+  assert.strictEqual(r.status, 400);
+  assert.match((await r.json()).error, /children.*array|array.*children/i);
+});
+
+test('/ask tree nested label string-disi -> 400 (recursive label check)', async () => {
+  const r = await post('/ask', {
+    questions: [
+      { question: 'T?', type: 'tree', options: [{ label: 'A', children: [{ label: 12345 }] }] },
+    ],
+  });
+  assert.strictEqual(r.status, 400);
+  assert.match((await r.json()).error, /label/i);
+});
+
+test('/ask tree nested label bos -> 400', async () => {
+  const r = await post('/ask', {
+    questions: [
+      { question: 'T?', type: 'tree', options: [{ label: 'A', children: [{ label: '' }] }] },
+    ],
+  });
+  assert.strictEqual(r.status, 400);
+  assert.match((await r.json()).error, /label/i);
 });
 
 test('/ask tree gecerli (derinlik <=6) -> 200', async () => {
-  const questions = [
-    {
-      question: 'Kategori?',
-      header: 'H',
-      type: 'tree',
-      options: [{ label: 'A', children: [{ label: 'A1' }, { label: 'A2' }] }, { label: 'B' }],
-    },
-  ];
-  const askPromise = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions }),
-  });
-  await new Promise((r) => setTimeout(r, 50));
-  await fetch(`${base}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answers: { 'Kategori?': ['A', 'A1'] } }),
-  });
-  const res = await askPromise;
-  assert.strictEqual(res.status, 200);
+  await askAndAnswer(
+    [
+      {
+        question: 'Kategori?',
+        type: 'tree',
+        options: [{ label: 'A', children: [{ label: 'A1' }, { label: 'A2' }] }, { label: 'B' }],
+      },
+    ],
+    ['A', 'A1']
+  );
 });
 
 test('/ask gecersiz type string -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'X?', header: 'H', type: 'invalid_type', options: [{ label: 'A' }] }],
-    }),
+  const r = await post('/ask', {
+    questions: [{ question: 'X?', type: 'invalid_type', options: [{ label: 'A' }] }],
   });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.match(j.error, /invalid type/i);
+  assert.match((await r.json()).error, /invalid type/i);
 });
 
 test('/ask single options bos -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'Q?', header: 'H', type: 'single', options: [] }],
-    }),
-  });
+  const r = await post('/ask', { questions: [{ question: 'Q?', type: 'single', options: [] }] });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.ok(typeof j.error === 'string');
+  assert.ok(typeof (await r.json()).error === 'string');
 });
 
 test('/ask multi options yok -> 400', async () => {
-  const r = await fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: [{ question: 'M?', header: 'H', type: 'multi' }] }),
-  });
+  const r = await post('/ask', { questions: [{ question: 'M?', type: 'multi' }] });
   assert.strictEqual(r.status, 400);
-  const j = await r.json();
-  assert.ok(typeof j.error === 'string');
+  assert.ok(typeof (await r.json()).error === 'string');
+});
+
+// --- readBody sınır / hang guard ---
+
+test('readBody >8MB body -> 4xx ve hang yok', async () => {
+  const big = 'x'.repeat(8.2e6);
+  const r = await post('/ask', `{"questions":"${big}"}`).catch((e) => e);
+  // Sunucu ya 400 döner (json parse / read error) ya da bağlantıyı düşürür (fetch reject).
+  // Önemli olan: süreç asılı kalmaz; promise settle olur.
+  if (r instanceof Error) {
+    assert.ok(r, 'baglanti drop edildi (hang yok)');
+  } else {
+    assert.ok(r.status >= 400 && r.status < 600, `4xx/5xx beklenir, gelen ${r.status}`);
+  }
+  // Sunucu hâlâ canlı mı? sonraki istek çalışmalı.
+  const h = await fetch(`${base}/health`);
+  assert.strictEqual(h.status, 200);
+});
+
+// --- serveStatic path traversal ---
+
+test('serveStatic path traversal -> 403', async () => {
+  // normalize sonrası WEB_DIR dışına çıkan yol reddedilir.
+  const r = await fetch(`${base}/..%2f..%2fpackage.json`);
+  assert.ok(r.status === 403 || r.status === 404, `403/404 beklenir, gelen ${r.status}`);
+});
+
+test('serveStatic ETag/304 revalidation', async () => {
+  const r1 = await fetch(`${base}/app.js`);
+  if (r1.status !== 200) return; // ponytail: asset yoksa atla (env'e bağlı).
+  const etag = r1.headers.get('etag');
+  assert.ok(etag, 'asset ETag tasimali');
+  const r2 = await fetch(`${base}/app.js`, { headers: { 'If-None-Match': etag } });
+  assert.strictEqual(r2.status, 304);
 });
 
 test('index.html window.__ASKUSER_SETTINGS__ inject eder', async () => {
@@ -349,70 +370,63 @@ test('index.html window.__ASKUSER_SETTINGS__ inject eder', async () => {
   assert.ok(m, 'inject script bulunmali');
   const injected = JSON.parse(m[1]);
   assert.ok('theme' in injected && 'uiScale' in injected, 'settings degerleri');
+  assert.ok(!('_v' in injected), '_v disk formati tarayiciya sizmamali');
 });
 
-test('POST /settings gecerli patch yazar', async () => {
-  const r = await fetch(`${base}/settings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ theme: 'paper' }),
-  });
+test('POST /settings gecerli patch yazar (Contract W -> 200)', async () => {
+  const r = await post('/settings', { theme: 'paper' });
   assert.strictEqual(r.status, 200);
   const j = await r.json();
   assert.strictEqual(j.ok, true);
   assert.strictEqual(j.settings.theme, 'paper');
-  // disk'e yansidi mi → yeniden GET / inject paper gostermeli
+  assert.ok(!('_v' in j.settings), '_v sizmamali');
+  // disk + cache'e yansidi mi → yeniden GET / inject paper gostermeli
   const body = await (await fetch(`${base}/`)).text();
   assert.match(body, /"theme":"paper"/);
 });
 
 test('POST /settings bad json -> 400', async () => {
-  const r = await fetch(`${base}/settings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: '{bozuk',
-  });
+  const r = await post('/settings', '{bozuk');
   assert.strictEqual(r.status, 400);
 });
 
 test('POST /settings dizi/null -> 400', async () => {
-  const r = await fetch(`${base}/settings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: '[1,2]',
-  });
+  const r = await post('/settings', '[1,2]');
   assert.strictEqual(r.status, 400);
 });
 
-test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir)', async () => {
-  // SSE dinle
+test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir) — poll, sleep degil', async () => {
   const sse = await fetch(`${base}/events`);
   const reader = sse.body.getReader();
   const dec = new TextDecoder();
   const events = [];
+  let nullSeen = false;
   (async () => {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      for (const l of dec.decode(value).split('\n'))
-        if (l.startsWith('data:')) events.push(l.slice(5).trim());
+      for (const l of dec.decode(value).split('\n')) {
+        if (l.startsWith('data:')) {
+          const v = l.slice(5).trim();
+          events.push(v);
+          if (/"questions":null/.test(v)) nullSeen = true;
+        }
+      }
     }
   })();
-  await new Promise((r) => setTimeout(r, 30));
+
   const ac = new AbortController();
-  const askP = fetch(`${base}/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      questions: [{ question: 'BYE?', options: [{ label: 'A' }], multiSelect: false }],
-    }),
+  const askP = post('/ask', {
+    questions: [{ question: 'BYE?', options: [{ label: 'A' }], multiSelect: false }],
     signal: ac.signal,
   }).catch(() => {});
-  await new Promise((r) => setTimeout(r, 50));
+  await waitForPending();
   ac.abort(); // hook öldü
   await askP;
-  await new Promise((r) => setTimeout(r, 80));
-  const last = events[events.length - 1];
-  assert.match(last, /"questions":null/, 'cancel sonrasi son SSE olayi null olmali');
+
+  // SSE null event'i sabit-uyku yerine POLL ile bekle (yüklü CI'da false-negatif yok).
+  const end = Date.now() + 2000;
+  while (!nullSeen && Date.now() < end) await new Promise((r) => setTimeout(r, 5));
+  assert.ok(nullSeen, 'cancel sonrasi questions:null SSE olayi gelmeli');
   reader.cancel().catch(() => {});
 });

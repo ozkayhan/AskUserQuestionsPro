@@ -1,6 +1,6 @@
 # valid-docs — askuserquestionspro
 
-> **Synced to:** `589ff24` — 2026-06-27
+> **Synced to:** `18b634f` — 2026-06-28
 > Regenerate/refresh with the `update-docs` skill. These docs describe the
 > codebase at the commit above; if HEAD has moved, re-run to reconcile.
 
@@ -26,9 +26,10 @@ share `lib/bridge-client.mjs`.
 - [backend.md](backend.md) — bridge server, hook, MCP server, CLI, install
 - [api.md](api.md) — HTTP endpoints, MCP tool contract, hook I/O shapes
 - [testing.md](testing.md) — test suite layout and how to run it
+- [hardening.md](hardening.md) — 5-theme systemic hardening sprint: what was changed, why, and the CI guards
 
 ## Note on existing in-repo docs
 
 `docs/` (this folder) is the English, code-verified canonical reference for
-agents. The `design-reference/` tree is a historical design/spec artifact, not
-a current-behavior reference.
+agents. The `design-reference/` tree was removed in commit `1e1da06` (PR #13).
+`docs/hardening.md` records the 5-theme systemic hardening applied to the codebase.

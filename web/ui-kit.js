@@ -6,7 +6,8 @@ const CUSTOM_DESC = 'Let me describe something else.';
 
 /* ── ikonlar (design-reference/project/app.jsx ile birebir) ── */
 const Check = ({ c = 'currentColor', s = 14 }) => (
-  <svg width={s} height={s} viewBox="0 0 16 16" fill="none">
+  // ponytail: aria-hidden — decorative checkmark; callers provide sr-only text if semantic.
+  <svg width={s} height={s} viewBox="0 0 16 16" fill="none" aria-hidden="true">
     <path
       d="M3.5 8.5l3 3 6-7"
       stroke={c}
@@ -20,7 +21,8 @@ const Kbd = ({ children }) => <kbd className="kbd">{children}</kbd>;
 
 /* Özgün marka: bir girdiden iki seçeneğe ayrılan "karar düğümü" (Vercel üçgeni DEĞİL) */
 const Brand = ({ s = 20 }) => (
-  <svg width={s} height={s} viewBox="0 0 20 20" fill="none">
+  // ponytail: aria-hidden — decorative brand mark.
+  <svg width={s} height={s} viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <path
       d="M6 10h3.5M9.5 10L13.5 6M9.5 10L13.5 14"
       stroke="var(--accent)"

@@ -15,53 +15,59 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
   const lines = [];
   let outBuf = '';
 
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('MCP sunucusu zaman aşımına uğradı')), 5000);
+  // try/finally: Promise reject olsa bile (timeout/error) child mutlaka öldürülür — zombie yok.
+  try {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('MCP sunucusu zaman aşımına uğradı')),
+        5000
+      );
 
-    child.stdout.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => {
-      outBuf += chunk;
-      const parts = outBuf.split('\n');
-      outBuf = parts.pop(); // son tamamlanmamış satır
-      for (const line of parts) {
-        const trimmed = line.trim();
-        if (trimmed) {
-          lines.push(trimmed);
-          // İki yanıt geldi mi?
-          if (lines.length >= 2) {
-            clearTimeout(timeout);
-            resolve();
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => {
+        outBuf += chunk;
+        const parts = outBuf.split('\n');
+        outBuf = parts.pop(); // son tamamlanmamış satır
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (trimmed) {
+            lines.push(trimmed);
+            // İki yanıt geldi mi?
+            if (lines.length >= 2) {
+              clearTimeout(timeout);
+              resolve();
+            }
           }
         }
-      }
+      });
+
+      child.on('error', (e) => {
+        clearTimeout(timeout);
+        reject(e);
+      });
+
+      // initialize isteği
+      child.stdin.write(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: { protocolVersion: '2024-11-05', capabilities: {} },
+        }) + '\n'
+      );
+
+      // tools/list isteği
+      child.stdin.write(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/list',
+        }) + '\n'
+      );
     });
-
-    child.on('error', (e) => {
-      clearTimeout(timeout);
-      reject(e);
-    });
-
-    // initialize isteği
-    child.stdin.write(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: { protocolVersion: '2024-11-05', capabilities: {} },
-      }) + '\n'
-    );
-
-    // tools/list isteği
-    child.stdin.write(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id: 2,
-        method: 'tools/list',
-      }) + '\n'
-    );
-  });
-
-  child.kill();
+  } finally {
+    child.kill();
+  }
 
   // İki yanıtı id'ye göre bul.
   const responses = lines
@@ -141,4 +147,39 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
   assert.ok(itemProps.step, 'step alanı olmalı');
   assert.ok(itemProps.leftLabel, 'leftLabel alanı olmalı');
   assert.ok(itemProps.rightLabel, 'rightLabel alanı olmalı');
+});
+
+// Regression: id:null bir istek olarak işlenmeli (JSON-RPC 2.0); bildirim sayılıp yutulMAmalı.
+test('mcp-server: id:null ping yanıtlanır (bildirim değil)', async () => {
+  const child = spawn(process.execPath, [MCP_PATH], { stdio: ['pipe', 'pipe', 'pipe'] });
+  let outBuf = '';
+  const lines = [];
+  try {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('zaman aşımı')), 5000);
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk) => {
+        outBuf += chunk;
+        const parts = outBuf.split('\n');
+        outBuf = parts.pop();
+        for (const line of parts) {
+          if (line.trim()) {
+            lines.push(line.trim());
+            clearTimeout(timeout);
+            resolve();
+          }
+        }
+      });
+      child.on('error', (e) => {
+        clearTimeout(timeout);
+        reject(e);
+      });
+      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: null, method: 'ping' }) + '\n');
+    });
+  } finally {
+    child.kill();
+  }
+  const res = lines.map((l) => JSON.parse(l)).find((r) => r.id === null);
+  assert.ok(res, 'id:null isteğe yanıt gelmeli');
+  assert.deepStrictEqual(res.result, {}, 'ping result boş nesne olmalı');
 });

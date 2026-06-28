@@ -9,7 +9,8 @@ const {
 
 /* Küçük ok ikonu (accordion chevron) */
 const ChevronRight = () => (
-  <svg className="qgroup__chevron" viewBox="0 0 14 14" fill="none">
+  // ponytail: decorative icon — aria-hidden suppresses screen reader noise
+  <svg className="qgroup__chevron" viewBox="0 0 14 14" fill="none" aria-hidden="true">
     <path
       d="M5 3l4 4-4 4"
       stroke="currentColor"
@@ -29,7 +30,7 @@ function Waiting() {
             <span className="dot" />
             Agent · clarify
           </div>
-          <h1 className="qcard__q">Waiting for a question…</h1>
+          <h2 className="qcard__q">Waiting for a question…</h2>
           <p className="qcard__meta">
             Claude Code bir soru sorduğunda burada görünecek. Bu sekmeyi açık bırakın.
           </p>
@@ -41,7 +42,8 @@ function Waiting() {
 
 /* ─────────────────── sidebar: tek soru satırı (paylaşımlı) ─────────────────── */
 function QItem({ q, i, answers, current, goTo }) {
-  const a = answers[q.question];
+  // ponytail: null guard for race between QUESTIONS update and answers init
+  const a = answers[q.question] || {};
   const state = a.confirmed ? 'done' : i === current ? 'current' : 'pending';
   const answerText = a.confirmed
     ? typeof AnswerMap !== 'undefined' && AnswerMap.summaryText
@@ -50,19 +52,26 @@ function QItem({ q, i, answers, current, goTo }) {
           const opts = fullOptions(q);
           return a.sel
             .map((s) => (opts[s] && opts[s].custom ? a.customText : opts[s] ? opts[s].label : ''))
+            .filter(Boolean) // ponytail: match Summary fallback; avoids ", , Foo" for OOB indices
             .join(', ');
         })()
     : '';
+  // ponytail: aria-current="step" for AT; aria-label encodes done state + answer text for keyboard users
+  const ariaLabel = `${i + 1}. ${q.question}${state === 'done' ? ': ' + (answerText || 'done') : ''}`;
   return (
     <button
       key={q.question}
       className="qitem"
       data-active={i === current}
       data-state={state}
+      aria-current={i === current ? 'step' : undefined}
+      aria-label={ariaLabel}
       onClick={() => goTo(i, i > current ? 'right' : 'left')}
     >
-      <span className="qitem__idx">{state === 'done' ? <Check s={12} /> : i + 1}</span>
-      <span className="qitem__body">
+      <span className="qitem__idx" aria-hidden="true">
+        {state === 'done' ? <Check s={12} /> : i + 1}
+      </span>
+      <span className="qitem__body" aria-hidden="true">
         <span className="qitem__header">{q.header}</span>
         <span className="qitem__q">{q.question}</span>
         {a.confirmed && answerText && (
@@ -99,7 +108,8 @@ function SidebarGrouped({ QUESTIONS, answers, current, goTo, filteredIndices }) 
       map.get(key).push({ q, origIdx: i });
     });
     return [...map.entries()].map(([title, items]) => ({ title, items }));
-  }, [QUESTIONS, answers, filteredIndices]);
+    // ponytail: answers removed — doneCount is computed in JSX, not here; filteredIndices captures filter state
+  }, [QUESTIONS, filteredIndices]);
 
   const [openGroups, setOpenGroups] = useStateView(() => {
     const s = new Set();
@@ -135,7 +145,12 @@ function SidebarGrouped({ QUESTIONS, answers, current, goTo, filteredIndices }) 
         const allDone = doneCount === items.length;
         return (
           <div key={title} className="qgroup" data-open={isOpen} data-done={allDone}>
-            <button className="qgroup__header" onClick={() => toggle(title)}>
+            <button
+              className="qgroup__header"
+              onClick={() => toggle(title)}
+              aria-expanded={isOpen}
+              aria-controls={`qgroup-body-${title}`}
+            >
               <ChevronRight />
               <span className="qgroup__title">{title}</span>
               <span className="qgroup__badge">
@@ -143,7 +158,7 @@ function SidebarGrouped({ QUESTIONS, answers, current, goTo, filteredIndices }) 
               </span>
             </button>
             {isOpen && (
-              <div className="qgroup__body">
+              <div id={`qgroup-body-${title}`} className="qgroup__body">
                 {items.map(({ q, origIdx }) => (
                   <QItem
                     key={q.question}
@@ -172,6 +187,7 @@ function SidebarSearch({ searchQuery, onSearch, showUnanswered, onToggleUnanswer
         className="search__input"
         type="text"
         placeholder="Filter questions…"
+        aria-label="Filter questions"
         value={searchQuery}
         onChange={(e) => onSearch(e.target.value)}
       />
@@ -181,8 +197,10 @@ function SidebarSearch({ searchQuery, onSearch, showUnanswered, onToggleUnanswer
           data-active={showUnanswered}
           onClick={onToggleUnanswered}
           type="button"
+          role="switch"
+          aria-checked={showUnanswered}
         >
-          <span className="search__toggle__dot">
+          <span className="search__toggle__dot" aria-hidden="true">
             {showUnanswered && <Check s={9} c="var(--accent-fg)" />}
           </span>
           Show unanswered only
@@ -236,6 +254,20 @@ function Sidebar({
 
   return (
     <aside className="sidebar">
+      {/* ponytail: single sr-only h1 for the page; question cards use h2 */}
+      <h1
+        className="sr-only"
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clip: 'rect(0,0,0,0)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Agent Clarification — Questions
+      </h1>
       <div className="sidebar__head">
         <div className="brand">
           <span className="brand__mark">
@@ -251,7 +283,14 @@ function Sidebar({
             <b>{Math.min(answered, n)}</b> / {n}
           </span>
         </div>
-        <div className="progress__track">
+        <div
+          className="progress__track"
+          role="progressbar"
+          aria-valuenow={Math.min(answered, n)}
+          aria-valuemin={0}
+          aria-valuemax={n}
+          aria-label="Questions answered"
+        >
           <div className="progress__fill" style={{ width: `${(answered / n) * 100}%` }} />
         </div>
       </div>
@@ -463,12 +502,17 @@ function BinaryCard({ q, qIndex, ans, onActivate }) {
             className="binary__opt"
             data-sel={sel}
             data-confirmed={confirmed}
+            aria-pressed={sel}
+            // M-24: number-key (1-9) kısayolu AT'ye bildirilir (app.js keydown ile eşleşir).
+            aria-keyshortcuts={i < 9 ? String(i + 1) : undefined}
             onClick={() => onActivate(qIndex, i)}
           >
-            <span className="opt__key">{i + 1}</span>
+            <span className="opt__key" aria-hidden="true">
+              {i + 1}
+            </span>
             <span className="opt__label">{o.label}</span>
             {sel && (
-              <span className="opt__check">
+              <span className="opt__check" aria-hidden="true">
                 <Check c={confirmed ? 'var(--success)' : 'var(--accent)'} />
               </span>
             )}
@@ -520,6 +564,12 @@ function ScaleCard({ q, ans, qIndex, setQ, onConfirm }) {
         max={max}
         step={step}
         value={displayValue}
+        aria-label={q.question}
+        aria-valuetext={
+          q.leftLabel || q.rightLabel
+            ? `${displayValue}${q.leftLabel ? ' (' + q.leftLabel + ' to ' + (q.rightLabel || '') + ')' : ''}`
+            : String(displayValue)
+        }
         autoFocus
         onChange={handleChange}
         onKeyDown={handleKeyDown}
@@ -541,9 +591,13 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
   const order = ans.order || initOrder;
 
   // cursor: hangi satır odakta (klavye ile gezilecek)
+  // ponytail: use ref to avoid stale closure when grabbed+ArrowDown/Up fires before re-render
+  const cursorRef = useRefView(0);
   const [cursor, setCursor] = useStateView(0);
   // grabbed: o satır "tutuldu mu" (Enter/Space ile kap/bırak)
   const [grabbed, setGrabbed] = useStateView(false);
+  // aria-live announcement for screen readers
+  const [liveMsg, setLiveMsg] = useStateView('');
 
   const moveRank = (idx, dir) => {
     if (typeof AnswerMap !== 'undefined' && AnswerMap.moveRank) {
@@ -562,29 +616,51 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
       e.stopPropagation();
       e.preventDefault();
       if (grabbed) {
-        const newOrder = moveRank(cursor, -1);
+        // ponytail: read from ref (not closure) to avoid stale cursor on rapid keydown
+        const cur = cursorRef.current;
+        const newOrder = moveRank(cur, -1);
+        const nextCursor = Math.max(0, cur - 1);
+        cursorRef.current = nextCursor;
         setQ({ order: newOrder });
-        setCursor(Math.max(0, cursor - 1));
+        setCursor(nextCursor);
+        const opt = q.options[newOrder[nextCursor]];
+        if (opt) setLiveMsg(`${opt.label}, position ${nextCursor + 1} of ${order.length}`);
       } else {
-        setCursor((c) => Math.max(0, c - 1));
+        setCursor((c) => {
+          const next = Math.max(0, c - 1);
+          cursorRef.current = next;
+          return next;
+        });
       }
     } else if (e.key === 'ArrowDown') {
       e.stopPropagation();
       e.preventDefault();
       if (grabbed) {
-        const newOrder = moveRank(cursor, 1);
+        const cur = cursorRef.current;
+        const newOrder = moveRank(cur, 1);
+        const nextCursor = Math.min(order.length - 1, cur + 1);
+        cursorRef.current = nextCursor;
         setQ({ order: newOrder });
-        setCursor(Math.min(order.length - 1, cursor + 1));
+        setCursor(nextCursor);
+        const opt = q.options[newOrder[nextCursor]];
+        if (opt) setLiveMsg(`${opt.label}, position ${nextCursor + 1} of ${order.length}`);
       } else {
-        setCursor((c) => Math.min(order.length - 1, c + 1));
+        setCursor((c) => {
+          const next = Math.min(order.length - 1, c + 1);
+          cursorRef.current = next;
+          return next;
+        });
       }
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.stopPropagation();
       e.preventDefault();
       if (grabbed) {
         setGrabbed(false);
+        setLiveMsg('Dropped');
       } else if (e.key === ' ') {
         setGrabbed(true);
+        const opt = q.options[order[cursor]];
+        if (opt) setLiveMsg(`Grabbed ${opt.label}, position ${cursor + 1}`);
       } else {
         // Enter kapalıyken → gösterilen sırayı onayla (dokunulmamışsa initOrder; patch ile stale-ref'siz).
         onConfirm(qIndex, { order: order });
@@ -593,14 +669,50 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
   };
 
   return (
-    <div className="ranking" tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
+    <div
+      className="ranking"
+      tabIndex={0}
+      autoFocus
+      onKeyDown={handleKeyDown}
+      role="listbox"
+      aria-label={q.question}
+      aria-multiselectable={false}
+    >
+      {/* ponytail: assertive live region for drag-drop position announcements */}
+      <span
+        role="status"
+        aria-live="assertive"
+        aria-atomic="true"
+        className="sr-only"
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clip: 'rect(0,0,0,0)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {liveMsg}
+      </span>
       {order.map((optIdx, rankPos) => {
         const opt = q.options[optIdx];
         const isCursor = cursor === rankPos;
         const isGrabbed = grabbed && isCursor;
         return (
-          <div key={optIdx} className="rank-row" data-cursor={isCursor} data-grabbed={isGrabbed}>
-            <span className="rank-row__badge">{rankPos + 1}</span>
+          <div
+            key={optIdx}
+            className="rank-row"
+            data-cursor={isCursor}
+            data-grabbed={isGrabbed}
+            role="option"
+            aria-selected={isCursor}
+            aria-roledescription="sortable item"
+            aria-label={`${rankPos + 1}. ${opt ? opt.label : ''}${isGrabbed ? ' (grabbed)' : ''}`}
+          >
+            <span className="rank-row__badge" aria-hidden="true">
+              {rankPos + 1}
+            </span>
             <span className="opt__label">{opt ? opt.label : ''}</span>
             <span className="rank-row__moves">
               <button
@@ -677,10 +789,13 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
   const children = getChildren(path);
 
   // Breadcrumb için yol etiketleri
-  const crumbs = path.map((_, depth) => {
+  // ponytail: filter out null crumbs (invalid/stale path) — avoids empty breadcrumb buttons
+  const crumbs = path.reduce((acc, _, depth) => {
     const node = getNodeAt(path.slice(0, depth + 1));
-    return node ? node.label : '';
-  });
+    if (!node) return acc; // truncate at first invalid index; dev guard below
+    acc.push({ label: node.label, depth });
+    return acc;
+  }, []);
 
   const handleSelect = (i) => {
     const child = children[i];
@@ -690,13 +805,15 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
       // Yaprak → patch ile onayla (onConfirm path'i yazar + confirmed + ilerler; stale-ref yok).
       onConfirm(qIndex, { path: newPath });
     } else {
-      setQ({ path: newPath });
+      // ponytail: reset confirmed so stale confirmed:true doesn't persist on back-navigation
+      setQ({ path: newPath, confirmed: false });
     }
   };
 
   const handleBack = () => {
     if (path.length > 0) {
-      setQ({ path: path.slice(0, -1) });
+      // ponytail: reset confirmed on back so branch node doesn't look answered
+      setQ({ path: path.slice(0, -1), confirmed: false });
     }
   };
 
@@ -735,18 +852,30 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
   };
 
   return (
-    <div className="tree" tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
+    <div
+      className="tree"
+      tabIndex={0}
+      autoFocus
+      onKeyDown={handleKeyDown}
+      role="tree"
+      aria-label={q.question}
+    >
       {crumbs.length > 0 && (
         <div className="tree__crumbs">
-          <button className="tree__crumb tree__back" onClick={handleBack} tabIndex={-1}>
+          <button
+            className="tree__crumb tree__back"
+            onClick={handleBack}
+            tabIndex={-1}
+            aria-label="Go back"
+          >
             ← Geri
           </button>
-          {crumbs.map((label, i) => (
+          {crumbs.map(({ label, depth }) => (
             <button
-              key={i}
+              key={depth}
               className="tree__crumb"
               tabIndex={-1}
-              onClick={() => setQ({ path: path.slice(0, i + 1) })}
+              onClick={() => setQ({ path: path.slice(0, depth + 1), confirmed: false })}
             >
               {label}
             </button>
@@ -763,13 +892,23 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
               data-sel={false}
               data-confirmed={false}
               onClick={() => handleSelect(i)}
+              role="treeitem"
+              aria-expanded={isLeaf ? undefined : false}
+              // M-24: tree dalı number-key (1-9) kısayolu AT'ye bildirilir.
+              aria-keyshortcuts={i < 9 ? String(i + 1) : undefined}
             >
-              <span className="opt__key">{i + 1}</span>
+              <span className="opt__key" aria-hidden="true">
+                {i + 1}
+              </span>
               <span className="opt__body">
                 <span className="opt__label">{child.label}</span>
                 {child.description && <span className="opt__desc">{child.description}</span>}
               </span>
-              {!isLeaf && <span className="opt__arrow">›</span>}
+              {!isLeaf && (
+                <span className="opt__arrow" aria-hidden="true">
+                  ›
+                </span>
+              )}
             </button>
           );
         })}
@@ -806,7 +945,8 @@ function QuestionCard({ q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm
       cardBody = (
         <div className="options">
           {opts.map((o, i) => {
-            const sel = ans.sel.includes(i);
+            // ponytail: filter stale sel indices on qType degrade (binary→single/multi changes opts length/meaning)
+            const sel = ans.sel.includes(i) && i < opts.length;
             const confirmed = ans.confirmed && sel;
             const isCustom = !!o.custom;
             const showCustomVal = isCustom && ans.customText;
@@ -816,9 +956,14 @@ function QuestionCard({ q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm
                 className={'opt' + (isCustom ? ' opt--custom' : '')}
                 data-sel={sel}
                 data-confirmed={confirmed}
+                aria-pressed={sel}
+                // M-24: number-key (1-9) kısayolu AT'ye bildirilir.
+                aria-keyshortcuts={i < 9 ? String(i + 1) : undefined}
                 onClick={() => onActivate(qIndex, i)}
               >
-                <span className="opt__key">{i + 1}</span>
+                <span className="opt__key" aria-hidden="true">
+                  {i + 1}
+                </span>
                 <span className="opt__body">
                   <span className="opt__label">
                     {isCustom && showCustomVal ? (
@@ -844,9 +989,11 @@ function QuestionCard({ q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm
                   </span>
                 </span>
                 {q.multiSelect ? (
-                  <span className="opt__box">{sel && <Check c="#fff" s={12} />}</span>
+                  <span className="opt__box" aria-hidden="true">
+                    {sel && <Check c="#fff" s={12} />}
+                  </span>
                 ) : (
-                  <span className="opt__check">
+                  <span className="opt__check" aria-hidden="true">
                     <Check c={confirmed ? 'var(--success)' : 'var(--accent)'} />
                   </span>
                 )}
@@ -885,7 +1032,8 @@ function QuestionCard({ q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm
         <span className="dot" />
         {q.header}
       </div>
-      <h1 className="qcard__q">{q.question}</h1>
+      {/* ponytail: h2 avoids multiple h1s; a sr-only h1 lives in the page shell */}
+      <h2 className="qcard__q">{q.question}</h2>
       <p className="qcard__meta">{metaText}</p>
       {cardBody}
     </div>
@@ -902,6 +1050,31 @@ function CustomPopup({ q, draft, selected, inputRef, onChange, onSave, onRemove,
   useEffectView(() => {
     autosize(inputRef.current);
   }, [draft]);
+
+  // ponytail: focus trap — Tab cycles through focusable children of .popup only
+  const popupRef = useRefView(null);
+  const FOCUSABLE = 'button:not([disabled]),textarea,input,[tabindex]:not([tabindex="-1"])';
+  const trapFocus = (e) => {
+    if (e.key !== 'Tab') return;
+    const el = popupRef.current;
+    if (!el) return;
+    const nodes = Array.from(el.querySelectorAll(FOCUSABLE));
+    if (!nodes.length) return;
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
+
   const trimmed = (draft || '').trim();
   return (
     <div
@@ -909,10 +1082,19 @@ function CustomPopup({ q, draft, selected, inputRef, onChange, onSave, onRemove,
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
+      onKeyDown={trapFocus}
     >
-      <div className="popup">
+      <div
+        className="popup"
+        ref={popupRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="popup-title"
+      >
         <div className="popup__chip">{q.header} · Other</div>
-        <div className="popup__title">{q.question}</div>
+        <div id="popup-title" className="popup__title">
+          {q.question}
+        </div>
         <textarea
           ref={inputRef}
           className="popup__input"
@@ -966,7 +1148,7 @@ function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canS
       <div className="summary__chip">
         <Check c="var(--success)" s={12} /> Ready to send
       </div>
-      <h1 className="summary__title">Review your answers</h1>
+      <h2 className="summary__title">Review your answers</h2>
       <p className="summary__sub">
         These get sent back to the agent so it can continue. Edit anything before submitting.
       </p>
@@ -1008,13 +1190,15 @@ function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canS
         })}
       </div>
       <div className="summary__actions">
-        <button className="btn btn--lg btn--ghost" onClick={onBack}>
+        {/* M-24: summary kısayolları (b=geri, ↵=gönder) AT'ye bildirilir (app.js keydown). */}
+        <button className="btn btn--lg btn--ghost" onClick={onBack} aria-keyshortcuts="B">
           <Kbd>B</Kbd> Back{allDone ? '' : ' to unanswered'}
         </button>
         <button
           className="btn btn--lg btn--primary"
           onClick={onSubmit}
           disabled={!canSubmit || submitted}
+          aria-keyshortcuts="Enter"
         >
           {submitted ? (
             'Submitted ✓'

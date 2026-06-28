@@ -168,7 +168,9 @@
       try {
         e.apply(v[e.key]);
       } catch (err) {
-        /* node/headless: yok say */
+        // ponytail: surface apply errors in browser devtools; node/headless stays silent.
+        if (typeof document !== 'undefined')
+          console.warn('[settings] apply failed for', e.key, err);
       }
     });
   }
