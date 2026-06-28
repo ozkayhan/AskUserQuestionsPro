@@ -305,10 +305,10 @@ function Flow({ questions, roundId }) {
           submit();
           return;
         }
-        // Summary dışındayken gönderim hatası varsa Enter retry'ı yapsın: toast
-        // "Press Enter to retry" der; aksi halde confirmCurrent'a düşüp talimat yalan olurdu
-        // (B-errorhandling Enter-retry).
-        if (R.sendError) {
+        // Summary dışındayken yalnızca KURTARILABİLİR (network) hatada Enter retry'ı yapsın:
+        // toast "Press Enter to retry" der. 'server' (4xx/5xx, kalıcı) toast'u retry demez, o
+        // yüzden Enter confirmCurrent'a düşmeli — aksi halde talimat yalan olurdu (B-errorhandling).
+        if (R.sendError === 'network') {
           submit();
           return;
         }
