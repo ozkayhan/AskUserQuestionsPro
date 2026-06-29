@@ -5,6 +5,7 @@ on:
     workflows: [CI]
     branches: [main]
     types: [completed]
+  workflow_dispatch: {}
 
 # Yayını asla yarıda kesme — devam eden release bitsin.
 concurrency:
@@ -14,8 +15,7 @@ concurrency:
 jobs:
   release:
     name: Release
-    # Only run when CI passed on main — prevents publish when any matrix leg fails.
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
