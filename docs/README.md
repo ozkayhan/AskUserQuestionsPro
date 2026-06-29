@@ -1,6 +1,6 @@
 # valid-docs — askuserquestionspro
 
-> **Synced to:** `18b634f` — 2026-06-28
+> **Synced to:** `a6f9cbb` — 2026-06-29
 > Regenerate/refresh with the `update-docs` skill. These docs describe the
 > codebase at the commit above; if HEAD has moved, re-run to reconcile.
 

@@ -50,7 +50,7 @@ async function waitForClear(deadlineMs = 2000) {
   throw new Error('timed out waiting for pending to clear');
 }
 
-// /ask aç → pending'i bekle → id ile cevapla → askPromise'i çöz. answer Array'dir
+// /ask aç → pending'i bekle → id ile cevapla → askPromise'i çöz. answer plain object'tir
 // (Contract R). Döner: askPromise json.
 async function askAndAnswer(questions, answers) {
   const askPromise = post('/ask', { questions });
@@ -76,11 +76,11 @@ test('/ask soruları tutar, /answer ile resolve olur (id round-trip)', async () 
   assert.deepStrictEqual(cur.questions, questions);
   assert.ok(typeof cur.id === 'number');
 
-  const r = await post('/answer', { id: cur.id, answers: ['A'] });
+  const r = await post('/answer', { id: cur.id, answers: { 'Q?': 'A' } });
   assert.strictEqual(r.status, 200);
 
   const askResult = await (await askPromise).json();
-  assert.deepStrictEqual(askResult.answers, ['A']);
+  assert.deepStrictEqual(askResult.answers, { 'Q?': 'A' });
   assert.strictEqual(bridge.getCurrent(), null);
 });
 
@@ -92,7 +92,7 @@ test('GET / index.html serve eder', async () => {
 
 test('/current ve /events payload {id, questions} icerir', async () => {
   const questions = [{ question: 'QID?', options: [{ label: 'A' }], multiSelect: false }];
-  await askAndAnswer(questions, ['A']);
+  await askAndAnswer(questions, { 'QID?': 'A' });
 });
 
 // --- Contract R: /answer round-id rendezvous ---
@@ -102,28 +102,28 @@ test('/answer stale id -> 409 (cross-round race korumasi)', async () => {
   const askPromise = post('/ask', { questions });
   const cur = await waitForPending();
   // Mevcut id'den farklı (stale) bir id ile cevapla → eşleşmez → 409.
-  const stale = await post('/answer', { id: cur.id + 999, answers: ['A'] });
+  const stale = await post('/answer', { id: cur.id + 999, answers: { 'ST?': 'A' } });
   assert.strictEqual(stale.status, 409);
   // pending hâlâ açık; doğru id ile çöz, sızıntı bırakma.
-  const ok = await post('/answer', { id: cur.id, answers: ['A'] });
+  const ok = await post('/answer', { id: cur.id, answers: { 'ST?': 'A' } });
   assert.strictEqual(ok.status, 200);
   await askPromise;
 });
 
 test('/answer pending yokken -> 409', async () => {
   await waitForClear();
-  const r = await post('/answer', { id: 1, answers: ['A'] });
+  const r = await post('/answer', { id: 1, answers: { 'Q?': 'A' } });
   assert.strictEqual(r.status, 409);
 });
 
-test('/answer answers Array degil -> 400 (Contract R)', async () => {
+test('/answer answers Array -> 400 (Contract R)', async () => {
   const questions = [{ question: 'AR?', options: [{ label: 'A' }], multiSelect: false }];
   const askPromise = post('/ask', { questions });
   const cur = await waitForPending();
-  const bad = await post('/answer', { id: cur.id, answers: { 'AR?': 'A' } });
+  const bad = await post('/answer', { id: cur.id, answers: ['A'] });
   assert.strictEqual(bad.status, 400);
   // pending hâlâ açık → doğru şekilde kapat.
-  await post('/answer', { id: cur.id, answers: ['A'] });
+  await post('/answer', { id: cur.id, answers: { 'AR?': 'A' } });
   await askPromise;
 });
 
@@ -141,7 +141,7 @@ test('iki es zamanli /ask: ikincisi 409 (concurrent pending)', async () => {
   const r2 = await post('/ask', { questions: q2 });
   assert.strictEqual(r2.status, 409);
   // ilk turu temizle.
-  await post('/answer', { id: cur.id, answers: ['A'] });
+  await post('/answer', { id: cur.id, answers: { 'C1?': 'A' } });
   await askP1;
 });
 
@@ -187,7 +187,7 @@ test('/ask option label >500 char -> 400', async () => {
 });
 
 test('/ask scale gecerli (min/max var) -> 200', async () => {
-  await askAndAnswer([{ question: 'Kac puan?', header: 'H', type: 'scale', min: 1, max: 10 }], [7]);
+  await askAndAnswer([{ question: 'Kac puan?', header: 'H', type: 'scale', min: 1, max: 10 }], { 'Kac puan?': 7 });
 });
 
 test('/ask scale eksik min/max -> 400 spesifik hata', async () => {
@@ -221,7 +221,7 @@ test('/ask ranking az secenek (1 item) -> 400', async () => {
 test('/ask ranking gecerli (2+ secenek) -> 200', async () => {
   await askAndAnswer(
     [{ question: 'Sirala?', type: 'ranking', options: [{ label: 'A' }, { label: 'B' }] }],
-    ['A', 'B']
+    { 'Sirala?': ['A', 'B'] }
   );
 });
 
@@ -240,13 +240,13 @@ test('/ask binary options tam 2 degil -> 400', async () => {
 });
 
 test('/ask binary options yok -> 200 (varsayilan)', async () => {
-  await askAndAnswer([{ question: 'Evet mi?', type: 'binary' }], ['Evet']);
+  await askAndAnswer([{ question: 'Evet mi?', type: 'binary' }], { 'Evet mi?': 'Evet' });
 });
 
 test('/ask binary tam 2 option -> 200', async () => {
   await askAndAnswer(
     [{ question: 'Dogru mu?', type: 'binary', options: [{ label: 'Evet' }, { label: 'Hayir' }] }],
-    ['Evet']
+    { 'Dogru mu?': 'Evet' }
   );
 });
 
@@ -305,7 +305,7 @@ test('/ask tree gecerli (derinlik <=6) -> 200', async () => {
         options: [{ label: 'A', children: [{ label: 'A1' }, { label: 'A2' }] }, { label: 'B' }],
       },
     ],
-    ['A', 'A1']
+    { 'Kategori?': ['A', 'A1'] }
   );
 });
 

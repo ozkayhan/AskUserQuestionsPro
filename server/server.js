@@ -373,8 +373,9 @@ const server = http.createServer(async (req, res) => {
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
-    // Contract R: answers Array olmalı; aksi 400.
-    if (!Array.isArray(answers)) return sendJson(res, 400, { error: 'invalid answers' });
+    // Contract R: answers plain object olmalı (null/array/primitif değil); aksi 400.
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers))
+      return sendJson(res, 400, { error: 'invalid answers' });
     // Contract R: id eşleşen pending turu resolve eder; eşleşmezse (stale/yok) 409.
     if (!bridge.provideAnswers(id, answers)) {
       return sendJson(res, 409, { error: 'no matching pending question set' });
