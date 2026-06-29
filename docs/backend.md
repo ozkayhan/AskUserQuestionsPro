@@ -28,9 +28,10 @@ Responsibilities:
 disconnected', myId)` where `myId` is the round id captured at submit time
   (Contract R — only the owning round is cancelled, not a concurrently
   submitted new one).
-- `POST /answer` parses `{ id, answers }`. Validates `Array.isArray(answers)`
-  → 400; then `bridge.provideAnswers(id, answers)` → 409 on id mismatch
-  (Contract R). Responds `{ ok: true }` on success.
+- `POST /answer` parses `{ id, answers }`. Validates
+  `!answers || typeof answers !== 'object' || Array.isArray(answers)` → 400
+  (plain object required); then `bridge.provideAnswers(id, answers)` → 409 on
+  id mismatch (Contract R). Responds `{ ok: true }` on success.
 - Path-traversal-safe static serving (resolved paths must stay under `web/`).
   Non-index assets served with a weak DJB2 ETag for browser cache revalidation
   (304 on match); index.html gets no ETag (settings injection varies per

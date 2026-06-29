@@ -13,7 +13,7 @@ All on `127.0.0.1`. No auth (localhost-only, single user).
 | `GET /current`   | —                         | `{ id, questions }` or `{ id: null, questions: null }`         | Peek at the pending set.                                                                                                                                     |
 | `GET /events`    | —                         | `text/event-stream`                                            | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                  |
 | `POST /ask`      | `{ questions: [...] }`    | `{ answers: [...] }` (blocks until answered) or error          | Submit a question set; request stays open until answered/timeout. Returns HTTP 400 on validation failure, 409 if a set is already pending.                   |
-| `POST /answer`   | `{ id, answers: [...] }`  | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. `id` must match the current pending round (Contract R); mismatched id → 409. `answers` must be an Array → else 400.  |
+| `POST /answer`   | `{ id, answers: {...} }`  | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. `id` must match the current pending round (Contract R); mismatched id → 409. `answers` must be a plain object (not null/array/primitive) → else 400.  |
 | `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` (200) or `{ error }` (400/500) | Persist a UI-settings patch. Returns 400 on bad JSON/non-object, 500 if the disk write fails (Contract W). `_v` is stripped from the response.               |
 | `GET *`          | —                         | static file                                                    | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                |
 
@@ -64,29 +64,30 @@ questions (`web/ui-kit.js`).
 ```jsonc
 {
   "id": 42, // required — must match the current pending round's id; mismatch → 409
-  "answers": [
-    /* opaque array; server stores and returns as-is */
-  ],
+  "answers": {
+    /* opaque plain object; server stores and returns as-is */
+  },
 }
 ```
 
-The server validates `Array.isArray(answers)` → 400 if not. The `id` field
-enables cross-round race protection: a stale response from a previous round
-cannot silently resolve a new pending set.
+The server validates `!answers || typeof answers !== 'object' || Array.isArray(answers)`
+→ 400 if not a plain object. The `id` field enables cross-round race protection:
+a stale response from a previous round cannot silently resolve a new pending set.
 
 **`/ask` success response** (returned to the hook / MCP after answering):
 
 ```jsonc
 {
-  "answers": [
-    /* the array the browser POSTed to /answer */
-  ],
+  "answers": {
+    /* the plain object the browser POSTed to /answer */
+  },
 }
 ```
 
 The type-aware answer mapping (question text → `string | string[] | number`)
 is done by the **browser** before POST (`AnswerMap.mapAnswers` in
-`web/answer-map.js`), not by the server. The server is answer-opaque.
+`web/answer-map.js`), which produces `{ [question]: answer }`. The server
+is answer-opaque.
 
 **`/ask` error responses:**
 

@@ -49,7 +49,7 @@ test('askBridge() soruları gönderir, eşzamanlı /answer ile resolve olur', as
   const question = 'Renk tercihiniz?';
   const label = 'Mavi';
   const questions = [{ question, header: 'Test', options: [{ label }], multiSelect: false }];
-  const answersArray = [{ question, value: label }];
+  const answersObj = { [question]: label };
 
   // askBridge ve /answer eşzamanlı çalışsın.
   const bridgePromise = bridgeClient.askBridge(questions, { timeoutMs: 5000 });
@@ -57,16 +57,16 @@ test('askBridge() soruları gönderir, eşzamanlı /answer ile resolve olur', as
   // Sunucu /ask'i kaydedene kadar bekle ve Contract R round id'sini al.
   const { id } = await waitForPending();
 
-  // /answer ile cevap gönder (Contract R: {id, answers} ve answers Array olmalı).
+  // /answer ile cevap gönder (Contract R: {id, answers} ve answers plain object olmalı).
   const answerRes = await fetch(`${base}/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, answers: answersArray }),
+    body: JSON.stringify({ id, answers: answersObj }),
   });
   assert.strictEqual(answerRes.status, 200, '/answer 200 dönmeli');
 
   const answers = await bridgePromise;
-  assert.deepStrictEqual(answers, answersArray, 'askBridge() doğru answers değerini döndürmeli');
+  assert.deepStrictEqual(answers, answersObj, 'askBridge() doğru answers değerini döndürmeli');
 });
 
 // --- Regression: waitForPending() — L-8 openBrowser race guard ---
@@ -88,7 +88,7 @@ test('waitForPending() tur kaydedilince true, kayıt yokken false döner', async
     await fetch(`${base}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, answers: [{ question: 'Hazır mı?', answer: 'a' }] }),
+      body: JSON.stringify({ id, answers: { 'Hazır mı?': 'a' } }),
     });
     await bridgePromise;
   } catch (e) {
