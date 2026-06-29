@@ -23,7 +23,10 @@
     "lib/",
     "mcp-server/",
     "web/",
+    "skill/",
     "install.sh",
+    "uninstall.sh",
+    "reinstall.sh",
     "README.md",
     "LICENSE"
   ],
