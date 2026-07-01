@@ -941,6 +941,11 @@ button {
   display: none;
 }
 
+/* showCounter=false: hide the "answered / n" sidebar label. */
+[data-hide-counter='true'] .progress__label {
+  visibility: hidden;
+}
+
 /* ── tablet: keep both panels, tighten gutters ── */
 @media (max-width: 1024px) {
   .stage {

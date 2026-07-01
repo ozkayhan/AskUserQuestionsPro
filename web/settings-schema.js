@@ -278,6 +278,18 @@
         document.documentElement.setAttribute('data-hide-hints', v ? 'false' : 'true');
       },
     },
+    {
+      key: 'showCounter',
+      label: 'Show answered counter',
+      group: 'Interface',
+      type: 'toggle',
+      default: true,
+      applies: 'live',
+      apply: function (v) {
+        if (typeof document === 'undefined') return;
+        document.documentElement.setAttribute('data-hide-counter', v ? 'false' : 'true');
+      },
+    },
   ];
 
   var BY_KEY = {};
