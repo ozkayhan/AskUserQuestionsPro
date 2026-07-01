@@ -946,6 +946,16 @@ button {
   visibility: hidden;
 }
 
+/* focusMode: single-column, sidebar list/footer hidden — same pattern as the
+   760px mobile collapse (styles.css mobile block below), applied at any width. */
+[data-focus-mode='true'] .app {
+  grid-template-columns: 1fr;
+}
+[data-focus-mode='true'] .qlist,
+[data-focus-mode='true'] .sidebar__foot {
+  display: none;
+}
+
 /* ── tablet: keep both panels, tighten gutters ── */
 @media (max-width: 1024px) {
   .stage {

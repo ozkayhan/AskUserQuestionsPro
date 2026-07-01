@@ -41,6 +41,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
     confirmSubmit: false,
     showKeyHints: true,
     showCounter: true,
+    focusMode: false,
   });
 });
 
@@ -106,7 +107,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'accentColor,autoAdvance,confirmSubmit,cornerRadius,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,showCounter,showKeyHints,theme,uiScale'
+    'accentColor,autoAdvance,confirmSubmit,cornerRadius,focusMode,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,showCounter,showKeyHints,theme,uiScale'
   );
 });
 
@@ -210,6 +211,14 @@ test('showCounter: default true, toggle tip zorlanır, group Interface', () => {
   assert.strictEqual(Schema.validate({ showCounter: 'false' }).showCounter, true);
   assert.strictEqual(Schema.validate({ showCounter: false }).showCounter, false);
   assert.strictEqual(Schema.byKey('showCounter').group, 'Interface');
+});
+
+// ── focusMode ──────────────────────────────────────────────
+test('focusMode: default false, toggle tip zorlanır, group Interface', () => {
+  assert.strictEqual(Schema.defaults().focusMode, false);
+  assert.strictEqual(Schema.validate({ focusMode: 'true' }).focusMode, false);
+  assert.strictEqual(Schema.validate({ focusMode: true }).focusMode, true);
+  assert.strictEqual(Schema.byKey('focusMode').group, 'Interface');
 });
 
 // ── qtype toggles ──────────────────────────────────────────────

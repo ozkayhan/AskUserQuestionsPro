@@ -290,6 +290,18 @@
         document.documentElement.setAttribute('data-hide-counter', v ? 'false' : 'true');
       },
     },
+    {
+      key: 'focusMode',
+      label: 'Focus mode',
+      group: 'Interface',
+      type: 'toggle',
+      default: false,
+      applies: 'live',
+      apply: function (v) {
+        if (typeof document === 'undefined') return;
+        document.documentElement.setAttribute('data-focus-mode', v ? 'true' : 'false');
+      },
+    },
   ];
 
   var BY_KEY = {};
