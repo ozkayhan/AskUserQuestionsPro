@@ -82,6 +82,33 @@
       },
     },
     {
+      key: 'cornerRadius',
+      label: 'Corner radius',
+      group: 'Appearance',
+      type: 'select',
+      default: 'default',
+      options: [
+        { value: 'sharp', label: 'Sharp' },
+        { value: 'default', label: 'Default' },
+        { value: 'rounded', label: 'Rounded' },
+      ],
+      applies: 'live',
+      apply: function (v) {
+        if (typeof document === 'undefined') return;
+        var root = document.documentElement;
+        if (v === 'default') {
+          root.style.removeProperty('--radius');
+          root.style.removeProperty('--radius-sm');
+          root.style.removeProperty('--radius-lg');
+          return;
+        }
+        var px = v === 'sharp' ? { r: '0px', sm: '0px', lg: '0px' } : { r: '16px', sm: '12px', lg: '20px' };
+        root.style.setProperty('--radius', px.r);
+        root.style.setProperty('--radius-sm', px.sm);
+        root.style.setProperty('--radius-lg', px.lg);
+      },
+    },
+    {
       key: 'uiScale',
       label: 'Interface scale',
       group: 'Appearance',

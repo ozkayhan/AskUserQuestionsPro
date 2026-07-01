@@ -27,6 +27,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
   assert.deepStrictEqual(Schema.defaults(), {
     theme: 'amoled',
     accentColor: 'theme',
+    cornerRadius: 'default',
     uiScale: 'md',
     reduceMotion: false,
     qtypeBinary: true,
@@ -98,7 +99,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'accentColor,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+    'accentColor,cornerRadius,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
   );
 });
 
@@ -142,6 +143,13 @@ test('accentColor: default theme, geçersiz değer default a düşer', () => {
 test('accentColor: coerce preset kabul eder', () => {
   assert.deepStrictEqual(Schema.coerce('accentColor', 'green'), { ok: true, value: 'green' });
   assert.strictEqual(Schema.coerce('accentColor', 'gold').ok, false);
+});
+
+// ── cornerRadius ──────────────────────────────────────────────
+test('cornerRadius: default "default", geçersiz değer default a düşer', () => {
+  assert.strictEqual(Schema.defaults().cornerRadius, 'default');
+  assert.strictEqual(Schema.validate({ cornerRadius: 'huge' }).cornerRadius, 'default');
+  assert.strictEqual(Schema.validate({ cornerRadius: 'sharp' }).cornerRadius, 'sharp');
 });
 
 // ── qtype toggles ──────────────────────────────────────────────
