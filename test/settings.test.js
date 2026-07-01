@@ -26,12 +26,22 @@ function withTmpConfig(fn) {
 test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
   assert.deepStrictEqual(Schema.defaults(), {
     theme: 'amoled',
+    accentColor: 'theme',
+    cornerRadius: 'default',
+    motionSpeed: 'normal',
+    fontFamily: 'system',
     uiScale: 'md',
+    highContrast: false,
     reduceMotion: false,
     qtypeBinary: true,
     qtypeScale: true,
     qtypeRanking: true,
     qtypeTree: true,
+    autoAdvance: false,
+    confirmSubmit: false,
+    showKeyHints: true,
+    showCounter: true,
+    focusMode: false,
   });
 });
 
@@ -97,7 +107,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+    'accentColor,autoAdvance,confirmSubmit,cornerRadius,focusMode,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,showCounter,showKeyHints,theme,uiScale'
   );
 });
 
@@ -129,6 +139,86 @@ test('coerce select: options içindeyse value, değilse ok:false', () => {
 
 test('coerce bilinmeyen key → ok:false', () => {
   assert.strictEqual(Schema.coerce('yok', 'x').ok, false);
+});
+
+// ── accentColor ──────────────────────────────────────────────
+test('accentColor: default theme, geçersiz değer default a düşer', () => {
+  assert.strictEqual(Schema.defaults().accentColor, 'theme');
+  assert.strictEqual(Schema.validate({ accentColor: 'nope' }).accentColor, 'theme');
+  assert.strictEqual(Schema.validate({ accentColor: 'blue' }).accentColor, 'blue');
+});
+
+test('accentColor: coerce preset kabul eder', () => {
+  assert.deepStrictEqual(Schema.coerce('accentColor', 'green'), { ok: true, value: 'green' });
+  assert.strictEqual(Schema.coerce('accentColor', 'gold').ok, false);
+});
+
+// ── cornerRadius ──────────────────────────────────────────────
+test('cornerRadius: default "default", geçersiz değer default a düşer', () => {
+  assert.strictEqual(Schema.defaults().cornerRadius, 'default');
+  assert.strictEqual(Schema.validate({ cornerRadius: 'huge' }).cornerRadius, 'default');
+  assert.strictEqual(Schema.validate({ cornerRadius: 'sharp' }).cornerRadius, 'sharp');
+});
+
+// ── motionSpeed ──────────────────────────────────────────────
+test('motionSpeed: default "normal", geçersiz değer default a düşer', () => {
+  assert.strictEqual(Schema.defaults().motionSpeed, 'normal');
+  assert.strictEqual(Schema.validate({ motionSpeed: 'ludicrous' }).motionSpeed, 'normal');
+  assert.strictEqual(Schema.validate({ motionSpeed: 'fast' }).motionSpeed, 'fast');
+});
+
+// ── fontFamily ──────────────────────────────────────────────
+test('fontFamily: default "system", geçersiz değer default a düşer', () => {
+  assert.strictEqual(Schema.defaults().fontFamily, 'system');
+  assert.strictEqual(Schema.validate({ fontFamily: 'comic-sans' }).fontFamily, 'system');
+  assert.strictEqual(Schema.validate({ fontFamily: 'mono' }).fontFamily, 'mono');
+});
+
+// ── highContrast ──────────────────────────────────────────────
+test('highContrast: default false, toggle tip zorlanır', () => {
+  assert.strictEqual(Schema.defaults().highContrast, false);
+  assert.strictEqual(Schema.validate({ highContrast: 'true' }).highContrast, false);
+  assert.strictEqual(Schema.validate({ highContrast: true }).highContrast, true);
+});
+
+// ── autoAdvance ──────────────────────────────────────────────
+test('autoAdvance: default false, toggle tip zorlanır, group Behavior', () => {
+  assert.strictEqual(Schema.defaults().autoAdvance, false);
+  assert.strictEqual(Schema.validate({ autoAdvance: 'true' }).autoAdvance, false);
+  assert.strictEqual(Schema.validate({ autoAdvance: true }).autoAdvance, true);
+  assert.strictEqual(Schema.byKey('autoAdvance').group, 'Behavior');
+});
+
+// ── confirmSubmit ──────────────────────────────────────────────
+test('confirmSubmit: default false, toggle tip zorlanır, group Behavior', () => {
+  assert.strictEqual(Schema.defaults().confirmSubmit, false);
+  assert.strictEqual(Schema.validate({ confirmSubmit: 'true' }).confirmSubmit, false);
+  assert.strictEqual(Schema.validate({ confirmSubmit: true }).confirmSubmit, true);
+  assert.strictEqual(Schema.byKey('confirmSubmit').group, 'Behavior');
+});
+
+// ── showKeyHints ──────────────────────────────────────────────
+test('showKeyHints: default true, toggle tip zorlanır, group Interface', () => {
+  assert.strictEqual(Schema.defaults().showKeyHints, true);
+  assert.strictEqual(Schema.validate({ showKeyHints: 'false' }).showKeyHints, true);
+  assert.strictEqual(Schema.validate({ showKeyHints: false }).showKeyHints, false);
+  assert.strictEqual(Schema.byKey('showKeyHints').group, 'Interface');
+});
+
+// ── showCounter ──────────────────────────────────────────────
+test('showCounter: default true, toggle tip zorlanır, group Interface', () => {
+  assert.strictEqual(Schema.defaults().showCounter, true);
+  assert.strictEqual(Schema.validate({ showCounter: 'false' }).showCounter, true);
+  assert.strictEqual(Schema.validate({ showCounter: false }).showCounter, false);
+  assert.strictEqual(Schema.byKey('showCounter').group, 'Interface');
+});
+
+// ── focusMode ──────────────────────────────────────────────
+test('focusMode: default false, toggle tip zorlanır, group Interface', () => {
+  assert.strictEqual(Schema.defaults().focusMode, false);
+  assert.strictEqual(Schema.validate({ focusMode: 'true' }).focusMode, false);
+  assert.strictEqual(Schema.validate({ focusMode: true }).focusMode, true);
+  assert.strictEqual(Schema.byKey('focusMode').group, 'Interface');
 });
 
 // ── qtype toggles ──────────────────────────────────────────────
