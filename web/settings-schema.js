@@ -190,6 +190,18 @@
       },
     },
     {
+      key: 'highContrast',
+      label: 'High contrast',
+      group: 'Appearance',
+      type: 'toggle',
+      default: false,
+      applies: 'live',
+      apply: function (v) {
+        if (typeof document === 'undefined') return;
+        document.documentElement.setAttribute('data-high-contrast', v ? 'true' : 'false');
+      },
+    },
+    {
       key: 'reduceMotion',
       label: 'Reduce motion',
       group: 'Appearance',

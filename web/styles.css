@@ -924,6 +924,16 @@ button {
   place-items: center;
 }
 
+/* high-contrast accessibility toggle — sharpens text/border/accent edges.
+   ponytail: tuned for the dark default; light themes aren't specially handled,
+   add per-theme overrides if that combination matters. */
+[data-high-contrast='true'] {
+  --fg: #ffffff;
+  --border: #808080;
+  --border-strong: #a0a0a0;
+  --accent-line: color-mix(in srgb, var(--accent) 85%, white);
+}
+
 /* ── tablet: keep both panels, tighten gutters ── */
 @media (max-width: 1024px) {
   .stage {

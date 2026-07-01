@@ -31,6 +31,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
     motionSpeed: 'normal',
     fontFamily: 'system',
     uiScale: 'md',
+    highContrast: false,
     reduceMotion: false,
     qtypeBinary: true,
     qtypeScale: true,
@@ -101,7 +102,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'accentColor,cornerRadius,fontFamily,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+    'accentColor,cornerRadius,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
   );
 });
 
@@ -166,6 +167,13 @@ test('fontFamily: default "system", geçersiz değer default a düşer', () => {
   assert.strictEqual(Schema.defaults().fontFamily, 'system');
   assert.strictEqual(Schema.validate({ fontFamily: 'comic-sans' }).fontFamily, 'system');
   assert.strictEqual(Schema.validate({ fontFamily: 'mono' }).fontFamily, 'mono');
+});
+
+// ── highContrast ──────────────────────────────────────────────
+test('highContrast: default false, toggle tip zorlanır', () => {
+  assert.strictEqual(Schema.defaults().highContrast, false);
+  assert.strictEqual(Schema.validate({ highContrast: 'true' }).highContrast, false);
+  assert.strictEqual(Schema.validate({ highContrast: true }).highContrast, true);
 });
 
 // ── qtype toggles ──────────────────────────────────────────────
