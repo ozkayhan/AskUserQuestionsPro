@@ -28,6 +28,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
     theme: 'amoled',
     accentColor: 'theme',
     cornerRadius: 'default',
+    motionSpeed: 'normal',
     uiScale: 'md',
     reduceMotion: false,
     qtypeBinary: true,
@@ -99,7 +100,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'accentColor,cornerRadius,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+    'accentColor,cornerRadius,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
   );
 });
 
@@ -150,6 +151,13 @@ test('cornerRadius: default "default", geçersiz değer default a düşer', () =
   assert.strictEqual(Schema.defaults().cornerRadius, 'default');
   assert.strictEqual(Schema.validate({ cornerRadius: 'huge' }).cornerRadius, 'default');
   assert.strictEqual(Schema.validate({ cornerRadius: 'sharp' }).cornerRadius, 'sharp');
+});
+
+// ── motionSpeed ──────────────────────────────────────────────
+test('motionSpeed: default "normal", geçersiz değer default a düşer', () => {
+  assert.strictEqual(Schema.defaults().motionSpeed, 'normal');
+  assert.strictEqual(Schema.validate({ motionSpeed: 'ludicrous' }).motionSpeed, 'normal');
+  assert.strictEqual(Schema.validate({ motionSpeed: 'fast' }).motionSpeed, 'fast');
 });
 
 // ── qtype toggles ──────────────────────────────────────────────

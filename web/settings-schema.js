@@ -109,6 +109,30 @@
       },
     },
     {
+      key: 'motionSpeed',
+      label: 'Motion speed',
+      group: 'Appearance',
+      type: 'select',
+      default: 'normal',
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'slow', label: 'Slow' },
+        { value: 'normal', label: 'Normal' },
+        { value: 'fast', label: 'Fast' },
+      ],
+      applies: 'live',
+      apply: function (v) {
+        if (typeof document === 'undefined') return;
+        var root = document.documentElement;
+        if (v === 'normal') {
+          root.style.removeProperty('--motion-ms');
+          return;
+        }
+        var ms = { off: '0ms', slow: '600ms', fast: '180ms' }[v];
+        root.style.setProperty('--motion-ms', ms);
+      },
+    },
+    {
       key: 'uiScale',
       label: 'Interface scale',
       group: 'Appearance',
