@@ -29,6 +29,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
     accentColor: 'theme',
     cornerRadius: 'default',
     motionSpeed: 'normal',
+    fontFamily: 'system',
     uiScale: 'md',
     reduceMotion: false,
     qtypeBinary: true,
@@ -100,7 +101,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'accentColor,cornerRadius,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+    'accentColor,cornerRadius,fontFamily,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
   );
 });
 
@@ -158,6 +159,13 @@ test('motionSpeed: default "normal", geçersiz değer default a düşer', () => 
   assert.strictEqual(Schema.defaults().motionSpeed, 'normal');
   assert.strictEqual(Schema.validate({ motionSpeed: 'ludicrous' }).motionSpeed, 'normal');
   assert.strictEqual(Schema.validate({ motionSpeed: 'fast' }).motionSpeed, 'fast');
+});
+
+// ── fontFamily ──────────────────────────────────────────────
+test('fontFamily: default "system", geçersiz değer default a düşer', () => {
+  assert.strictEqual(Schema.defaults().fontFamily, 'system');
+  assert.strictEqual(Schema.validate({ fontFamily: 'comic-sans' }).fontFamily, 'system');
+  assert.strictEqual(Schema.validate({ fontFamily: 'mono' }).fontFamily, 'mono');
 });
 
 // ── qtype toggles ──────────────────────────────────────────────

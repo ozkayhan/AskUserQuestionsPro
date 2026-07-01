@@ -133,6 +133,45 @@
       },
     },
     {
+      key: 'fontFamily',
+      label: 'Font',
+      group: 'Appearance',
+      type: 'select',
+      default: 'system',
+      options: [
+        { value: 'system', label: 'System (Geist)' },
+        { value: 'serif', label: 'Serif' },
+        { value: 'mono', label: 'Monospace' },
+      ],
+      applies: 'live',
+      apply: function (v) {
+        if (typeof document === 'undefined' || !document.head) return;
+        var root = document.documentElement;
+        var id = 'askuserquestionspro-setting-font';
+        var link = document.getElementById(id);
+        if (v === 'serif') {
+          if (!link) {
+            link = document.createElement('link');
+            link.id = id;
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+          }
+          link.setAttribute(
+            'href',
+            'https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap'
+          );
+          root.style.setProperty(
+            '--font-sans',
+            '"Newsreader", ui-serif, Georgia, serif'
+          );
+        } else {
+          if (link) link.remove();
+          if (v === 'mono') root.style.setProperty('--font-sans', 'var(--font-mono)');
+          else root.style.removeProperty('--font-sans'); // system: Geist stays theme/root default
+        }
+      },
+    },
+    {
       key: 'uiScale',
       label: 'Interface scale',
       group: 'Appearance',
