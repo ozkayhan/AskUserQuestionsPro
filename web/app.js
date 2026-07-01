@@ -53,6 +53,8 @@ function Flow({ questions, roundId }) {
   const [submitted, setSubmitted] = useState(false);
   // sendError: null | 'network' | 'server' (net=kurtarılabilir, server=4xx/5xx kalıcı).
   const [sendError, setSendError] = useState(null);
+  // confirmSubmit ayarı açıkken: ilk Enter/tık "silahlar", ikincisi gerçekten gönderir.
+  const [confirmArmed, setConfirmArmed] = useState(false);
   // In-flight POST guard: setSubmitted async olduğundan reject sonrası ikinci Enter'ı yakalar (B17).
   const inflight = useRef(false);
 
@@ -63,7 +65,7 @@ function Flow({ questions, roundId }) {
 
   const isSummary = current >= n;
   const ref = useRef({});
-  ref.current = { answers, current, popup, n, isSummary, submitted, sendError };
+  ref.current = { answers, current, popup, n, isSummary, submitted, sendError, confirmArmed };
 
   const inputRef = useRef(null);
   // Popup açılırken tetikleyen elemanı sakla; kapanınca odağı oraya geri ver (B-a11y return-focus).
@@ -274,6 +276,14 @@ function Flow({ questions, roundId }) {
     // Double-submit guard: submitted (render'lı) VEYA inflight (async, henüz settle olmamış)
     // her ikisi de bloklar; reject sonrası ikinci hızlı Enter mükerrer POST'u başlatamaz (B17).
     if (ref.current.submitted || inflight.current) return;
+    // confirmSubmit ayarı: ilk çağrı sadece "silahlanır" (toast gösterir), gerçek
+    // gönderim ikinci Enter/tık'ta olur.
+    const confirmOn = window.__ASKUSER_SETTINGS__ && window.__ASKUSER_SETTINGS__.confirmSubmit;
+    if (confirmOn && !ref.current.confirmArmed) {
+      setConfirmArmed(true);
+      return;
+    }
+    setConfirmArmed(false);
     const mapped = mappedAnswers(ref.current.answers);
     if (Object.keys(mapped).length === 0) return; // boş submit guard (B8)
     setSendError(null);
@@ -372,6 +382,16 @@ function Flow({ questions, roundId }) {
     return () => clearTimeout(t);
   }, [sendError]);
 
+  // confirmSubmit "silahlı" toast: ~5s dokunulmazsa iner (Summary'den ayrılınca da).
+  useEffect(() => {
+    if (!confirmArmed) return undefined;
+    const t = setTimeout(() => setConfirmArmed(false), 5000);
+    return () => clearTimeout(t);
+  }, [confirmArmed]);
+  useEffect(() => {
+    if (!isSummary) setConfirmArmed(false);
+  }, [isSummary]);
+
   return (
     <div className="app" data-panel="left" data-align="center">
       <Sidebar
@@ -438,6 +458,11 @@ function Flow({ questions, roundId }) {
             <Check c="var(--success)" />
           </span>
           Answers sent back to the agent.
+        </div>
+      )}
+      {confirmArmed && (
+        <div className="toast" role="status" aria-live="polite" aria-atomic="true">
+          Press submit again to confirm.
         </div>
       )}
       {sendError && (

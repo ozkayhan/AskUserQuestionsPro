@@ -257,6 +257,15 @@
       applies: 'reload',
       apply: function () {},
     },
+    {
+      key: 'confirmSubmit',
+      label: 'Confirm before submit',
+      group: 'Behavior',
+      type: 'toggle',
+      default: false,
+      applies: 'live',
+      apply: function () {},
+    },
   ];
 
   var BY_KEY = {};
