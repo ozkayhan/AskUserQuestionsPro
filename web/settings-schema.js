@@ -5,6 +5,32 @@
 })(typeof self !== 'undefined' ? self : this, function (Themes) {
   'use strict';
 
+  // accentColor preset renkleri — tema token'larından bağımsız sabit palet.
+  var ACCENT_PRESETS = {
+    blue: { accent: '#4d8dff', soft: 'rgba(77,141,255,0.14)', line: 'rgba(77,141,255,0.50)' },
+    green: { accent: '#22c55e', soft: 'rgba(34,197,94,0.14)', line: 'rgba(34,197,94,0.50)' },
+    purple: { accent: '#8b5cf6', soft: 'rgba(139,92,246,0.14)', line: 'rgba(139,92,246,0.50)' },
+    orange: { accent: '#f0a830', soft: 'rgba(240,168,48,0.14)', line: 'rgba(240,168,48,0.50)' },
+    red: { accent: '#ef4444', soft: 'rgba(239,68,68,0.14)', line: 'rgba(239,68,68,0.50)' },
+    pink: { accent: '#ec4899', soft: 'rgba(236,72,153,0.14)', line: 'rgba(236,72,153,0.50)' },
+  };
+
+  // Tema token-override entry'leri: Themes.apply() USED_KEYS'i silip tema token'larını
+  // yeniden yazdığından, canlı tema değişince bu entry'lerin inline override'ı kaybolur.
+  // theme apply()'ı Themes.apply(v)'den SONRA bunu çağırır → override tema base'inin üstüne
+  // yeniden yazılır. Loop yok: override entry'leri Themes.apply çağırmaz.
+  // ponytail: reapply persisted settings okur; kaydedilmemiş draft override + canlı tema
+  // değişimi aynı oturumda override'ı bir an sıfırlayabilir, ayara tekrar dokununca düzelir.
+  var TOKEN_OVERRIDE_KEYS = ['accentColor', 'cornerRadius', 'motionSpeed', 'fontFamily'];
+  function reapplyTokenOverrides() {
+    if (typeof window === 'undefined' || !window.__ASKUSER_SETTINGS__) return;
+    var v = window.__ASKUSER_SETTINGS__;
+    TOKEN_OVERRIDE_KEYS.forEach(function (key) {
+      var e = BY_KEY[key];
+      if (e && key in v) e.apply(v[key]);
+    });
+  }
+
   // ── şema: tek kaynak ──────────────────────────────────────────────
   // Her girdi: key, label, group, type (select|toggle), default, (+ options),
   // applies ('live'|'reload'), apply(v) — apply YALNIZCA tarayıcıda çağrılır.
@@ -21,6 +47,38 @@
       applies: 'live',
       apply: function (v) {
         Themes.apply(v);
+        reapplyTokenOverrides();
+      },
+    },
+    {
+      key: 'accentColor',
+      label: 'Accent color',
+      group: 'Appearance',
+      type: 'select',
+      default: 'theme',
+      options: [
+        { value: 'theme', label: 'Theme default' },
+        { value: 'blue', label: 'Blue' },
+        { value: 'green', label: 'Green' },
+        { value: 'purple', label: 'Purple' },
+        { value: 'orange', label: 'Orange' },
+        { value: 'red', label: 'Red' },
+        { value: 'pink', label: 'Pink' },
+      ],
+      applies: 'live',
+      apply: function (v) {
+        if (typeof document === 'undefined') return;
+        var root = document.documentElement;
+        var preset = ACCENT_PRESETS[v];
+        if (!preset) {
+          root.style.removeProperty('--accent');
+          root.style.removeProperty('--accent-soft');
+          root.style.removeProperty('--accent-line');
+          return;
+        }
+        root.style.setProperty('--accent', preset.accent);
+        root.style.setProperty('--accent-soft', preset.soft);
+        root.style.setProperty('--accent-line', preset.line);
       },
     },
     {
