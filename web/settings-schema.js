@@ -248,6 +248,15 @@
       applies: 'reload',
       apply: function () {},
     },
+    {
+      key: 'autoAdvance',
+      label: 'Auto-advance single-select',
+      group: 'Behavior',
+      type: 'toggle',
+      default: false,
+      applies: 'reload',
+      apply: function () {},
+    },
   ];
 
   var BY_KEY = {};

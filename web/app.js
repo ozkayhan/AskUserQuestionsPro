@@ -127,9 +127,22 @@ function Flow({ questions, roundId }) {
         case 'noop':
           return;
         case 'select':
-        case 'toggle':
+        case 'toggle': {
+          // autoAdvance: single-select ilk (armed olmayan) seçimde, custom ("Other")
+          // değilse binary gibi tek basışta onayla+ilerle. multi hep 'toggle' döndüğünden
+          // buraya girmez (B action.type==='select' guard).
+          const s = window.__ASKUSER_SETTINGS__;
+          if (action.type === 'select' && s && s.autoAdvance) {
+            const opts = fullOptions(q);
+            if (optIdx !== opts.length - 1) {
+              setQ(q.question, { sel: action.sel, confirmed: true });
+              advance(qIndex);
+              return;
+            }
+          }
           setQ(q.question, { sel: action.sel, confirmed: false });
           return;
+        }
         case 'popup':
           setPopup({ qid: q.question, optIdx: action.optIdx, draft: action.draft });
           return;

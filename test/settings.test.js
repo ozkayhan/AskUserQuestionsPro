@@ -37,6 +37,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
     qtypeScale: true,
     qtypeRanking: true,
     qtypeTree: true,
+    autoAdvance: false,
   });
 });
 
@@ -102,7 +103,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'accentColor,cornerRadius,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+    'accentColor,autoAdvance,cornerRadius,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
   );
 });
 
@@ -174,6 +175,14 @@ test('highContrast: default false, toggle tip zorlanır', () => {
   assert.strictEqual(Schema.defaults().highContrast, false);
   assert.strictEqual(Schema.validate({ highContrast: 'true' }).highContrast, false);
   assert.strictEqual(Schema.validate({ highContrast: true }).highContrast, true);
+});
+
+// ── autoAdvance ──────────────────────────────────────────────
+test('autoAdvance: default false, toggle tip zorlanır, group Behavior', () => {
+  assert.strictEqual(Schema.defaults().autoAdvance, false);
+  assert.strictEqual(Schema.validate({ autoAdvance: 'true' }).autoAdvance, false);
+  assert.strictEqual(Schema.validate({ autoAdvance: true }).autoAdvance, true);
+  assert.strictEqual(Schema.byKey('autoAdvance').group, 'Behavior');
 });
 
 // ── qtype toggles ──────────────────────────────────────────────
