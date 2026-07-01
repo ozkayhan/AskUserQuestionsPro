@@ -39,6 +39,7 @@ test('defaults: theme/uiScale/reduceMotion + qtype toggles', () => {
     qtypeTree: true,
     autoAdvance: false,
     confirmSubmit: false,
+    showKeyHints: true,
   });
 });
 
@@ -104,7 +105,7 @@ test('validate bilinmeyen key atılır, eksik doldurulur', () => {
   assert.strictEqual(v.uiScale, 'md', 'eksik default ile dolar');
   assert.strictEqual(
     Object.keys(v).sort().join(','),
-    'accentColor,autoAdvance,confirmSubmit,cornerRadius,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,theme,uiScale'
+    'accentColor,autoAdvance,confirmSubmit,cornerRadius,fontFamily,highContrast,motionSpeed,qtypeBinary,qtypeRanking,qtypeScale,qtypeTree,reduceMotion,showKeyHints,theme,uiScale'
   );
 });
 
@@ -192,6 +193,14 @@ test('confirmSubmit: default false, toggle tip zorlanır, group Behavior', () =>
   assert.strictEqual(Schema.validate({ confirmSubmit: 'true' }).confirmSubmit, false);
   assert.strictEqual(Schema.validate({ confirmSubmit: true }).confirmSubmit, true);
   assert.strictEqual(Schema.byKey('confirmSubmit').group, 'Behavior');
+});
+
+// ── showKeyHints ──────────────────────────────────────────────
+test('showKeyHints: default true, toggle tip zorlanır, group Interface', () => {
+  assert.strictEqual(Schema.defaults().showKeyHints, true);
+  assert.strictEqual(Schema.validate({ showKeyHints: 'false' }).showKeyHints, true);
+  assert.strictEqual(Schema.validate({ showKeyHints: false }).showKeyHints, false);
+  assert.strictEqual(Schema.byKey('showKeyHints').group, 'Interface');
 });
 
 // ── qtype toggles ──────────────────────────────────────────────

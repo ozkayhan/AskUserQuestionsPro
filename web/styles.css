@@ -934,6 +934,13 @@ button {
   --accent-line: color-mix(in srgb, var(--accent) 85%, white);
 }
 
+/* showKeyHints=false: hide keyboard hint badges (legend + card kbd-group) but
+   keep aria-keyshortcuts — this is a visual-only toggle. */
+[data-hide-hints='true'] .kbd,
+[data-hide-hints='true'] .kbd-group {
+  display: none;
+}
+
 /* ── tablet: keep both panels, tighten gutters ── */
 @media (max-width: 1024px) {
   .stage {
