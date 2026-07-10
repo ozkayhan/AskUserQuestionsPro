@@ -9,24 +9,48 @@ npm test        # node --test (whole suite)
 node --test test/bridge.test.js   # one file
 ```
 
-CI runs `npm install && npm test` on Node 18, 20, 22
+CI runs `npm ci && npm test` on Node 18, 20, 22
 (`.github/workflows/ci.yml`).
 
 ## Layout
 
-One test file per module in `test/`:
+There are 24 top-level `*.test.js` files:
 
-| Test file                    | Covers                                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `test/answer-map.test.js`    | `web/answer-map.js` — `mapAnswers`, `decideActivate`, `savePopupState` (pure selection logic).               |
-| `test/bridge.test.js`        | `server/bridge.js` — single-flight submit/resolve/cancel/peek.                                               |
-| `test/bridge-client.test.js` | `lib/bridge-client.mjs` — server bootstrap / `askBridge`.                                                    |
-| `test/server.test.js`        | `server/server.js` — HTTP endpoints, SSE, validation, `index.html` settings injection, `POST /settings`.     |
-| `test/settings.test.js`      | `lib/settings.js` + `web/settings-schema.js` — disk read/write/atomicity, self-heal, schema validate/coerce. |
-| `test/hook-output.test.js`   | `hooks/hook-output.js` — `buildHookOutput` payload shape.                                                    |
-| `test/install.test.js`       | `bin/install.js` — `addHook`/`removeHook` status transitions.                                                |
-| `test/mcp-server.test.js`    | `mcp-server/askuserquestionspro-mcp.mjs` — JSON-RPC handling, `ask` tool.                                    |
-| `test/themes.test.js`        | `web/themes.js` — theme registry, token application.                                                         |
+`evals/askpro-skill-cases.json` contains positive and negative payload cases,
+including the string-options failure that prompted the contract hardening.
+`test/skill-evals.test.js` runs those cases against the shared validator and
+asserts that the skill explicitly teaches the invariant and its recovery path.
+
+| Test file                        | Covers                                                                                    |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `answer-map.test.js`             | Pure answer mapping and activation decisions.                                             |
+| `bridge-client.test.js`          | Server bootstrap, pending-round wait, browser/client behavior, and timeout typing.        |
+| `bridge.test.js`                 | Single-flight submit/resolve/cancel/round identity.                                       |
+| `changesets-config.test.js`      | Changesets configuration.                                                                 |
+| `cli.test.js`                    | CLI help/settings/doctor plus Codex-only install/doctor/uninstall isolation.              |
+| `eslint-prettier-config.test.js` | Lint and formatting configuration invariants.                                             |
+| `hook-output.test.js`            | Claude `PreToolUse` output filtering and shape.                                           |
+| `host-platforms.test.js`         | Target parsing/selection, macOS bundled Codex discovery, host MCP argv, and skill paths.  |
+| `install.test.js`                | Claude hook settings mutations and conflict handling.                                     |
+| `live.test.js`                   | Browser SSE and answer-posting helpers.                                                   |
+| `mcp-server.test.js`             | JSON-RPC lifecycle/version negotiation, cancellation, schema, instructions, and metadata. |
+| `server.test.js`                 | HTTP/SSE/static/settings behavior, validation fuzzing, and round-safe wire flow.          |
+| `shell-lifecycle.test.js`        | Target-specific shell cleanup preserves the runtime used by the other host.               |
+| `settings-panel.test.js`         | Settings panel behavior.                                                                  |
+| `settings-schema.test.js`        | Settings schema validation/coercion.                                                      |
+| `settings.test.js`               | Disk read/write, atomicity, self-heal, and concurrency.                                   |
+| `themes.test.js`                 | Theme registry and token application.                                                     |
+| `ui-kit.test.js`                 | Shared UI primitives and type-specific Other-option behavior.                             |
+| `views-a11y.test.js`             | Accessibility structure and annotations.                                                  |
+| `views.test.js`                  | Question and summary view rendering behavior.                                             |
+| `workflows-ci.test.js`           | CI workflow guards.                                                                       |
+| `workflows-release.test.js`      | Release workflow guards.                                                                  |
+
+The multi-host additions are deliberately split: `host-platforms.test.js`
+owns pure selection/discovery/command contracts, `cli.test.js` proves a Codex
+target does not touch Claude state, `shell-lifecycle.test.js` protects shared
+runtime ownership, and `mcp-server.test.js` proves the metadata that helps both
+hosts discover and consume the tool.
 
 ## Isolation helper (`test/helpers/isolation.js`)
 

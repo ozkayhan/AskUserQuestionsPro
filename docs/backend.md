@@ -1,7 +1,8 @@
 # Backend
 
-Everything Node-side: the bridge server, the shared client, the hook, the MCP
-server, the CLI, and install. Zero npm dependencies — Node core only.
+Everything Node-side: the host-neutral bridge/server core, the Claude hook,
+the shared MCP server, host adapters, CLI, and installers. Zero runtime npm
+dependencies — Node core only.
 
 ## Bridge server (`server/server.js`)
 
@@ -47,9 +48,9 @@ disconnected', myId)` where `myId` is the round id captured at submit time
 - `GET /health` responds `{ ok: true, app: APP_ID }` — the `app` field lets
   the client verify it is talking to this server, not a stale or foreign
   process on the same port.
-- `server.requestTimeout = 0` — disables Node's default 5-minute request
-  timeout so long `/ask` waits (up to 1 hour) are never server-side cut off;
-  the real deadline is managed by the client's `AbortController`.
+- `server.requestTimeout = 0` — disables Node's server-side request deadline;
+  the application deadline is the client's one-hour `AbortController`. A
+  host may impose a separate MCP timeout, which this project does not assume.
 - `server.on('error')` — EADDRINUSE → `exit(0)` (silent, expected race on
   daemon spawn); other errors → `log('server', e)` + `exit(1)` (no silent
   orphan).
@@ -72,7 +73,13 @@ cross-round answer mix-up structurally impossible: a late `/answer` carrying
 the previous round's id is rejected by `provideAnswers` before it can silently
 resolve the new round.
 
-## Shared client (`lib/bridge-client.mjs`)
+## Shared validation and client
+
+`lib/question-contract.cjs` is the single validation source shared by the HTTP
+bridge and MCP preflight. It rejects malformed option strings before any
+browser or bridge work begins and returns actionable errors.
+
+`lib/bridge-client.mjs` is shared by the hook and MCP server.
 
 Used by both the hook and the MCP server. Port/base from `ASKUSER_PORT`
 (default `4517`), base `http://127.0.0.1:${PORT}`.
@@ -84,17 +91,20 @@ Used by both the hook and the MCP server. Port/base from `ASKUSER_PORT`
   `inflight` promise. Spawn errors (ENOENT, permission) are surfaced via
   `log('bridge', e)` instead of silently swallowed.
 - `waitForPending({ timeoutMs?, intervalMs? })` — polls `GET /current` until
-  `body.id != null` or the deadline passes. Used by the hook to delay
-  `openBrowser()` until the round is registered server-side (race guard).
+  `body.id != null` or the deadline passes. Used by both the hook and MCP
+  server to delay `openBrowser()` until the round is registered (race guard).
 - `openBrowser()` — OS opener: `open` (macOS), `cmd /c start` (Windows),
   `xdg-open` (Linux), pointed at the base URL. Errors reported via
   `log('browser', e)`.
 - `askBridge(questions, { timeoutMs })` — `POST /ask`; returns the answers
-  array or throws. Uses `AbortController` for the timeout. Abort → typed
-  `TimeoutError` (distinguishable from network / HTTP errors by callers).
+  object or throws. Uses `AbortController` for the timeout. Abort → typed
+  `TimeoutError`; HTTP failures preserve status and `{error}` as typed
+  `BridgeError` instances instead of being hidden by pending-round polling.
   JSON parse failure on the response → descriptive Error (not silent).
 - `TimeoutError` — exported class; `name === 'TimeoutError'`; thrown only on
   `AbortController` timeout (not on HTTP errors or JSON failures).
+- `BridgeError` — exported class with `status` and parsed `body`; used to show
+  actionable validation failures such as the required `{label}` option shape.
 
 ## Settings persistence (`lib/settings.js` + `web/settings-schema.js`)
 
@@ -132,16 +142,18 @@ killed writers). Orphan `.tmp` files are cleaned up on failure. Consumed by
 
 ## Hook (`hooks/askuserquestionspro-bridge.mjs` + `hooks/hook-output.js`)
 
-The `PreToolUse` interceptor for native `AskUserQuestion` (≤4 questions).
-Executable `.mjs`. Flow:
+The Claude Code-only `PreToolUse` interceptor for native `AskUserQuestion`
+(≤4 questions). Codex hooks cannot return answers as a native
+`request_user_input` result, so its adapter uses MCP + skill guidance instead.
+The hook is an executable `.mjs`. Flow:
 
 1. Read JSON from stdin; expect `input.tool_input.questions`.
 2. If `ASKUI_FORCE_MCP` is set → **deny** the native call with a reason telling
    Claude to use `mcp__askuserquestionspro__ask` instead. (Opt-in: always use
    the unlimited MCP path.)
-3. `ensureServer()` → `waitForPending()` (polls `/current` until the round
-   appears; prevents opening the browser before the question is registered) →
-   `openBrowser()` → `askBridge(questions, {timeoutMs: 60 min})`.
+3. `ensureServer()` → start `askBridge(questions, {timeoutMs: 60 min})` →
+   `waitForPending()` until the round appears → `openBrowser()` → await the
+   open request. The browser never opens before the server exposes the round.
 4. Wrap answers with `buildHookOutput()` and write to stdout via
    `writeAndExit()` (flushes stdout before exiting to avoid EPIPE truncation).
 
@@ -180,8 +192,9 @@ reporting with a single consistent output line.
 ## MCP server (`mcp-server/askuserquestionspro-mcp.mjs`)
 
 JSON-RPC 2.0 over stdio (STDOUT = protocol, STDERR = logs). Zero deps.
-Exposes one tool, `ask` (full name `mcp__askuserquestionspro__ask`) — the
-**unlimited-questions** path.
+Exposes one host-neutral tool, `ask` (full name
+`mcp__askuserquestionspro__ask`) to Claude Code, Codex CLI, and ChatGPT
+Desktop. Its `questions` schema has no `maxItems` limit.
 
 Methods: `initialize`, `tools/list`, `tools/call`, `ping`. Notifications
 (`id === undefined`) are logged and ignored. Reads line-delimited JSON from
@@ -189,11 +202,30 @@ STDIN, buffering partial lines. On STDIN `end`, any trailing buffered line is
 flushed and attempted to parse; JSON parse errors there are logged to STDERR
 (not silently swallowed).
 
-`handleAsk(args)` imports `ensureServer/openBrowser/askBridge` from
-`lib/bridge-client.mjs`, ensures the server, opens the browser, and calls
-`askBridge(questions, {timeoutMs: 60 min})`. Returns answers as JSON text.
-Server-down / timeout / cancel → a fallback message suggesting the built-in
-tool. All-skipped → `{ answers: {} }`.
+Initialization supports MCP `2025-11-25`, `2025-06-18`, and `2024-11-05`. An
+unknown requested version is negotiated to the current supported `2025-11-25`
+value instead of being echoed as if it were supported.
+
+`handleAsk(args)` first runs the shared question validator, then imports
+`ensureServer/openBrowser/askBridge/waitForPending` from
+`lib/bridge-client.mjs`. It starts the round, waits until it is pending, then
+opens the browser and awaits the one-hour application deadline. Early HTTP
+validation failures race the pending poll, so they are returned immediately.
+Success returns
+the same `{answers}` object as both JSON text `content` and
+`structuredContent`; all-skipped returns `{ answers: {} }` through both
+channels. Failure returns `isError` guidance to use the host-native user-input
+tool (`request_user_input` in Codex, `AskUserQuestion` in Claude Code).
+If pending-round registration fails, the caller aborts its `/ask` request so the
+single-flight bridge is not left occupied.
+`notifications/cancelled` also aborts the controller associated with the
+in-flight JSON-RPC request id and suppresses its now-unused response.
+
+The tool publishes an `outputSchema` requiring an `answers` object and these
+annotations: `readOnlyHint: true`, `destructiveHint: false`,
+`openWorldHint: false`, and `idempotentHint: false`. The `initialize` response
+includes server instructions recommending the rich UI and host-native
+fallback. These metadata complement the installed `askpro` skill.
 
 Tool input schema: see [api.md](api.md).
 
@@ -203,13 +235,13 @@ Tool input schema: see [api.md](api.md).
 
 | Command     | What it does                                                                                                                                                                                                                 |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`      | Alias for `install`.                                                                                                                                                                                                         |
-| `install`   | Register the `PreToolUse` hook in `~/.claude/settings.json` and register the MCP server via `claude mcp add --scope user askuserquestionspro -- node <mcp>`.                                                                 |
-| `uninstall` | Remove the hook entry from settings.                                                                                                                                                                                         |
+| `init`      | Alias for `install`; accepts the same target selector.                                                                                                                                                                       |
+| `install`   | For each selected host, deploy the native skill path and register MCP; for Claude, also install the `PreToolUse` hook.                                                                                                       |
+| `uninstall` | Remove each selected host's MCP registration and skill; for Claude, also remove the hook.                                                                                                                                    |
 | `serve`     | Run `server/server.js` in foreground (debug).                                                                                                                                                                                |
 | `mcp`       | Run the MCP stdio server in foreground (debug).                                                                                                                                                                              |
 | `settings`  | `settings` / `settings list` prints all entries + the config file path; `settings get <key>` prints one value; `settings set <key> <val>` coerces + writes via `lib/settings.js` (unknown key / invalid value → error exit). |
-| `doctor`    | Health check: hook present, hook file exists, bridge server reachable, MCP registered, settings file status (`_v` + resolved values, or defaults if missing/corrupt).                                                        |
+| `doctor`    | Per selected host: hook status (Claude), skill, executable, and MCP registration; then package files, optional bridge health, and settings. Accepts the same `--target` values.                                              |
 | `help`      | Usage.                                                                                                                                                                                                                       |
 
 `bin/install.js` — pure settings manipulation (testable):
@@ -225,14 +257,35 @@ Tool input schema: see [api.md](api.md).
 - Hook entry: `matcher: 'AskUserQuestion'`, command `node "<hookAbsPath>"`,
   `timeout: 3600`.
 
+### Host platform adapter (`lib/host-platforms.cjs`)
+
+- Valid targets: `auto`, `all`, `claude`, `codex`.
+- On install, `auto` selects discovered executables and prepares Claude files
+  when no host is detected for backward compatibility. Doctor/uninstall also
+  detect residual skill, hook, or Codex config artifacts when an executable was
+  removed.
+- Executable overrides: `ASKUI_CLAUDE_BIN`, `ASKUI_CODEX_BIN`.
+- Codex discovery checks `codex` on `PATH`, then macOS bundled executables in
+  `/Applications/ChatGPT.app/Contents/Resources/codex` and
+  `/Applications/Codex.app/Contents/Resources/codex`.
+- Skill destinations: `~/.claude/skills/askpro` and
+  `~/.agents/skills/askpro`.
+- Claude MCP commands use `claude mcp ... --scope user`; Codex commands use
+  `codex mcp ...`. The latter configuration is shared by Codex CLI and the
+  Codex surface in ChatGPT Desktop.
+- MCP registration persists the absolute `process.execPath` for Node so a
+  GUI-launched desktop host does not depend on the user's interactive-shell
+  `PATH`. Codex doctor verifies that executable and the exact MCP script path.
+
 ## Install script (`install.sh`)
 
-`curl | bash`-friendly. Downloads/extracts the repo if needed, copies
-`hooks/ web/ server/ lib/ mcp-server/` to
-`~/.local/share/askuserquestionspro/`, ensures `~/.claude/settings.json`,
-idempotently registers the hook via `jq` (or prints manual steps), and
-registers the MCP server (`claude mcp remove` then `claude mcp add --scope
-user ...`).
+`curl | bash`-friendly. Accepts `--target auto|all|claude|codex`,
+downloads/extracts the repo, copies the runtime plus `skill/` to
+`~/.local/share/askuserquestionspro/`, then delegates host registration and
+doctor verification to the bundled CLI. Claude gets its hook, MCP entry, and
+`~/.claude/skills/askpro`; Codex gets its MCP entry and
+`~/.agents/skills/askpro`. On macOS the shell path also searches matching
+bundled executables under `~/Applications`.
 
 Shell hardening applied: uses `WORKDIR` (not `TMPDIR`) to avoid shadowing the
 env var; single-quotes the `trap` argument; validates the `jq` output with
@@ -243,9 +296,11 @@ command string rather than exact object equality).
 
 ## Clean reinstall script (`reinstall.sh`)
 
-Idempotent, `set -uo pipefail`. Steps: (1) kill any running bridge process on
-`ASKUSER_PORT` (default 4517) — sends SIGTERM, waits up to 10×100ms, then
-SIGKILL if still alive; (2) remove `~/.local/share/askuserquestionspro/`,
-`~/.config/askuserquestionspro/` (UI settings), and the hook+MCP registration;
-(3) clone the repo fresh from GitHub and re-run `install.sh`. Use this to
-recover from a corrupted install or to pick up a breaking-change update.
+`reinstall.sh` passes `--target auto|all|claude|codex` unchanged through
+uninstall and install. `uninstall.sh` removes bridge processes plus the selected
+hosts' registrations and skills. For a host-specific uninstall it preserves the
+shared runtime, UI settings, and npm package when the other host still has an
+adapter pointing at them; when every installed host is removed it deletes the
+shared files too. It keeps cleaning after individual failures and verifies
+residues. Reinstall continues to the idempotent install even when cleanup
+reports a recoverable residue.

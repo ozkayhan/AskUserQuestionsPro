@@ -115,14 +115,14 @@ trivial to filter and identify the failing component.
 
 New shared primitives created once, tested once, reused across the codebase:
 
-| Artifact                                                                         | Purpose                                                                                                                    | Reused by                                          | Closes                                      |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------- |
-| `lib/log.cjs` — `log(scope, x)`                                                  | Structured stderr logger (Contract L)                                                                                      | hook, bridge-client, settings, server              | Theme A + E                                 |
-| `lib/atomic-write.cjs` — `writeFileAtomic(file, data)`                           | `.tmp.<pid>` + `rename` + `O_EXCL` lock                                                                                    | `lib/settings.js`, `bin/install.js`                | Critical #1 (data loss on concurrent write) |
-| `server/server.js` — deepened `validQuestions` + `validLabel` + `checkTreeNodes` | Single validation authority                                                                                                | `/ask`, `/answer` (hook + MCP funnel here)         | Theme B input class                         |
-| `test/helpers/isolation.js` — `withClean(t, fn)`                                 | Test isolation (Contract T)                                                                                                | all stateful tests                                 | Theme D                                     |
+| Artifact                                                                         | Purpose                                                                                                                           | Reused by                                          | Closes                                      |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------- |
+| `lib/log.cjs` — `log(scope, x)`                                                  | Structured stderr logger (Contract L)                                                                                             | hook, bridge-client, settings, server              | Theme A + E                                 |
+| `lib/atomic-write.cjs` — `writeFileAtomic(file, data)`                           | `.tmp.<pid>` + `rename` + `O_EXCL` lock                                                                                           | `lib/settings.js`, `bin/install.js`                | Critical #1 (data loss on concurrent write) |
+| `server/server.js` — deepened `validQuestions` + `validLabel` + `checkTreeNodes` | Single validation authority                                                                                                       | `/ask`, `/answer` (hook + MCP funnel here)         | Theme B input class                         |
+| `test/helpers/isolation.js` — `withClean(t, fn)`                                 | Test isolation (Contract T)                                                                                                       | all stateful tests                                 | Theme D                                     |
 | Contract R — round `id` ownership                                                | `provideAnswers(id, answers)` + `cancel(reason, expectedId)` + `/answer` body `{id, answers: {...}}` + `postAnswers(id, answers)` | bridge, server, live.js, app.js                    | Cross-round answer mix-up (the #1 theme)    |
-| Contract W — settings write result                                               | `write(patch) → { ok, value, error? }`                                                                                     | `lib/settings.js` → `POST /settings`, `bin/cli.js` | Fake-success on disk failure                |
+| Contract W — settings write result                                               | `write(patch) → { ok, value, error? }`                                                                                            | `lib/settings.js` → `POST /settings`, `bin/cli.js` | Fake-success on disk failure                |
 
 These consolidations **reduce** total scattered logic while adding tests and
 guards. Net code complexity goes down; safety goes up.
@@ -131,15 +131,15 @@ guards. Net code complexity goes down; safety goes up.
 
 ## CI guards summary
 
-| Guard                                                                       | Catches                                                 |
-| --------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `no-empty { allowEmptyCatch: false }` (ESLint, all Node files)              | New silent swallow (Theme A)                            |
-| `react-hooks/rules-of-hooks` + `exhaustive-deps` (ESLint, `web/**`)         | New stale-ref / missing dep (Theme C)                   |
-| `shellcheck install.sh reinstall.sh` (CI lint job)                          | Shell-quoting / portability regressions (Theme B shell) |
-| SHA-pinned `actions/checkout` + `actions/setup-node`                        | Workflow supply-chain substitution                      |
-| Validator fuzz tests (server.test.js)                                       | Validation regression (Theme B)                         |
+| Guard                                                                        | Catches                                                 |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `no-empty { allowEmptyCatch: false }` (ESLint, all Node files)               | New silent swallow (Theme A)                            |
+| `react-hooks/rules-of-hooks` + `exhaustive-deps` (ESLint, `web/**`)          | New stale-ref / missing dep (Theme C)                   |
+| `shellcheck install.sh reinstall.sh` (CI lint job)                           | Shell-quoting / portability regressions (Theme B shell) |
+| SHA-pinned `actions/checkout` + `actions/setup-node`                         | Workflow supply-chain substitution                      |
+| Validator fuzz tests (server.test.js)                                        | Validation regression (Theme B)                         |
 | Wire round-trip tests (correct id resolves, stale → 409, object check → 400) | Contract R regression                                   |
-| `withClean` in every stateful test                                          | Global-state leak (Theme D)                             |
+| `withClean` in every stateful test                                           | Global-state leak (Theme D)                             |
 
 ---
 

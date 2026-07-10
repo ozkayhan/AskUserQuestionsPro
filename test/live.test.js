@@ -57,7 +57,11 @@ test('postAnswers 10s timeout: hung fetch abort sinyaliyle reddedilir', async (t
       })
   );
   // Sahte zamanlayıcı ile 10s'i ilerlet — gerçek bekleme yok.
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  if (Number(process.versions.node.split('.')[0]) >= 20) {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+  } else {
+    t.mock.timers.enable(['setTimeout']);
+  }
   const p = postAnswers('id', {});
   t.mock.timers.tick(10000);
   await assert.rejects(p, (err) => err.name === 'AbortError');

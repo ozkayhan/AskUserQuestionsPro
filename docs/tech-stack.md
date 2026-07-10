@@ -48,22 +48,23 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
 - **Packaging:** npm. `bin` exposes two executables:
   - `askuserquestionspro` → `bin/cli.js`
   - `askuserquestionspro-mcp` → `mcp-server/askuserquestionspro-mcp.mjs`
-  - `files` whitelist: `bin/ hooks/ server/ lib/ mcp-server/ web/ install.sh README.md LICENSE`.
+  - `files` whitelist: `bin/ hooks/ server/ lib/ mcp-server/ web/ skill/`, the
+    install/uninstall/reinstall scripts, `README.md`, and `LICENSE`.
 
 ## npm scripts
 
-| Script         | Command                                       | Purpose                                |
-| -------------- | --------------------------------------------- | -------------------------------------- |
-| `test`         | `node --test`                                 | Run the full test suite                |
-| `serve`        | `node server/server.js`                       | Start the bridge server in foreground  |
-| `mcp`          | `node mcp-server/askuserquestionspro-mcp.mjs` | Run the MCP stdio server               |
-| `install-hook` | `node bin/cli.js install`                     | Register hook + MCP in Claude settings |
-| `lint`         | `eslint .`                                    | Lint all non-excluded source files     |
-| `format`       | `prettier --write .`                          | Auto-format all files                  |
-| `format:check` | `prettier --check .`                          | Check formatting (used in CI)          |
-| `changeset`    | `changeset`                                   | Add a changeset for release tracking   |
-| `version`      | `changeset version`                           | Bump versions per pending changesets   |
-| `release`      | `changeset publish`                           | Publish to npm (run by release.yml)    |
+| Script         | Command                                       | Purpose                                               |
+| -------------- | --------------------------------------------- | ----------------------------------------------------- |
+| `test`         | `node --test`                                 | Run the full test suite                               |
+| `serve`        | `node server/server.js`                       | Start the bridge server in foreground                 |
+| `mcp`          | `node mcp-server/askuserquestionspro-mcp.mjs` | Run the MCP stdio server                              |
+| `install-hook` | `node bin/cli.js install`                     | Auto-detect hosts; register adapters, MCP, and skills |
+| `lint`         | `eslint .`                                    | Lint all non-excluded source files                    |
+| `format`       | `prettier --write .`                          | Auto-format all files                                 |
+| `format:check` | `prettier --check .`                          | Check formatting (used in CI)                         |
+| `changeset`    | `changeset`                                   | Add a changeset for release tracking                  |
+| `version`      | `changeset version`                           | Bump versions per pending changesets                  |
+| `release`      | `changeset publish`                           | Publish to npm (run by release.yml)                   |
 
 ## Config / environment
 
@@ -71,8 +72,12 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
   `lib/bridge-client.mjs`, and `bin/cli.js`.
 - `ASKUI_FORCE_MCP` — if set, the hook **denies** native `AskUserQuestion`
   calls and tells Claude to use `mcp__askuserquestionspro__ask` instead
-  (opt-in "always use the unlimited path"). Read by
+  (Claude-only opt-in; it does not intercept Codex `request_user_input`). Read by
   `hooks/askuserquestionspro-bridge.mjs`.
+- `ASKUI_CLAUDE_BIN` / `ASKUI_CODEX_BIN` — override executable discovery for
+  host install, doctor, and uninstall operations.
+- `ASKUSER_TARGET` — default shell-script target when `--target` is omitted;
+  accepted values are `auto`, `all`, `claude`, and `codex`.
 - `XDG_CONFIG_HOME` — base dir for the persisted settings file
   (`$XDG_CONFIG_HOME/askuserquestionspro/settings.json`, default
   `~/.config`). Read by `lib/settings.js`.

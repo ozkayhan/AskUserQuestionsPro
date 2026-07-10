@@ -1,15 +1,85 @@
 #!/usr/bin/env bash
 # askuserquestionspro — production-grade kurulum.
 # GitHub'dan TAZE çeker (git clone, fallback curl-zip), kalıcı konuma kurar,
-# hook + MCP kaydını repo'nun bundled Node logic'iyle yapar ve KESİN doğrular.
+# Claude Code ve/veya Codex için hook + MCP kaydını bundled Node logic'iyle yapar
+# ve KESİN doğrular.
 # npm KULLANMAZ. Idempotent: tekrar tekrar çalıştırılabilir.
 set -euo pipefail
 
 REPO_URL="https://github.com/ozkayhan/AskUserQuestionsPro"
 BRANCH="main"
 INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
-SETTINGS="$HOME/.claude/settings.json"
-SKILL_DEST="$HOME/.claude/skills/askpro"
+CLAUDE_SKILL_DEST="$HOME/.claude/skills/askpro"
+CODEX_SKILL_DEST="$HOME/.agents/skills/askpro"
+TARGET="${ASKUSER_TARGET:-auto}"
+
+usage() {
+  cat <<'EOF'
+Kullanım: install.sh [--target auto|all|claude|codex]
+
+  auto    Kurulu Claude Code ve Codex/ChatGPT Desktop yüzeylerini keşfeder (varsayılan)
+  all     Claude Code ve Codex'in ikisini de yapılandırır
+  claude  Yalnız Claude Code'u yapılandırır
+  codex   Yalnız Codex App/CLI ve ChatGPT Desktop'ı yapılandırır
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --target)
+      [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+      TARGET="$2"; shift 2
+      ;;
+    --target=*) TARGET=${1#*=}; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'Bilinmeyen argüman: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+case "$TARGET" in
+  auto|all|claude|codex) ;;
+  *) printf 'Geçersiz target: %s\n' "$TARGET" >&2; usage >&2; exit 2 ;;
+esac
+
+claude_is_available() {
+  if [ -n "${ASKUI_CLAUDE_BIN:-}" ]; then
+    [ -x "$ASKUI_CLAUDE_BIN" ]
+    return $?
+  fi
+  command -v claude >/dev/null 2>&1
+}
+
+codex_is_available() {
+  if [ -n "${ASKUI_CODEX_BIN:-}" ]; then
+    [ -x "$ASKUI_CODEX_BIN" ]
+    return $?
+  fi
+  command -v codex >/dev/null 2>&1 && return 0
+  for candidate in \
+    "/Applications/ChatGPT.app/Contents/Resources/codex" \
+    "/Applications/Codex.app/Contents/Resources/codex" \
+    "$HOME/Applications/ChatGPT.app/Contents/Resources/codex" \
+    "$HOME/Applications/Codex.app/Contents/Resources/codex"
+  do
+    [ -x "$candidate" ] && return 0
+  done
+  return 1
+}
+
+CLAUDE_SELECTED=0
+CODEX_SELECTED=0
+case "$TARGET" in
+  all) CLAUDE_SELECTED=1; CODEX_SELECTED=1 ;;
+  claude) CLAUDE_SELECTED=1 ;;
+  codex) CODEX_SELECTED=1 ;;
+  auto)
+    claude_is_available && CLAUDE_SELECTED=1
+    codex_is_available && CODEX_SELECTED=1
+    # Bundled CLI da host bulunmadığında geriye uyumluluk için Claude dosyalarını hazırlar.
+    if [ "$CLAUDE_SELECTED" -eq 0 ] && [ "$CODEX_SELECTED" -eq 0 ]; then
+      CLAUDE_SELECTED=1
+    fi
+    ;;
+esac
 
 # ── log helper'ları (TTY değilse renksiz) ───────────────────────────────────
 if [ -t 1 ]; then
@@ -29,7 +99,7 @@ die()  { err "$*"; exit 1; }
 CURRENT_STEP="başlangıç"
 trap 'err "Kurulum \"$CURRENT_STEP\" adımında başarısız oldu (satır $LINENO)."' ERR
 
-printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kurulumu${C_RESET}"
+printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kurulumu — Claude Code + Codex (target: $TARGET)${C_RESET}"
 
 # ── 1/6 Preflight ───────────────────────────────────────────────────────────
 CURRENT_STEP="ön koşul kontrolü"
@@ -43,13 +113,22 @@ if [ "$HAVE_GIT" -eq 0 ] && [ "$HAVE_ZIP" -eq 0 ]; then
 fi
 if [ "$HAVE_GIT" -eq 1 ]; then ok "git mevcut"; else warn "git yok — curl-zip fallback kullanılacak"; fi
 
-# ── 2/6 Kaynağı GitHub'dan çek ───────────────────────────────────────────────
+# ── 2/6 Kaynağı GitHub'dan çek veya yerel kaynaktan kur ─────────────────────
 CURRENT_STEP="kaynağı GitHub'dan çekme"
-step "2/6  Kaynak GitHub'dan çekiliyor ($BRANCH)"
+SOURCE_OVERRIDE="${ASKUSER_SOURCE_DIR:-}"
+if [ -n "$SOURCE_OVERRIDE" ]; then
+  step "2/6  Yerel kaynak kullanılıyor ($SOURCE_OVERRIDE)"
+else
+  step "2/6  Kaynak GitHub'dan çekiliyor ($BRANCH)"
+fi
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 SRC=""
-if [ "$HAVE_GIT" -eq 1 ]; then
+if [ -n "$SOURCE_OVERRIDE" ]; then
+  [ -d "$SOURCE_OVERRIDE" ] || die "yerel kaynak dizini yok: $SOURCE_OVERRIDE"
+  SRC="$(cd "$SOURCE_OVERRIDE" && pwd)"
+  ok "yerel kaynak hazır"
+elif [ "$HAVE_GIT" -eq 1 ]; then
   if git clone --depth 1 --branch "$BRANCH" "$REPO_URL.git" "$WORKDIR/src" >/dev/null 2>&1; then
     SRC="$WORKDIR/src"
     ok "git clone tamam"
@@ -75,7 +154,7 @@ REQUIRED=(
   "bin/cli.js" "bin/install.js"
   "hooks/askuserquestionspro-bridge.mjs"
   "mcp-server/askuserquestionspro-mcp.mjs"
-  "lib/settings.js" "web/settings-schema.js"
+  "lib/settings.js" "web/settings-schema.js" "skill/askpro/SKILL.md"
 )
 for f in "${REQUIRED[@]}"; do
   [ -e "$SRC/$f" ] || die "eksik dosya: $f (yarım/bozuk indirme?)"
@@ -87,7 +166,7 @@ CURRENT_STEP="dosyaların kalıcı konuma kopyalanması"
 step "4/6  Dosyalar kuruluyor → $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 # Bayat içerik kalmasın diye kuruluma giren tüm alt dizinleri önce temizle.
-for d in bin hooks web server lib mcp-server; do
+for d in bin hooks web server lib mcp-server skill; do
   rm -rf "${INSTALL_DIR:?}/$d"
   [ -d "$SRC/$d" ] && cp -R "$SRC/$d" "$INSTALL_DIR/"
 done
@@ -97,23 +176,15 @@ ok "dosyalar kopyalandı"
 
 # ── 5/6 Hook + MCP kaydı + skill (bundled Node logic) ───────────────────────
 CURRENT_STEP="hook, MCP ve skill kaydı"
-step "5/6  Hook + MCP + skill kaydediliyor (bundled, atomic, jq'suz)"
-mkdir -p "$HOME/.claude"
+step "5/6  Claude/Codex MCP, hook ve skill kaydediliyor (target: $TARGET)"
 # cli.js kendi konumuna (INSTALL_DIR) göre path kurar → kalıcı yola işaret eder.
-if ! node "$INSTALL_DIR/bin/cli.js" install; then
-  die "hook/MCP kaydı başarısız. settings.json'da çakışan AskUserQuestion hook'u olabilir (#15897) — elle kontrol: $SETTINGS"
+if ! node "$INSTALL_DIR/bin/cli.js" install --target "$TARGET"; then
+  die "Claude/Codex kaydı başarısız. Tanı: node \"$INSTALL_DIR/bin/cli.js\" doctor --target \"$TARGET\""
 fi
-ok "hook + MCP kaydı tamam"
-# askpro skill'ini repo'dan deploy et (clone ile gelir). Yoksa uyar (eski main'de olmayabilir).
-if [ -f "$SRC/skill/askpro/SKILL.md" ]; then
-  mkdir -p "$HOME/.claude/skills"
-  rm -rf "$SKILL_DEST"
-  cp -R "$SRC/skill/askpro" "$SKILL_DEST"
-  ok "askpro skill kuruldu → $SKILL_DEST"
-else
-  warn "skill kaynağı yok ($SRC/skill/askpro) — GitHub main'e henüz push edilmemiş olabilir; skill atlandı"
-fi
+ok "bundled host kaydı tamam"
 
+# Bundled CLI skill'i kalıcı paketteki `skill/askpro` kaynağından ilgili host
+# dizinine deploy eder; shell katmanı yalnız doğrular.
 # ── 6/6 Doğrulama ────────────────────────────────────────────────────────────
 CURRENT_STEP="kurulum doğrulaması"
 step "6/6  Kurulum doğrulanıyor"
@@ -121,41 +192,29 @@ VERIFY_FAIL=0
 
 if [ -d "$INSTALL_DIR" ]; then ok "dosyalar: $INSTALL_DIR"; else err "dosyalar yok"; VERIFY_FAIL=1; fi
 
-# Hook gerçekten settings.json'da mı? (jq varsa yapısal, yoksa grep)
-if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
-  if jq -e '.hooks.PreToolUse[]? | select(.matcher=="AskUserQuestion") | .hooks[]?.command | test("askuserquestionspro")' "$SETTINGS" >/dev/null 2>&1; then
-    ok "hook: $SETTINGS"
-  else
-    err "hook settings.json'da bulunamadı"; VERIFY_FAIL=1
-  fi
-elif [ -f "$SETTINGS" ] && grep -q askuserquestionspro "$SETTINGS"; then
-  ok "hook: $SETTINGS (grep)"
-else
-  err "hook doğrulanamadı"; VERIFY_FAIL=1
-fi
-
-# MCP kaydı (claude varsa). Yoksa bilgi amaçlı warn — hard-fail değil.
-if command -v claude >/dev/null 2>&1; then
-  if claude mcp list 2>/dev/null | grep -q askuserquestionspro; then
-    ok "MCP aracı kayıtlı (mcp__askuserquestionspro__ask)"
-  else
-    warn "MCP kaydı görünmüyor — elle: claude mcp add --scope user askuserquestionspro -- node \"$INSTALL_DIR/mcp-server/askuserquestionspro-mcp.mjs\""
-  fi
-else
-  warn "claude CLI yok — MCP durumu kontrol edilemedi"
-fi
-
-# Skill deploy edildi mi? (kaynak yoksa atlanmış olabilir → warn, hard-fail değil)
-if [ -f "$SKILL_DEST/SKILL.md" ]; then
-  ok "askpro skill: $SKILL_DEST"
-else
-  warn "askpro skill kurulmadı (kaynak GitHub main'de yoksa normal — push gerekir)"
-fi
-
-# Bundled doctor (bilgi amaçlı tam tanı).
+# Bundled doctor seçilen/keşfedilen her host'un hook/MCP kaydını denetler.
 info ""
 info "doctor çıktısı:"
-node "$INSTALL_DIR/bin/cli.js" doctor || true
+if node "$INSTALL_DIR/bin/cli.js" doctor --target "$TARGET"; then
+  ok "host doğrulaması tamam (target: $TARGET)"
+else
+  err "host doğrulaması başarısız (target: $TARGET)"; VERIFY_FAIL=1
+fi
+
+if [ "$CLAUDE_SELECTED" -eq 1 ]; then
+  if [ -f "$CLAUDE_SKILL_DEST/SKILL.md" ]; then
+    ok "Claude Code skill: $CLAUDE_SKILL_DEST"
+  else
+    err "Claude Code skill doğrulanamadı"; VERIFY_FAIL=1
+  fi
+fi
+if [ "$CODEX_SELECTED" -eq 1 ]; then
+  if [ -f "$CODEX_SKILL_DEST/SKILL.md" ]; then
+    ok "Codex/ChatGPT Desktop skill: $CODEX_SKILL_DEST"
+  else
+    err "Codex/ChatGPT Desktop skill doğrulanamadı"; VERIFY_FAIL=1
+  fi
+fi
 
 [ "$VERIFY_FAIL" -eq 0 ] || die "doğrulama başarısız — yukarıdaki ✗ satırlarına bakın."
 
@@ -165,12 +224,13 @@ printf '\n%s\n' "${C_BOLD}${C_GREEN}✓ Kurulum başarıyla tamamlandı.${C_RESE
 cat <<EOF
 
   Kurulum yeri : $INSTALL_DIR
-  Hook         : $SETTINGS (AskUserQuestion → AMOLED arayüz)
-  MCP aracı    : mcp__askuserquestionspro__ask (sınırsız soru)
+  Target       : $TARGET
+  Claude skill : $CLAUDE_SKILL_DEST
+  Codex skill  : $CODEX_SKILL_DEST
+  MCP aracı    : mcp__askuserquestionspro__ask (sınırsız soru, Claude + Codex)
 
-Yeni bir 'claude' oturumu açın:
-  • ≤4 soru  → AskUserQuestion hook'u yerel arayüzü açar.
-  • >4 soru  → model mcp__askuserquestionspro__ask aracını kullanır.
+Yeni bir Claude Code veya Codex/ChatGPT Desktop oturumu açın.
+Claude Code'da AskUserQuestion hook'u; tüm host'larda askpro skill ve MCP aracı kullanılabilir.
 
-Tanı için: node "$INSTALL_DIR/bin/cli.js" doctor
+Tanı için: node "$INSTALL_DIR/bin/cli.js" doctor --target "$TARGET"
 EOF

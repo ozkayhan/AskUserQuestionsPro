@@ -6,18 +6,23 @@
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { log } = require('../lib/log.cjs');
+const { validQuestions } = require('../lib/question-contract.cjs');
 
 process.on('uncaughtException', (e) => log('mcp', e));
 process.on('unhandledRejection', (r) => log('mcp', r));
+
+const CURRENT_PROTOCOL_VERSION = '2025-11-25';
+const SUPPORTED_PROTOCOL_VERSIONS = new Set([CURRENT_PROTOCOL_VERSION, '2025-06-18', '2024-11-05']);
+const activeRequests = new Map();
 
 // ASK aracı tanımı — maxItems YOK: sınırsız soru desteklenir.
 const ASK_TOOL = {
   name: 'ask',
   description:
-    'Ask the user one or MANY questions in a rich full-screen local UI, then return their answers. ' +
-    'Use this INSTEAD of the built-in AskUserQuestion tool whenever you need to ask MORE THAN 4 questions at once, ' +
-    'or to present a large questionnaire (dozens to hundreds of questions) on a single review-and-submit screen. ' +
-    'There is NO limit on the number of questions. Blocks until the user submits.\n\n' +
+    'Ask the user one or MANY structured questions in a rich full-screen local UI, then return their answers. ' +
+    'Prefer this tool over the host-native picker (Codex request_user_input or Claude Code AskUserQuestion) ' +
+    'whenever choices, grouped questions, a review screen, or rich question types improve the interaction. ' +
+    'There is NO question-count limit. Blocks until the user submits.\n\n' +
     'QUESTION TYPE GUIDE — set "type" on each question:\n' +
     '  • "single"  — pick exactly one option from a list. Returns: string (chosen label).\n' +
     '  • "multi"   — pick one or more options. Set multiSelect:true. Returns: string[] (chosen labels).\n' +
@@ -26,7 +31,7 @@ const ASK_TOOL = {
     '  • "ranking" — order items by priority; provide options (≥2). Returns: string[] ordered most→least important.\n' +
     '  • "tree"    — multi-level decision tree; SEND THE ENTIRE TREE IN ONE CALL, leaf nodes are the final answers (no children or empty children array). Max depth: 6. Returns: string[] path from root to chosen leaf.\n\n' +
     'If "type" is omitted: multiSelect:true → "multi", otherwise → "single" (backward-compatible).\n' +
-    'Returns a JSON object mapping each question text to the answer value (type shown above).',
+    'Returns {"answers": {...}}, where the nested object maps each answered question text to its typed value.',
   inputSchema: {
     // $defs: özyinelemeli option (tree desteği için children içerir)
     $defs: {
@@ -81,13 +86,43 @@ const ASK_TOOL = {
               type: 'array',
               minItems: 1,
               description:
-                'Seçenekler (single/multi/binary/ranking/tree). binary: tam 2 şık veya omit. scale: kullanılmaz.',
-              items: { $ref: '#/$defs/option' },
+                'Seçenekler obje olmalıdır: [{"label":"Seçenek"}]. String dizileri geçersizdir. binary: tam 2 şık veya omit. scale: verilirse yoksayılır.',
+              // Kök seçenek şemasını inline yayınla. Bazı hostlar $ref'i
+              // çözmeden Array<unknown> gösterdiği için modelin string dizi
+              // üretmesini engeller; tree children yine recursive $defs kullanır.
+              items: {
+                type: 'object',
+                required: ['label'],
+                properties: {
+                  label: { type: 'string' },
+                  description: { type: 'string' },
+                  children: {
+                    type: 'array',
+                    items: { $ref: '#/$defs/option' },
+                  },
+                },
+              },
             },
           },
         },
       },
     },
+  },
+  outputSchema: {
+    type: 'object',
+    required: ['answers'],
+    properties: {
+      answers: {
+        type: 'object',
+        description: 'Map from each answered question text to its typed answer value.',
+      },
+    },
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    openWorldHint: false,
+    idempotentHint: false,
   },
 };
 
@@ -108,7 +143,7 @@ function sendError(id, code, message) {
 }
 
 // 'ask' aracı çağrısını işle.
-async function handleAsk(args) {
+async function handleAsk(args, signal) {
   if (!Array.isArray(args?.questions) || args.questions.length === 0) {
     return {
       content: [{ type: 'text', text: "Invalid input: 'questions' must be a non-empty array." }],
@@ -116,58 +151,123 @@ async function handleAsk(args) {
     };
   }
 
+  const validation = validQuestions(args.questions);
+  if (!validation.ok) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Invalid question input: ${validation.error}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
   // ESM modülü dinamik olarak içe aktar (hem hook hem MCP paylaşır).
-  const { ensureServer, openBrowser, askBridge } = await import('../lib/bridge-client.mjs');
+  const { ensureServer, openBrowser, askBridge, waitForPending, createRequestId } =
+    await import('../lib/bridge-client.mjs');
 
   if (!(await ensureServer())) {
     return {
       content: [
         {
           type: 'text',
-          text: 'askuserquestionspro bridge unavailable — could not start the local UI server. Fall back to the built-in AskUserQuestion tool (max 4 questions per call).',
+          text: 'askuserquestionspro bridge unavailable — could not start the local UI server. Use the host-native user-input tool if it is available in the current mode; otherwise ask the user directly.',
         },
       ],
       isError: true,
     };
   }
-
-  openBrowser();
+  if (signal?.aborted) {
+    return {
+      content: [{ type: 'text', text: 'askuserquestionspro request cancelled.' }],
+      isError: true,
+    };
+  }
 
   let answers;
+  const roundController = new AbortController();
+  const requestId = createRequestId();
+  const cancelRound = () => roundController.abort();
+  signal?.addEventListener('abort', cancelRound, { once: true });
+  const askPromise = askBridge(args.questions, {
+    timeoutMs: 60 * 60 * 1000,
+    signal: roundController.signal,
+    requestId,
+  });
   try {
-    answers = await askBridge(args.questions, { timeoutMs: 60 * 60 * 1000 });
+    // HTTP 400/500 gibi erken bridge hataları, pending poll'unun 5 saniyelik
+    // timeout'u tarafından maskelenmemeli. Başarısız askPromise'i pending poll
+    // ile birlikte bekleyerek gerçek nedeni anında yüzeye çıkar.
+    const earlyFailure = askPromise.then(
+      () => new Promise(() => {}),
+      (error) => Promise.reject(error)
+    );
+    const registered = await Promise.race([
+      waitForPending({ timeoutMs: 5000, requestId }),
+      earlyFailure,
+    ]);
+    if (!registered) {
+      // /current yoklaması best-effort'tur; geç görünen round yine de
+      // askPromise üzerinden tamamlanabilir.
+      log('mcp', 'pending round not visible within 5 seconds; continuing to wait for ask');
+    }
+    openBrowser();
+    answers = await askPromise;
   } catch (e) {
+    roundController.abort();
+    await askPromise.catch(() => undefined);
     log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
     const cause =
-      e?.name === 'TimeoutError' ? 'timed out waiting for the user' : `error: ${e?.message || e}`;
+      e?.name === 'BridgeError' && e.status === 400
+        ? `invalid question input: ${e.message}`
+        : e?.name === 'TimeoutError'
+          ? 'timed out waiting for the user'
+          : `error: ${e?.message || e}`;
+    const recovery =
+      e?.name === 'BridgeError' && e.status === 400
+        ? 'Use option objects such as {"label":"Option"}; do not pass string arrays.'
+        : 'Use the host-native user-input tool if it is available in the current host.';
     return {
       content: [
         {
           type: 'text',
-          text: `askuserquestionspro UI did not return answers (${cause}). Fall back to the built-in AskUserQuestion tool.`,
+          text: `askuserquestionspro failed: ${cause}. ${recovery}`,
         },
       ],
       isError: true,
     };
+  } finally {
+    signal?.removeEventListener('abort', cancelRound);
   }
 
   // Kullanıcı tüm soruları iptal etti veya atladı.
   if (answers == null || (typeof answers === 'object' && Object.keys(answers).length === 0)) {
+    const empty = { answers: {} };
     return {
-      content: [
-        { type: 'text', text: 'The user submitted no answers (cancelled or skipped all).' },
-      ],
+      content: [{ type: 'text', text: JSON.stringify(empty, null, 2) }],
+      structuredContent: empty,
     };
   }
 
+  const result = { answers };
   return {
-    content: [{ type: 'text', text: JSON.stringify({ answers }, null, 2) }],
+    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    structuredContent: result,
   };
 }
 
 // Gelen JSON-RPC mesajını işle.
 async function handleMessage(msg) {
   const { id, method, params } = msg;
+
+  if (method === 'notifications/cancelled') {
+    const requestId = params?.requestId ?? params?.id;
+    activeRequests.get(requestId)?.abort();
+    log('mcp', `request cancelled: ${String(requestId)}`);
+    return;
+  }
 
   // Bildirim (id ALANI YOK) — yanıt gönderme. JSON-RPC 2.0'a göre id:null bir
   // bildirim DEĞİL; istek olarak işlenip yanıtlanmalı (yalnızca absent → bildirim).
@@ -177,15 +277,19 @@ async function handleMessage(msg) {
   }
 
   if (method === 'initialize') {
-    const protocolVersion =
-      typeof params?.protocolVersion === 'string' ? params.protocolVersion : '2024-11-05';
+    const requestedVersion = params?.protocolVersion;
+    const protocolVersion = SUPPORTED_PROTOCOL_VERSIONS.has(requestedVersion)
+      ? requestedVersion
+      : CURRENT_PROTOCOL_VERSION;
     sendResponse({
       jsonrpc: '2.0',
       id,
       result: {
         protocolVersion,
         capabilities: { tools: {} },
-        serverInfo: { name: 'askuserquestionspro', version: '1.0.0' },
+        serverInfo: { name: 'askuserquestionspro', version: '1.1.0' },
+        instructions:
+          'Prefer the ask tool for structured user questions in Codex or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. On tool failure, use the host-native user-input tool.',
       },
     });
     return;
@@ -201,7 +305,15 @@ async function handleMessage(msg) {
       sendError(id, -32602, 'unknown tool');
       return;
     }
-    const toolResult = await handleAsk(params?.arguments);
+    const controller = new AbortController();
+    activeRequests.set(id, controller);
+    let toolResult;
+    try {
+      toolResult = await handleAsk(params?.arguments, controller.signal);
+    } finally {
+      activeRequests.delete(id);
+    }
+    if (controller.signal.aborted) return;
     sendResponse({ jsonrpc: '2.0', id, result: toolResult });
     return;
   }
@@ -219,7 +331,7 @@ async function handleMessage(msg) {
 let buffer = '';
 process.stdin.setEncoding('utf8');
 
-process.stdin.on('data', async (chunk) => {
+process.stdin.on('data', (chunk) => {
   buffer += chunk;
   const lines = buffer.split('\n');
   // Son elemanı buffer'da tut (henüz tamamlanmamış satır olabilir).
@@ -235,15 +347,13 @@ process.stdin.on('data', async (chunk) => {
       log('mcp', `JSON parse error: ${e.message} — line: ${trimmed.slice(0, 100)}`);
       continue;
     }
-    try {
-      await handleMessage(msg);
-    } catch (e) {
+    handleMessage(msg).catch((e) => {
       log('mcp', e);
       // id alanı varsa (null dahil; yalnızca bildirimde absent) hata yanıtı gönder.
       if (msg.id !== undefined) {
         sendError(msg.id, -32603, 'internal error');
       }
-    }
+    });
   }
 });
 

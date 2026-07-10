@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 // settings disk I/O'yu izole tmp'ye yönlendir (gerçek ~/.config kirlenmesin).
@@ -14,7 +15,15 @@ test.before(async () => {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
 });
-test.after(() => server.close());
+test.after(async () => {
+  // Node's global fetch pool can keep idle/SSE sockets alive after the assertions
+  // finish. Force those test-only connections closed so the test worker exits.
+  await new Promise((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+    server.closeAllConnections?.();
+  });
+  fs.rmSync(process.env.XDG_CONFIG_HOME, { recursive: true, force: true });
+});
 
 // --- yardımcılar ---
 
@@ -93,6 +102,21 @@ test('GET / index.html serve eder', async () => {
 test('/current ve /events payload {id, questions} icerir', async () => {
   const questions = [{ question: 'QID?', options: [{ label: 'A' }], multiSelect: false }];
   await askAndAnswer(questions, { 'QID?': 'A' });
+});
+
+test('/current requestId ile yalnizca ilgili pending turunu gosterir', async () => {
+  const requestId = 'request-owner-a';
+  const questions = [{ question: 'OWNER?', options: [{ label: 'A' }], multiSelect: false }];
+  const askPromise = post('/ask', { questions, requestId });
+  const cur = await waitForPending();
+
+  const unrelated = await fetch(`${base}/current?requestId=request-owner-b`);
+  assert.deepStrictEqual(await unrelated.json(), { id: null, questions: null });
+  const owned = await fetch(`${base}/current?requestId=${requestId}`);
+  assert.deepStrictEqual(await owned.json(), cur);
+
+  await post('/answer', { id: cur.id, answers: { 'OWNER?': 'A' } });
+  await askPromise;
 });
 
 // --- Contract R: /answer round-id rendezvous ---
@@ -187,7 +211,9 @@ test('/ask option label >500 char -> 400', async () => {
 });
 
 test('/ask scale gecerli (min/max var) -> 200', async () => {
-  await askAndAnswer([{ question: 'Kac puan?', header: 'H', type: 'scale', min: 1, max: 10 }], { 'Kac puan?': 7 });
+  await askAndAnswer([{ question: 'Kac puan?', header: 'H', type: 'scale', min: 1, max: 10 }], {
+    'Kac puan?': 7,
+  });
 });
 
 test('/ask scale eksik min/max -> 400 spesifik hata', async () => {
@@ -415,18 +441,25 @@ test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir) — poll
     }
   })();
 
-  const ac = new AbortController();
-  const askP = post('/ask', {
+  const payload = JSON.stringify({
     questions: [{ question: 'BYE?', options: [{ label: 'A' }], multiSelect: false }],
-    signal: ac.signal,
-  }).catch(() => {});
+  });
+  const target = new URL('/ask', base);
+  const askReq = http.request({
+    hostname: target.hostname,
+    port: target.port,
+    path: target.pathname,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+  });
+  askReq.on('error', () => {});
+  askReq.end(payload);
   await waitForPending();
-  ac.abort(); // hook öldü
-  await askP;
+  askReq.destroy(); // hook öldü; gerçek TCP kopuşu üret
 
   // SSE null event'i sabit-uyku yerine POLL ile bekle (yüklü CI'da false-negatif yok).
   const end = Date.now() + 2000;
   while (!nullSeen && Date.now() < end) await new Promise((r) => setTimeout(r, 5));
   assert.ok(nullSeen, 'cancel sonrasi questions:null SSE olayi gelmeli');
-  reader.cancel().catch(() => {});
+  await reader.cancel();
 });

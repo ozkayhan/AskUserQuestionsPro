@@ -10,11 +10,14 @@ Start here to navigate. Real paths; "to change X, go to Y".
 ├── hooks/                PreToolUse hook + its output builder
 ├── mcp-server/           MCP stdio server (the `ask` tool)
 ├── server/               local bridge HTTP server + Bridge class
-├── lib/                  shared client used by hook & MCP
+├── lib/                  shared client, host adapter, settings, utilities
 ├── web/                  browser UI (React via in-browser Babel)
+├── skill/askpro/         host-neutral MCP usage guidance deployed per host
 ├── test/                 node:test suite (one file per module)
+├── evals/                skill behavior cases (valid and invalid payloads)
 ├── install.sh            curl|bash installer
-├── reinstall.sh          clean-reinstall helper (uninstall + fresh install, idempotent)
+├── uninstall.sh          host-aware residue-cleaning uninstaller
+├── reinstall.sh          host-aware uninstall + fresh install helper
 ├── package.json          npm manifest, bin entries, scripts
 ├── eslint.config.js      ESLint flat config (Node source; web/ excluded)
 ├── .prettierrc.json      Prettier config
@@ -26,17 +29,22 @@ Start here to navigate. Real paths; "to change X, go to Y".
 ## Backend / Node side
 
 | Path                                     | What it is                                                                                                                                                                   | Go here to…                                                                                   |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------- |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `bin/cli.js`                             | CLI entry (`askuserquestionspro`). Subcommands: `init`, `install`, `uninstall`, `serve`, `mcp`, `settings`, `doctor`, `help`.                                                | Change CLI commands, install/uninstall flow, `settings` get/set/list, `doctor` health checks. |
 | `bin/install.js`                         | Pure functions `addHook()` / `removeHook()` that mutate a `settings.json` object. Constants `MATCHER='AskUserQuestion'`, `TIMEOUT=3600`.                                     | Change how the hook entry is added/removed or conflict detection.                             |
-| `install.sh`                             | Bash installer (download → copy to `~/.local/share/askuserquestionspro/` → register hook via `jq` → register MCP).                                                           | Change the `curl                                                                              | bash` install path. |
-| `mcp-server/askuserquestionspro-mcp.mjs` | JSON-RPC 2.0 stdio MCP server. Defines `ASK_TOOL`, handles `initialize`/`tools/list`/`tools/call`/`ping`. `handleAsk()` routes to bridge-client (60 min timeout).            | Change the `ask` tool schema or MCP protocol handling.                                        |
+| `install.sh`                             | Target-aware Bash installer: download → persistent copy → bundled CLI install/doctor → skill verification.                                                                   | Change the `curl \| bash` install path.                                                       |
+| `uninstall.sh`                           | Target-aware cleanup and residue verification for Claude/Codex registrations, skills, files, settings, and bridge processes.                                                 | Change standalone uninstall behavior.                                                         |
+| `reinstall.sh`                           | Passes the same target through uninstall and a fresh install.                                                                                                                | Change recovery/reinstall behavior.                                                           |
+| `mcp-server/askuserquestionspro-mcp.mjs` | Host-neutral JSON-RPC 2.0 stdio server. Defines `ASK_TOOL`, output schema, annotations, server instructions, structured results, and pending-before-browser flow.            | Change the `ask` tool schema, metadata, result, or MCP protocol handling.                     |
 | `server/server.js`                       | `node:http` server (port `ASKUSER_PORT` or 4517). Routes `/health` `/current` `/events` `/ask` `/answer` + static files from `../web`. Exports `server`, `bridge`.           | Change HTTP endpoints, SSE, static serving, request limits.                                   |
 | `server/bridge.js`                       | `Bridge` class: single-flight `_pending` + `_seq`. Methods `submitQuestions` `peek` `getCurrent` `provideAnswers` `cancel`.                                                  | Change question/answer coordination semantics.                                                |
-| `lib/bridge-client.mjs`                  | `ensureServer()` `openBrowser()` `askBridge()`. Shared by hook + MCP.                                                                                                        | Change server bootstrap, browser opening, or `/ask` calling.                                  |
+| `lib/bridge-client.mjs`                  | `ensureServer()` `askBridge()` `waitForPending()` `openBrowser()`. Shared by hook + MCP.                                                                                     | Change server bootstrap, pending-round race guard, browser opening, or `/ask` calling.        |
+| `lib/question-contract.cjs`              | Shared question/option validator used by the HTTP bridge and MCP preflight.                                                                                                  | Change accepted question types, option shape, or validation error messages.                   |
+| `lib/host-platforms.cjs`                 | Target parsing, Claude/Codex discovery, MCP CLI argv, manual commands, and host-native skill destinations.                                                                   | Change host selection or installation contracts.                                              |
 | `lib/settings.js`                        | Disk persistence for UI settings: `read()` / `write(patch)` / `getPath()`. Atomic write + schema-validated self-heal. File at `~/.config/askuserquestionspro/settings.json`. | Change settings storage, the config file location, or self-heal behavior.                     |
-| `hooks/askuserquestionspro-bridge.mjs`   | The `PreToolUse` hook script. Reads stdin, honors `ASKUI_FORCE_MCP`, calls bridge-client (60 min timeout), falls back to native on error.                                    | Change hook behavior / the force-MCP opt-in.                                                  |
+| `hooks/askuserquestionspro-bridge.mjs`   | Claude-only `PreToolUse` hook. Starts `/ask`, waits for the pending round, opens the browser, and falls back to native Claude behavior on error.                             | Change Claude hook behavior / the force-MCP opt-in.                                           |
 | `hooks/hook-output.js`                   | `buildHookOutput(toolInput, answers)` → the `PreToolUse` allow-decision payload with `updatedInput`.                                                                         | Change the shape returned to Claude Code.                                                     |
+| `skill/askpro/SKILL.md`                  | Guidance installed at `~/.claude/skills/askpro` or `~/.agents/skills/askpro`; prefers MCP for structured interactions and names host-native fallbacks.                       | Change agent tool-selection guidance.                                                         |
 
 ## Frontend / browser side (`web/`)
 
@@ -58,8 +66,11 @@ Loaded by `web/index.html` in order: vendor libs → app files (`type="text/babe
 
 ## Tests
 
-`test/*.test.js` — one file per module, run with `node --test`. See
-[testing.md](testing.md).
+There are 24 top-level `test/*.test.js` files, run with `node --test`. Host
+coverage is split between `host-platforms.test.js` (selection/discovery/argv/
+paths), `cli.test.js` (Codex-only lifecycle isolation), and
+`mcp-server.test.js` (instructions, `outputSchema`, and annotations). See
+[testing.md](testing.md) for the full inventory.
 
 ## Out of scope (not current runtime behavior)
 
