@@ -80,16 +80,21 @@ async function main() {
   if (!(await ensureServer())) process.exit(0); // köprü yok → native fallback
 
   let answers;
+  const roundController = new AbortController();
   try {
-    const askPromise = askBridge(toolInput.questions, { timeoutMs: TIMEOUT_MS });
+    const askPromise = askBridge(toolInput.questions, {
+      timeoutMs: TIMEOUT_MS,
+      signal: roundController.signal,
+    });
     // L-8 race guard: tarayıcıyı yalnızca /ask sunucuda tur olarak kaydedildikten
     // sonra aç. Aksi halde tarayıcı /current'ı POST işlenmeden sorgulayıp boş
-    // ("no pending question") sayfa gösterebilirdi. waitForPending best-effort:
-    // süre dolsa bile (false dönse) yine de açıp askPromise'i bekleriz.
-    await waitForPending();
+    // ("no pending question") sayfa gösterebilirdi.
+    askPromise.catch(() => undefined);
+    if (!(await waitForPending())) throw new Error('question round was not registered');
     openBrowser();
     answers = await askPromise;
   } catch {
+    roundController.abort();
     process.exit(0); // timeout/hata → native fallback
   }
 

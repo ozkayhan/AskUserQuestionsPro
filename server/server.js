@@ -6,6 +6,7 @@ const { Bridge } = require('./bridge.js');
 const APP_ID = require('../lib/app-id.cjs');
 const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
+const { validQuestions: validateQuestionSet } = require('../lib/question-contract.cjs');
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
@@ -61,133 +62,8 @@ function readBody(req) {
   });
 }
 
-// Geçerli soru tiplerini listele.
-const VALID_TYPES = new Set(['single', 'multi', 'binary', 'scale', 'ranking', 'tree']);
-
-// Tree derinliğini özyinelemeli hesapla.
-function treeDepth(options, depth) {
-  if (!Array.isArray(options) || options.length === 0) return depth;
-  let max = depth;
-  for (const opt of options) {
-    if (opt.children && opt.children.length > 0) {
-      max = Math.max(max, treeDepth(opt.children, depth + 1));
-    }
-  }
-  return max;
-}
-
-// Tek bir option label'ı doğrula (string, 1..500). Tek gerçek kaynak (server).
-function validLabel(label) {
-  return typeof label === 'string' && label.length >= 1 && label.length <= 500;
-}
-
-// Tree düğümlerini özyinelemeli doğrula: her düğüm label + children(varsa) array
-// + her çocuk da geçerli label. Hata mesajı (string) ya da null döner.
-function checkTreeNodes(opts) {
-  for (const opt of opts) {
-    if (!opt || !validLabel(opt.label)) {
-      return 'each tree option label must be a non-empty string, max 500 characters';
-    }
-    if (opt.children !== undefined && !Array.isArray(opt.children)) {
-      return `tree option "${opt.label}" has invalid children (must be array)`;
-    }
-    if (Array.isArray(opt.children) && opt.children.length > 0) {
-      const err = checkTreeNodes(opt.children);
-      if (err) return err;
-    }
-  }
-  return null;
-}
-
-// Soru setinin tipe özgü doğrulaması.
-// Döner: {ok:true} | {ok:false, error:string}
 function validQuestions(q) {
-  if (!Array.isArray(q) || q.length === 0) {
-    return { ok: false, error: 'questions must be a non-empty array' };
-  }
-  for (const it of q) {
-    if (!it || typeof it.question !== 'string') {
-      return { ok: false, error: 'each question must have a string "question" field' };
-    }
-    if (it.question.length === 0 || it.question.length > 1000) {
-      return { ok: false, error: 'question must be between 1 and 1000 characters' };
-    }
-    // tip kontrolü
-    const t = it.type;
-    if (t !== undefined && !VALID_TYPES.has(t)) {
-      return {
-        ok: false,
-        error: `invalid type "${t}": must be one of single, multi, binary, scale, ranking, tree`,
-      };
-    }
-    // Etkin tip (type yoksa: multiSelect → multi, aksi single)
-    const effectiveType = t || (it.multiSelect ? 'multi' : 'single');
-    if (effectiveType === 'scale') {
-      // scale: min/max sayı olmalı, min < max, step > 0
-      if (typeof it.min !== 'number' || typeof it.max !== 'number') {
-        return { ok: false, error: `scale question "${it.question}" requires numeric min and max` };
-      }
-      if (it.min >= it.max) {
-        return { ok: false, error: `scale question "${it.question}" min must be less than max` };
-      }
-      if (it.step !== undefined && (typeof it.step !== 'number' || it.step <= 0)) {
-        return {
-          ok: false,
-          error: `scale question "${it.question}" step must be a positive number`,
-        };
-      }
-    } else if (effectiveType === 'ranking') {
-      // ranking: options dizisi, en az 2 öğe
-      if (!Array.isArray(it.options) || it.options.length < 2) {
-        return {
-          ok: false,
-          error: `ranking question "${it.question}" requires at least 2 options`,
-        };
-      }
-    } else if (effectiveType === 'binary') {
-      // binary: options varsa tam 2 şık olmalı
-      if (it.options !== undefined && (!Array.isArray(it.options) || it.options.length !== 2)) {
-        return {
-          ok: false,
-          error: `binary question "${it.question}" must have exactly 2 options when options is provided`,
-        };
-      }
-    } else if (effectiveType === 'tree') {
-      // tree: options boş olmamalı, children varsa array, derinlik ≤ 6
-      if (!Array.isArray(it.options) || it.options.length === 0) {
-        return {
-          ok: false,
-          error: `tree question "${it.question}" requires a non-empty options array`,
-        };
-      }
-      const depth = treeDepth(it.options, 1);
-      if (depth > 6) {
-        return { ok: false, error: `tree question "${it.question}" exceeds maximum depth of 6` };
-      }
-      // Her düğümü özyinelemeli doğrula: label string+1..500 VE children (varsa) array.
-      // Eski sürüm yalnızca en-üst label'leri ve children-array'i kontrol ediyordu;
-      // derinlik 2+ bir label string-dışı/boş/>500 olabiliyordu (HIGH bulgu).
-      const childErr = checkTreeNodes(it.options);
-      if (childErr) return { ok: false, error: childErr };
-    } else {
-      // single / multi: options dizisi boş olmamalı
-      if (!Array.isArray(it.options) || it.options.length === 0) {
-        return { ok: false, error: `question "${it.question}" requires a non-empty options array` };
-      }
-    }
-    // options varsa label string ve 1..500 karakter olmalı (tek gerçek kaynak: validLabel).
-    if (Array.isArray(it.options)) {
-      for (const opt of it.options) {
-        if (!opt || !validLabel(opt.label)) {
-          return {
-            ok: false,
-            error: 'each option label must be a non-empty string, max 500 characters',
-          };
-        }
-      }
-    }
-  }
-  return { ok: true };
+  return validateQuestionSet(q);
 }
 
 function broadcastCurrent() {

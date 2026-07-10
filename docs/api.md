@@ -1,21 +1,22 @@
 # API & Contracts
 
-Three surfaces: the bridge server's HTTP endpoints, the MCP `ask` tool, and
-the hook's stdin/stdout shapes.
+Three surfaces: the host-neutral bridge HTTP API, the shared MCP `ask` tool,
+and Claude Code's hook stdin/stdout shapes. Codex uses MCP + skill guidance:
+its hooks cannot return answers as the native `request_user_input` result.
 
 ## HTTP endpoints (`server/server.js`, port `ASKUSER_PORT` / 4517)
 
 All on `127.0.0.1`. No auth (localhost-only, single user).
 
-| Method & path    | Body                      | Response                                                       | Purpose                                                                                                                                                      |
-| ---------------- | ------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /health`    | —                         | `{ ok: true, app: "<APP_ID>" }`                                | Liveness probe (used by `ensureServer`). Includes `app` field so the client can distinguish this server from any other process that happens to own the port. |
-| `GET /current`   | —                         | `{ id, questions }` or `{ id: null, questions: null }`         | Peek at the pending set.                                                                                                                                     |
-| `GET /events`    | —                         | `text/event-stream`                                            | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                  |
-| `POST /ask`      | `{ questions: [...] }`    | `{ answers: [...] }` (blocks until answered) or error          | Submit a question set; request stays open until answered/timeout. Returns HTTP 400 on validation failure, 409 if a set is already pending.                   |
-| `POST /answer`   | `{ id, answers: {...} }`  | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. `id` must match the current pending round (Contract R); mismatched id → 409. `answers` must be a plain object (not null/array/primitive) → else 400.  |
-| `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` (200) or `{ error }` (400/500) | Persist a UI-settings patch. Returns 400 on bad JSON/non-object, 500 if the disk write fails (Contract W). `_v` is stripped from the response.               |
-| `GET *`          | —                         | static file                                                    | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                |
+| Method & path    | Body                      | Response                                                       | Purpose                                                                                                                                                                                      |
+| ---------------- | ------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health`    | —                         | `{ ok: true, app: "<APP_ID>" }`                                | Liveness probe (used by `ensureServer`). Includes `app` field so the client can distinguish this server from any other process that happens to own the port.                                 |
+| `GET /current`   | —                         | `{ id, questions }` or `{ id: null, questions: null }`         | Peek at the pending set.                                                                                                                                                                     |
+| `GET /events`    | —                         | `text/event-stream`                                            | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                                                  |
+| `POST /ask`      | `{ questions: [...] }`    | `{ answers: {...} }` (blocks until answered) or error          | Submit a question set; request stays open until answered or the caller's deadline. Returns HTTP 400 on validation failure, 409 if a set is already pending.                                  |
+| `POST /answer`   | `{ id, answers: {...} }`  | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. `id` must match the current pending round (Contract R); mismatched id → 409. `answers` must be a plain object (not null/array/primitive) → else 400. |
+| `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` (200) or `{ error }` (400/500) | Persist a UI-settings patch. Returns 400 on bad JSON/non-object, 500 if the disk write fails (Contract W). `_v` is stripped from the response.                                               |
+| `GET *`          | —                         | static file                                                    | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                                                |
 
 Request bodies are capped at 8 MB. If the `/ask` client disconnects, the
 server cancels the pending set using the round's `id` (Contract R — only the
@@ -145,14 +146,34 @@ Input schema (abbreviated):
 questions provide the full option tree in one call; leaf nodes (no `children`)
 are the final selectable answers; maximum depth is 6 levels.
 
-Result: tool content is JSON text of `{ answers: {...} }` (same answer shape as
-above, type-aware). On server-unavailable / timeout / cancel, returns an
-`isError` message suggesting the built-in `AskUserQuestion` tool.
-All-skipped → `{ answers: {} }`.
+Result: successful calls return `{ answers: {...} }` as both JSON text
+`content` and MCP `structuredContent` (same type-aware shape as above).
+All-skipped returns `{ answers: {} }` through both channels. The declared
+`outputSchema` is:
+
+```json
+{
+  "type": "object",
+  "required": ["answers"],
+  "properties": { "answers": { "type": "object" } }
+}
+```
+
+Tool annotations are `readOnlyHint: true`, `destructiveHint: false`,
+`openWorldHint: false`, and `idempotentHint: false`. `initialize` returns
+server instructions telling Claude/Codex to prefer the rich structured UI and
+use the host-native fallback on failure. Server unavailable, the one-hour
+application deadline, cancellation, or a concurrent pending round produces an
+`isError` result. The named native fallbacks are `request_user_input` in Codex
+and `AskUserQuestion` in Claude Code; no host timeout default is assumed.
 
 Supported RPC methods: `initialize`, `tools/list`, `tools/call`, `ping`.
+`initialize` recognizes protocol versions `2025-11-25`, `2025-06-18`, and
+`2024-11-05`; other requested versions negotiate to `2025-11-25` rather than
+being echoed. `notifications/cancelled` accepts the request id and aborts the
+associated in-flight `tools/call` without returning its unused result.
 
-### Server-side validation (`server/server.js → validQuestions`)
+### Shared validation (`lib/question-contract.cjs`)
 
 Returns `{ok:true}` or `{ok:false, error:"<human-readable>"}`. Rules per type:
 
@@ -163,10 +184,17 @@ Returns `{ok:true}` or `{ok:false, error:"<human-readable>"}`. Rules per type:
 - `ranking`: `options` length ≥ 2.
 - `tree`: `options` non-empty, `children` (if present) must be arrays, depth ≤ 6.
 
-`POST /ask` returns HTTP 400 with `{ error }` on validation failure so the
-caller can correct the question shape.
+The same validator runs in the MCP process before `/ask` and in the HTTP
+bridge. `options` entries must be objects with a non-empty string `label`;
+string arrays are rejected immediately. `POST /ask` returns HTTP 400 with
+`{ error }`, and the MCP client preserves that status/body instead of masking it
+with a pending-round timeout.
 
-## Hook I/O (`hooks/askuserquestionspro-bridge.mjs`)
+## Claude hook I/O (`hooks/askuserquestionspro-bridge.mjs`)
+
+This answer-return contract exists only for Claude Code `PreToolUse`. Codex
+hooks may observe, block, or rewrite `request_user_input` input, but cannot
+return answers as that native tool's result.
 
 **stdin** (from Claude Code `PreToolUse`):
 

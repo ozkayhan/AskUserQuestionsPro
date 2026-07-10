@@ -2,31 +2,37 @@
 
 ## What it is
 
-`askuserquestionspro` is a Node.js tool (npm package + CLI) that intercepts
-Claude Code's `AskUserQuestion` interactions and answers them through a custom,
-themeable, full-screen web UI running on `127.0.0.1` — instead of the terminal
-picker built into Claude Code.
+`askuserquestionspro` is a Node.js package and CLI that provides a local,
+themeable, full-screen UI for structured questions from Claude Code, Codex CLI,
+and the Codex surface in ChatGPT Desktop. The bridge, schemas, answer mapping,
+and browser experience are host-neutral; small adapters connect that core to
+each host.
 
 It solves two problems:
 
-1. **Better UX.** The built-in picker is cramped. This renders questions in a
+1. **Better UX.** Host-native pickers are compact. This renders questions in a
    keyboard-driven browser UI (AMOLED default + 4 alternate themes).
-2. **The 4-question limit.** Claude Code's built-in `AskUserQuestion` tool
-   rejects more than 4 questions per call (`InputValidationError`). The MCP
-   tool `mcp__askuserquestionspro__ask` accepts an **unlimited** number of
-   questions in one call and routes them through the same UI.
+2. **Richer, larger rounds.** The MCP tool accepts one to unlimited questions
+   and supports binary, single, multi, scale, ranking, and tree inputs.
 
-## The 30-second mental model
+## Host adapters
 
 There are two entry paths into the same UI:
 
-- **Hook path** — for native `AskUserQuestion` calls (≤4 questions). A
+- **Claude hook path** — for native `AskUserQuestion` calls (≤4 questions). A
   `PreToolUse` hook registered in `~/.claude/settings.json` intercepts the
   call, opens the UI, and returns the user's answers as `updatedInput`. On any
   failure it exits cleanly and lets Claude Code fall back to the native picker.
-- **MCP path** — for unlimited questions. Claude calls
+- **Shared MCP path** — Claude Code, Codex CLI, and ChatGPT Desktop can call
   `mcp__askuserquestionspro__ask`, which opens the same UI and returns answers
-  as the tool result.
+  as JSON text plus structured MCP content.
+
+Codex `PreToolUse` hooks can observe, block, or rewrite `request_user_input`
+arguments, but cannot return the user's answers as that tool's result. Its
+adapter therefore installs the MCP registration and the `askpro` skill under
+`~/.agents/skills/askpro`; the skill tells the agent when to prefer askpro and
+when to fall back to native `request_user_input`. Claude's skill is installed
+under `~/.claude/skills/askpro`.
 
 Both paths funnel through a tiny local HTTP **bridge server** (port `4517` by
 default) that holds at most one pending question set in memory and pushes it to
@@ -34,21 +40,22 @@ the browser over Server-Sent Events. The browser POSTs answers back; the
 server resolves the waiting promise; the hook/MCP returns.
 
 ```
-Claude Code
-  ├─(≤4 native)→ hook ─┐
-  └─(unlimited)→ MCP ──┤── lib/bridge-client → HTTP → bridge server ⇄ SSE ⇄ web UI (browser)
+Claude Code native AskUserQuestion → hook ─┐
+Claude Code / Codex / ChatGPT Desktop → MCP ├→ bridge-client → bridge ⇄ browser UI
 ```
 
 ## Who it's for
 
-Claude Code users who want a nicer, larger question interface and the ability
-to ask many questions at once. Install is `npx askuserquestionspro init` (or
-`install.sh`), which registers the hook and the MCP server.
+Claude Code and Codex users who want a larger question interface, a review
+step, richer input types, and larger batches. Install is
+`npx askuserquestionspro init` or `install.sh`; use
+`--target auto|all|claude|codex` to choose hosts.
 
 ## Key properties
 
 - **Zero runtime dependencies** — Node core only (no npm `dependencies`).
-- **Graceful degradation** — every failure mode falls back to Claude Code's
-  native behavior; the tool never blocks the user.
+- **Host-native fallback** — hook failures return to Claude
+  `AskUserQuestion`; MCP errors tell the agent to use Codex
+  `request_user_input` or Claude `AskUserQuestion` as appropriate.
 - **Single-flight** — exactly one question set is in play at a time.
 - **In-memory only** — no database; answers live in RAM until delivered.

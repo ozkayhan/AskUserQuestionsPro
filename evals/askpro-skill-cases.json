@@ -1,0 +1,140 @@
+[
+  {
+    "id": "five-simple-questions",
+    "prompt": "Ask five simple random questions with choices.",
+    "expected": "valid",
+    "payload": {
+      "questions": [
+        {
+          "question": "En sevdiğin mevsim hangisi?",
+          "header": "Günlük",
+          "type": "single",
+          "options": [{ "label": "İlkbahar" }, { "label": "Yaz" }]
+        },
+        { "question": "Pizza sever misin?", "header": "Yemek", "type": "binary" }
+      ]
+    }
+  },
+  {
+    "id": "binary-with-custom-options",
+    "prompt": "Ask whether the release is ready with custom yes/no labels.",
+    "expected": "valid",
+    "payload": {
+      "questions": [
+        {
+          "question": "Yayın hazır mı?",
+          "header": "Karar",
+          "type": "binary",
+          "options": [{ "label": "Hazır" }, { "label": "Henüz değil" }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "scale-without-options",
+    "prompt": "Ask for a 1 to 10 confidence score.",
+    "expected": "valid",
+    "payload": {
+      "questions": [
+        { "question": "Güven düzeyi?", "header": "Ölçek", "type": "scale", "min": 1, "max": 10 }
+      ]
+    }
+  },
+  {
+    "id": "recursive-tree",
+    "prompt": "Ask for a deployment path using a nested tree.",
+    "expected": "valid",
+    "payload": {
+      "questions": [
+        {
+          "question": "Dağıtım hedefi?",
+          "header": "Altyapı",
+          "type": "tree",
+          "options": [{ "label": "Cloud", "children": [{ "label": "AWS" }] }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "string-options-rejected",
+    "prompt": "Ask which season the user prefers.",
+    "expected": "invalid",
+    "errorPattern": "object.*label|strings.*invalid",
+    "payload": {
+      "questions": [
+        {
+          "question": "Mevsim?",
+          "header": "Test",
+          "type": "single",
+          "options": ["İlkbahar", "Yaz"]
+        }
+      ]
+    }
+  },
+  {
+    "id": "missing-option-label-rejected",
+    "prompt": "Ask the user to choose a color.",
+    "expected": "invalid",
+    "errorPattern": "label",
+    "payload": {
+      "questions": [
+        {
+          "question": "Renk?",
+          "header": "Test",
+          "type": "single",
+          "options": [{ "description": "Mavi" }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "tree-child-string-rejected",
+    "prompt": "Ask for a nested category.",
+    "expected": "invalid",
+    "errorPattern": "object.*label|tree",
+    "payload": {
+      "questions": [
+        {
+          "question": "Kategori?",
+          "header": "Test",
+          "type": "tree",
+          "options": [{ "label": "Ana", "children": ["Alt"] }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "scale-options-rejected",
+    "prompt": "Ask for a confidence score but accidentally include choices.",
+    "expected": "invalid",
+    "errorPattern": "must not include options",
+    "payload": {
+      "questions": [
+        {
+          "question": "Güven?",
+          "header": "Test",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "options": [{ "label": "Düşük" }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ranking-needs-two-options",
+    "prompt": "Ask the user to rank one item.",
+    "expected": "invalid",
+    "errorPattern": "at least 2 options",
+    "payload": {
+      "questions": [
+        {
+          "question": "Öncelik?",
+          "header": "Test",
+          "type": "ranking",
+          "options": [{ "label": "Hız" }]
+        }
+      ]
+    }
+  }
+]

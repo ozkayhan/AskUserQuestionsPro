@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 // askuserquestionspro — CLI giriş noktası.
-//   init       install ile aynı (hook + MCP kurulumu) — kurulum için önerilen ad
-//   install    hook'u ~/.claude/settings.json'a bağla + MCP sunucusunu kaydet
-//   uninstall  hook'u kaldır
+//   init       install ile aynı (host adaptörleri + MCP + skill kurulumu)
+//   install    Claude Code ve/veya Codex App/CLI entegrasyonunu kur
+//   uninstall  seçilen host entegrasyonlarını kaldır
 //   serve      yerel köprüyü foreground çalıştır (debug)
 //   mcp        MCP sunucusunu foreground çalıştır (stdio, debug)
 //   doctor     kurulum + health kontrol
@@ -11,115 +11,276 @@
 
 const path = require('node:path');
 const os = require('node:os');
+const fs = require('node:fs');
 const { spawn, spawnSync } = require('node:child_process');
 const { addHook, removeHook, readSettings, writeSettings } = require('./install.js');
 const Settings = require('../lib/settings.js');
 const Schema = require('../web/settings-schema.js');
+const {
+  HOSTS,
+  manualMcpCommand,
+  mcpArgs,
+  parseTarget,
+  resolveExecutable,
+  selectedHosts,
+  skillDestination,
+} = require('../lib/host-platforms.cjs');
 
 const PKG_ROOT = path.join(__dirname, '..');
 const HOOK_ABS = path.join(PKG_ROOT, 'hooks', 'askuserquestionspro-bridge.mjs');
 const SERVER_ABS = path.join(PKG_ROOT, 'server', 'server.js');
 const MCP_ABS = path.join(PKG_ROOT, 'mcp-server', 'askuserquestionspro-mcp.mjs');
-const SETTINGS = path.join(os.homedir(), '.claude', 'settings.json');
+const SKILL_SOURCE = path.join(PKG_ROOT, 'skill', 'askpro');
+const CLAUDE_SETTINGS = path.join(os.homedir(), '.claude', 'settings.json');
 const PORT = process.env.ASKUSER_PORT || '4517';
 const BASE = `http://127.0.0.1:${PORT}`;
 
 function usage() {
-  process.stdout.write(`askuserquestionspro — AskUserQuestion için özel AMOLED arayüz
+  process.stdout.write(`askuserquestionspro — Claude Code ve Codex için tam ekran soru arayüzü
 
 Kullanım:
-  askuserquestionspro init        Kurulum (install ile aynı) — hook + MCP kaydı
-  askuserquestionspro install     Hook'u Claude Code'a bağla + MCP sunucusunu kaydet
-  askuserquestionspro uninstall   Hook'u kaldır
+  askuserquestionspro init [--target auto|all|claude|codex]
+  askuserquestionspro install [--target auto|all|claude|codex]
+  askuserquestionspro uninstall [--target auto|all|claude|codex]
   askuserquestionspro serve       Yerel köprüyü foreground çalıştır (debug, port ${PORT})
   askuserquestionspro mcp         MCP stdio sunucusunu foreground çalıştır (debug)
   askuserquestionspro settings    Ayarları listele (settings get/set <key> [val])
-  askuserquestionspro doctor      Kurulum ve köprü durumunu kontrol et
+  askuserquestionspro doctor [--target auto|all|claude|codex]
   askuserquestionspro help        Bu mesaj
 
-Kurulumdan sonra yeni bir 'claude' oturumu açın.
+Varsayılan target=auto: makinede bulunan hostları algılar. Kurulumdan sonra yeni
+bir Claude Code/Codex oturumu açın veya ChatGPT masaüstü uygulamasını yeniden başlatın.
 `);
 }
 
-function cmdInstall() {
-  // ponytail: readSettings/writeSettings throw edebilir → try/catch (HIGH #149).
+function fileContains(file, needle) {
+  try {
+    return fs.readFileSync(file, 'utf8').includes(needle);
+  } catch {
+    return false;
+  }
+}
+
+function hasHostArtifacts(host) {
+  if (fs.existsSync(path.join(skillDestination(host, os.homedir()), 'SKILL.md'))) return true;
+  if (host === 'claude') return fileContains(CLAUDE_SETTINGS, 'askuserquestionspro');
+  const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+  return fileContains(path.join(codexHome, 'config.toml'), 'mcp_servers.askuserquestionspro');
+}
+
+function hasCodexMcpArtifact() {
+  const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+  return fileContains(path.join(codexHome, 'config.toml'), 'mcp_servers.askuserquestionspro');
+}
+
+function hostContext(target, operation) {
+  const executables = {
+    claude: resolveExecutable('claude', spawnSync),
+    codex: resolveExecutable('codex', spawnSync),
+  };
+  const discoverable =
+    operation === 'install'
+      ? executables
+      : {
+          claude: executables.claude || hasHostArtifacts('claude'),
+          codex: executables.codex || hasHostArtifacts('codex'),
+        };
+  let hosts = selectedHosts(target, discoverable);
+  if (target === 'auto' && hosts.length === 0 && operation === 'install') {
+    hosts = ['claude'];
+    process.stdout.write(
+      `· Claude/Codex komutu algılanamadı; geriye uyumluluk için Claude dosyaları hazırlanacak.\n`
+    );
+  }
+  return { executables, hosts };
+}
+
+function deploySkill(host) {
+  const destination = skillDestination(host, os.homedir());
+  if (!fs.existsSync(path.join(SKILL_SOURCE, 'SKILL.md'))) {
+    throw new Error(`skill kaynağı bulunamadı: ${SKILL_SOURCE}`);
+  }
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  const temp = `${destination}.tmp.${process.pid}`;
+  const backup = `${destination}.bak.${process.pid}`;
+  fs.rmSync(temp, { recursive: true, force: true });
+  fs.rmSync(backup, { recursive: true, force: true });
+  fs.cpSync(SKILL_SOURCE, temp, { recursive: true });
+  let movedOld = false;
+  try {
+    if (fs.existsSync(destination)) {
+      fs.renameSync(destination, backup);
+      movedOld = true;
+    }
+    fs.renameSync(temp, destination);
+    fs.rmSync(backup, { recursive: true, force: true });
+  } catch (error) {
+    fs.rmSync(temp, { recursive: true, force: true });
+    if (movedOld && !fs.existsSync(destination)) fs.renameSync(backup, destination);
+    throw error;
+  }
+  process.stdout.write(`✓ ${HOSTS[host].label} skill → ${destination}\n`);
+}
+
+function registerMcp(host, executable) {
+  if (!executable) {
+    process.stderr.write(
+      `✗ ${HOSTS[host].label} komutu bulunamadı. MCP'yi elle kaydedin:\n  ${manualMcpCommand(host, MCP_ABS)}\n`
+    );
+    return false;
+  }
+  if (host === 'codex') {
+    fs.mkdirSync(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), { recursive: true });
+  }
+  if (host === 'claude') {
+    const current = spawnSync(executable, mcpArgs(host, 'check', MCP_ABS), { encoding: 'utf8' });
+    if (
+      current.status === 0 &&
+      `${current.stdout || ''}${current.stderr || ''}`.includes('askuserquestionspro')
+    ) {
+      const inspected = spawnSync(executable, mcpArgs(host, 'inspect', MCP_ABS), {
+        encoding: 'utf8',
+      });
+      if (
+        inspected.status === 0 &&
+        `${inspected.stdout || ''}${inspected.stderr || ''}`.includes(MCP_ABS)
+      ) {
+        process.stdout.write(`✓ Claude Code MCP aracı zaten doğru path ile kayıtlı\n`);
+        return true;
+      }
+      process.stderr.write(
+        `✗ Claude Code MCP kaydı eski veya doğrulanamıyor; çalışan kaydı silmedim. Elle kaldırıp yeniden kurun.\n`
+      );
+      return false;
+    }
+  }
+  const add = spawnSync(executable, mcpArgs(host, 'add', MCP_ABS), { stdio: 'ignore' });
+  if (add.status !== 0) {
+    process.stderr.write(
+      `✗ ${HOSTS[host].label} MCP kaydı başarısız. Elle deneyin:\n  ${manualMcpCommand(host, MCP_ABS)}\n`
+    );
+    return false;
+  }
+  process.stdout.write(`✓ ${HOSTS[host].label} MCP aracı kaydedildi\n`);
+  return true;
+}
+
+function installClaudeHook() {
   let settings;
   try {
-    settings = readSettings(SETTINGS);
+    settings = readSettings(CLAUDE_SETTINGS);
   } catch (err) {
-    process.stderr.write(`Hata: ${err.message}\n`);
-    process.exit(1);
+    process.stderr.write(`✗ ${err.message}\n`);
+    return false;
   }
   const { settings: next, status } = addHook(settings, HOOK_ABS);
   if (status === 'conflict') {
     process.stderr.write(
-      `UYARI: settings.json içinde başka bir AskUserQuestion PreToolUse hook'u var.\n` +
-        `Tek PreToolUse hook olmalı (Claude Code issue #15897). Elle kontrol edin:\n  ${SETTINGS}\n`
+      `✗ ${CLAUDE_SETTINGS} içinde başka bir AskUserQuestion PreToolUse hook'u var.\n` +
+        `  Claude Code issue #15897 nedeniyle elle çözülmeli.\n`
     );
-    process.exit(1);
+    return false;
   }
-  if (status === 'already') {
-    process.stdout.write(`Zaten kurulu → ${SETTINGS}\n`);
-    return;
-  }
-  try {
-    writeSettings(SETTINGS, next);
-  } catch (err) {
-    process.stderr.write(`Hata: ayarlar yazılamadı: ${err.message}\n`);
-    process.exit(1);
-  }
-  process.stdout.write(
-    `Hook eklendi → ${SETTINGS}\n` +
-      `Yeni bir 'claude' oturumu açın; AskUserQuestion artık özel arayüzde açılır.\n`
-  );
-
-  // MCP sunucusunu claude CLI'ya global kaydet (varsa; yoksa ipucu ver).
-  const claudeCheck = spawnSync('claude', ['--version'], { stdio: 'ignore' });
-  if (claudeCheck.error && claudeCheck.error.code === 'ENOENT') {
-    process.stdout.write(
-      `İpucu: claude CLI bulunamadı. MCP aracını elle kaydetmek için:\n` +
-        `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
-    );
-  } else {
-    // Önce kaldır (idempotent), sonra ekle.
-    spawnSync('claude', ['mcp', 'remove', 'askuserquestionspro'], { stdio: 'ignore' });
-    const add = spawnSync(
-      'claude',
-      ['mcp', 'add', '--scope', 'user', 'askuserquestionspro', '--', 'node', MCP_ABS],
-      { stdio: 'ignore' }
-    );
-    if (add.status === 0) {
-      process.stdout.write(`MCP aracı (mcp__askuserquestionspro__ask) kaydedildi\n`);
-    } else {
-      process.stdout.write(
-        `MCP kaydı başarısız oldu. Elle kaydetmek için:\n` +
-          `  claude mcp add --scope user askuserquestionspro -- node "${MCP_ABS}"\n`
-      );
+  if (status === 'added') {
+    try {
+      writeSettings(CLAUDE_SETTINGS, next);
+    } catch (err) {
+      process.stderr.write(`✗ Claude hook ayarları yazılamadı: ${err.message}\n`);
+      return false;
     }
+    process.stdout.write(`✓ Claude AskUserQuestion hook'u → ${CLAUDE_SETTINGS}\n`);
+  } else {
+    process.stdout.write(`✓ Claude hook zaten kurulu → ${CLAUDE_SETTINGS}\n`);
   }
+  return true;
 }
 
-function cmdUninstall() {
-  // ponytail: readSettings/writeSettings throw edebilir → try/catch (HIGH #149).
+function cmdInstall(argv) {
+  const target = parseTarget(argv);
+  const { executables, hosts } = hostContext(target, 'install');
+  let ok = true;
+  for (const host of hosts) {
+    if (host === 'claude') ok = installClaudeHook() && ok;
+    try {
+      deploySkill(host);
+    } catch (err) {
+      process.stderr.write(`✗ ${HOSTS[host].label}: ${err.message}\n`);
+      ok = false;
+    }
+    ok = registerMcp(host, executables[host]) && ok;
+  }
+  if (hosts.includes('codex')) {
+    process.stdout.write(
+      `Codex App/CLI aynı MCP ayarını paylaşır. Yeni görev/oturum açın ve masaüstü uygulamasını yeniden başlatın.\n`
+    );
+  }
+  if (!ok) process.exitCode = 1;
+}
+
+function removeClaudeHook() {
   let settings;
   try {
-    settings = readSettings(SETTINGS);
+    settings = readSettings(CLAUDE_SETTINGS);
   } catch (err) {
-    process.stderr.write(`Hata: ${err.message}\n`);
-    process.exit(1);
+    process.stderr.write(`✗ ${err.message}\n`);
+    return false;
   }
   const { settings: next, status } = removeHook(settings, HOOK_ABS);
   if (status === 'absent') {
-    process.stdout.write(`Hook zaten yok → ${SETTINGS}\n`);
-    return;
+    process.stdout.write(`· Claude hook zaten yok → ${CLAUDE_SETTINGS}\n`);
+    return true;
   }
   try {
-    writeSettings(SETTINGS, next);
+    writeSettings(CLAUDE_SETTINGS, next);
   } catch (err) {
-    process.stderr.write(`Hata: ayarlar yazılamadı: ${err.message}\n`);
-    process.exit(1);
+    process.stderr.write(`✗ Claude hook ayarları yazılamadı: ${err.message}\n`);
+    return false;
   }
-  process.stdout.write(`Hook kaldırıldı → ${SETTINGS}\n`);
+  process.stdout.write(`✓ Claude hook kaldırıldı → ${CLAUDE_SETTINGS}\n`);
+  return true;
+}
+
+function cmdUninstall(argv) {
+  const target = parseTarget(argv);
+  const { executables, hosts } = hostContext(target, 'uninstall');
+  let ok = true;
+  for (const host of hosts) {
+    if (host === 'claude') ok = removeClaudeHook() && ok;
+    const skill = skillDestination(host, os.homedir());
+    fs.rmSync(skill, { recursive: true, force: true });
+    process.stdout.write(`✓ ${HOSTS[host].label} skill kaldırıldı → ${skill}\n`);
+    const executable = executables[host];
+    if (!executable) {
+      if (host === 'codex' && hasCodexMcpArtifact()) {
+        process.stderr.write(
+          `✗ Codex komutu yok; ${process.env.CODEX_HOME || path.join(os.homedir(), '.codex')}/config.toml içindeki MCP kaydı kaldırılamadı\n`
+        );
+        ok = false;
+      } else {
+        process.stdout.write(`· ${HOSTS[host].label} komutu yok; MCP kaydı bulunamadı\n`);
+      }
+      continue;
+    }
+    const check = spawnSync(executable, mcpArgs(host, 'check', MCP_ABS), { encoding: 'utf8' });
+    const present =
+      check.status === 0 &&
+      (host === 'codex' ||
+        `${check.stdout || ''}${check.stderr || ''}`.includes('askuserquestionspro'));
+    if (!present) {
+      process.stdout.write(`· ${HOSTS[host].label} MCP kaydı zaten yok\n`);
+      continue;
+    }
+    const remove = spawnSync(executable, mcpArgs(host, 'remove', MCP_ABS), {
+      stdio: 'ignore',
+    });
+    if (remove.error || remove.status !== 0) {
+      process.stderr.write(`✗ ${HOSTS[host].label} MCP kaydı kaldırılamadı\n`);
+      ok = false;
+    } else {
+      process.stdout.write(`✓ ${HOSTS[host].label} MCP kaydı kaldırıldı\n`);
+    }
+  }
+  if (!ok) process.exitCode = 1;
 }
 
 function cmdServe() {
@@ -212,36 +373,90 @@ function cmdSettings(sub, key, val) {
   process.exit(1);
 }
 
-async function cmdDoctor() {
-  let ok = true;
-  // 1. settings.json'da hook kurulu mu?
+function doctorClaudeHook() {
   let settings;
   try {
-    settings = readSettings(SETTINGS);
+    settings = readSettings(CLAUDE_SETTINGS);
   } catch (err) {
-    process.stderr.write(`Hata: ${err.message}\n`);
-    process.exit(1);
+    process.stdout.write(`✗ Claude settings okunamadı: ${err.message}\n`);
+    return false;
   }
-  const { status } = addHook(settings, HOOK_ABS); // 'already' beklenir
+  const { status } = addHook(settings, HOOK_ABS);
   if (status === 'already') {
-    process.stdout.write(`✓ Hook kurulu (${SETTINGS})\n`);
-  } else if (status === 'conflict') {
-    process.stdout.write(
-      `✗ Çakışan AskUserQuestion hook'u var — 'askuserquestionspro install' çalıştırın\n`
-    );
-    ok = false;
+    process.stdout.write(`✓ Claude hook kurulu (${CLAUDE_SETTINGS})\n`);
+    return true;
+  }
+  if (status === 'conflict') {
+    process.stdout.write(`✗ Claude'da çakışan AskUserQuestion hook'u var\n`);
   } else {
-    process.stdout.write(`✗ Hook kurulu değil — 'askuserquestionspro install' çalıştırın\n`);
+    process.stdout.write(`✗ Claude hook kurulu değil\n`);
+  }
+  return false;
+}
+
+function doctorMcp(host, executable) {
+  if (!executable) {
+    process.stdout.write(`✗ ${HOSTS[host].label} komutu bulunamadı\n`);
+    return false;
+  }
+  const result = spawnSync(executable, mcpArgs(host, 'check', MCP_ABS), { encoding: 'utf8' });
+  let installed = false;
+  if (host === 'codex' && result.status === 0) {
+    try {
+      const config = JSON.parse(result.stdout);
+      installed =
+        config?.transport?.type === 'stdio' &&
+        config.transport.command === process.execPath &&
+        Array.isArray(config.transport.args) &&
+        config.transport.args.length === 1 &&
+        path.resolve(config.transport.args[0]) === path.resolve(MCP_ABS);
+    } catch {
+      installed = false;
+    }
+  } else if (host === 'claude') {
+    const named =
+      result.status === 0 &&
+      `${result.stdout || ''}${result.stderr || ''}`.includes('askuserquestionspro');
+    if (named) {
+      const inspected = spawnSync(executable, mcpArgs(host, 'inspect', MCP_ABS), {
+        encoding: 'utf8',
+      });
+      installed =
+        inspected.status === 0 &&
+        `${inspected.stdout || ''}${inspected.stderr || ''}`.includes(MCP_ABS);
+    }
+  }
+  process.stdout.write(
+    installed
+      ? `✓ ${HOSTS[host].label} MCP kaydı kurulu\n`
+      : `✗ ${HOSTS[host].label} MCP kaydı bulunamadı\n`
+  );
+  return installed;
+}
+
+async function cmdDoctor(argv) {
+  const target = parseTarget(argv);
+  const { executables, hosts } = hostContext(target, 'doctor');
+  let ok = true;
+  for (const host of hosts) {
+    process.stdout.write(`\n[${HOSTS[host].label}]\n`);
+    if (host === 'claude') ok = doctorClaudeHook() && ok;
+    const skill = skillDestination(host, os.homedir());
+    if (fs.existsSync(path.join(skill, 'SKILL.md'))) {
+      process.stdout.write(`✓ skill kurulu (${skill})\n`);
+    } else {
+      process.stdout.write(`✗ skill kurulu değil (${skill})\n`);
+      ok = false;
+    }
+    ok = doctorMcp(host, executables[host]) && ok;
+  }
+  if (fs.existsSync(HOOK_ABS)) {
+    process.stdout.write(`✓ Paket dosyaları mevcut (${PKG_ROOT})\n`);
+  } else {
+    process.stdout.write(`✗ Paket dosyaları eksik (${PKG_ROOT})\n`);
     ok = false;
   }
-  // 2. Hook dosyası var mı?
-  if (require('node:fs').existsSync(HOOK_ABS)) {
-    process.stdout.write(`✓ Hook dosyası mevcut (${HOOK_ABS})\n`);
-  } else {
-    process.stdout.write(`✗ Hook dosyası bulunamadı (${HOOK_ABS})\n`);
-    ok = false;
-  }
-  // 3. Köprü ayakta mı? (opsiyonel — talep gelince spawn olur)
+  // Köprü ayakta mı? (opsiyonel — talep gelince spawn olur)
   // ponytail: fetch() timeout yok → AbortController + 2s (HIGH #163).
   try {
     const controller = new AbortController();
@@ -256,25 +471,13 @@ async function cmdDoctor() {
       r.ok ? `✓ Köprü çalışıyor (${BASE})\n` : `· Köprü yanıt verdi ama health başarısız\n`
     );
   } catch {
-    process.stdout.write(`· Köprü şu an kapalı (normal — AskUserQuestion'da otomatik başlar)\n`);
+    process.stdout.write(`· Köprü şu an kapalı (normal — ilk askpro çağrısında otomatik başlar)\n`);
   }
-  // 4. MCP aracı kayıtlı mı? (bilgi amaçlı — başarısızlık ok'u false yapmaz)
-  const mcpList = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8' });
-  if (mcpList.error && mcpList.error.code === 'ENOENT') {
-    process.stdout.write(`· claude CLI bulunamadı — MCP durumu kontrol edilemedi\n`);
-  } else if (mcpList.stdout && mcpList.stdout.includes('askuserquestionspro')) {
-    process.stdout.write(`✓ MCP aracı kayıtlı\n`);
-  } else {
-    process.stdout.write(
-      `· MCP aracı kayıtlı değil — 'askuserquestionspro install' veya manuel ` +
-        `'claude mcp add' çalıştırın\n`
-    );
-  }
-  // 5. Ayar dosyası durumu (bilgi amaçlı).
+  // Ayar dosyası durumu (bilgi amaçlı).
   try {
     const p = Settings.getPath();
-    if (require('node:fs').existsSync(p)) {
-      const raw = JSON.parse(require('node:fs').readFileSync(p, 'utf8'));
+    if (fs.existsSync(p)) {
+      const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
       process.stdout.write(
         `✓ Ayar dosyası (${p}) _v=${raw._v} → ${JSON.stringify(Settings.read())}\n`
       );
@@ -288,7 +491,7 @@ async function cmdDoctor() {
       `· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.read())}\n`
     );
   }
-  process.exit(ok ? 0 : 1);
+  if (!ok) process.exitCode = 1;
 }
 
 async function main() {
@@ -296,9 +499,9 @@ async function main() {
   switch (cmd) {
     case 'init':
     case 'install':
-      return cmdInstall();
+      return cmdInstall(process.argv.slice(3));
     case 'uninstall':
-      return cmdUninstall();
+      return cmdUninstall(process.argv.slice(3));
     case 'serve':
       return cmdServe();
     case 'mcp':
@@ -306,7 +509,7 @@ async function main() {
     case 'settings':
       return cmdSettings(process.argv[3], process.argv[4], process.argv[5]);
     case 'doctor':
-      return cmdDoctor();
+      return cmdDoctor(process.argv.slice(3));
     case 'help':
     case '--help':
     case '-h':

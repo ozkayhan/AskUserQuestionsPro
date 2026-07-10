@@ -128,6 +128,24 @@ test('askBridge() kısa timeout sonrası TimeoutError fırlatır', async () => {
   );
 });
 
+test('askBridge() caller abort ile iptal olur ve pending turu serbest bırakır', async () => {
+  const controller = new AbortController();
+  const promise = bridgeClient.askBridge(
+    [{ question: 'İptal?', header: 'H', options: [{ label: 'a' }] }],
+    { timeoutMs: 5000, signal: controller.signal }
+  );
+  await waitForPending();
+  controller.abort();
+  await assert.rejects(promise, /cancelled by caller/);
+  const deadline = Date.now() + 2000;
+  for (;;) {
+    const current = await (await fetch(`${base}/current`)).json();
+    if (current.id == null) break;
+    if (Date.now() >= deadline) throw new Error('aborted round bridge üzerinde kaldı');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+});
+
 // --- Regression: askBridge geçersiz JSON → açık hata (timeout gibi görünmemeli) ---
 test('askBridge() geçersiz JSON gövdesinde açık hata fırlatır', async () => {
   // 200 OK ama JSON olmayan gövde dönen geçici bir sunucu kur.
@@ -149,6 +167,37 @@ test('askBridge() geçersiz JSON gövdesinde açık hata fırlatır', async () =
         }),
       (e) => /invalid JSON/.test(e.message) && e.name !== 'TimeoutError',
       'JSON parse hatası timeout gibi görünmemeli'
+    );
+  } finally {
+    if (saved === undefined) delete process.env.ASKUSER_PORT;
+    else process.env.ASKUSER_PORT = saved;
+    bad.close();
+  }
+});
+
+test('askBridge() HTTP 400 gövdesindeki doğrulama hatasını korur', async () => {
+  const http = require('node:http');
+  const bad = http.createServer((_req, res) => {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'each option must be an object with a label' }));
+  });
+  await new Promise((r) => bad.listen(0, '127.0.0.1', r));
+  const { port } = bad.address();
+  const saved = process.env.ASKUSER_PORT;
+  process.env.ASKUSER_PORT = String(port);
+  const fresh = await import(`../lib/bridge-client.mjs?bad=${Date.now()}`);
+  try {
+    await assert.rejects(
+      () =>
+        fresh.askBridge([{ question: 'X?', header: 'H', options: [{ label: 'a' }] }], {
+          timeoutMs: 1000,
+        }),
+      (e) =>
+        e.name === 'BridgeError' &&
+        e.status === 400 &&
+        e.body?.error === 'each option must be an object with a label' &&
+        /label/.test(e.message),
+      'HTTP doğrulama gövdesi BridgeError olarak korunmalı'
     );
   } finally {
     if (saved === undefined) delete process.env.ASKUSER_PORT;

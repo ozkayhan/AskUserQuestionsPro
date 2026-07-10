@@ -1,24 +1,25 @@
-# valid-docs — askuserquestionspro
+# docs — askuserquestionspro
 
-> **Synced to:** `a6f9cbb` — 2026-06-29
-> Regenerate/refresh with the `update-docs` skill. These docs describe the
-> codebase at the commit above; if HEAD has moved, re-run to reconcile.
+> **Synced:** 2026-07-10 against HEAD `4fa311e` plus the current uncommitted
+> Claude Code + Codex App/CLI working-tree changes. Those changes do not have a
+> commit id yet; do not treat `4fa311e` as containing them.
 
 Read this folder before exploring the source — it maps the whole codebase.
 
 ## What this is
 
-A zero-dependency tool that replaces Claude Code's built-in `AskUserQuestion`
-picker with a local, full-screen web UI, and adds an MCP tool
-(`mcp__askuserquestionspro__ask`) that supports **unlimited** questions per
-call (the built-in tool caps at 4). Four moving parts: **hook** (for native
-≤4-question calls) → **MCP server** (for unlimited questions) → **bridge
-server** (in-RAM question/answer relay) → **web UI**. The hook and MCP server
-share `lib/bridge-client.mjs`.
+A zero-runtime-dependency, host-neutral question/answer core with adapters for
+Claude Code, Codex CLI, and the Codex surface in ChatGPT Desktop. Claude Code
+can use a `PreToolUse` hook for native `AskUserQuestion`; every host can use the
+unlimited `mcp__askuserquestionspro__ask` tool plus the installed `askpro`
+skill. Codex hooks cannot return answers as the native `request_user_input`
+result, so its integration is MCP + skill guidance rather than native result
+replacement. Both entry paths share `lib/bridge-client.mjs`, the localhost
+bridge, and the browser UI.
 
 ## Documents
 
-- [overview.md](overview.md) — what this project is and the 30-second model
+- [overview.md](overview.md) — product scope, host adapters, and core flow
 - [tech-stack.md](tech-stack.md) — languages, runtimes, tooling, dependencies
 - [architecture.md](architecture.md) — components, data flow, design decisions
 - [code-map.md](code-map.md) — where everything lives (start here to navigate)

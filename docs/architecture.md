@@ -2,25 +2,26 @@
 
 ## Components
 
-Four cooperating pieces plus a shared client library:
+Four cooperating runtime pieces plus host adapters and a shared client:
 
-| Component         | File(s)                                                        | Role                                                                               |
-| ----------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Hook**          | `hooks/askuserquestionspro-bridge.mjs`, `hooks/hook-output.js` | `PreToolUse` interceptor for native `AskUserQuestion` calls (≤4 questions).        |
-| **MCP server**    | `mcp-server/askuserquestionspro-mcp.mjs`                       | Exposes the `ask` tool (`mcp__askuserquestionspro__ask`) for unlimited questions.  |
-| **Bridge server** | `server/server.js`, `server/bridge.js`                         | Local HTTP server; holds one pending question set, serves the UI, streams via SSE. |
-| **Web UI**        | `web/*`                                                        | Browser app where the user answers.                                                |
-| **Shared client** | `lib/bridge-client.mjs`                                        | Used by both hook and MCP: starts the server, opens the browser, POSTs questions.  |
+| Component          | File(s)                                                         | Role                                                                               |
+| ------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Claude hook**    | `hooks/askuserquestionspro-bridge.mjs`, `hooks/hook-output.js`  | Claude-only `PreToolUse` interceptor for native `AskUserQuestion` calls.           |
+| **MCP server**     | `mcp-server/askuserquestionspro-mcp.mjs`                        | Host-neutral `ask` tool used by Claude Code, Codex CLI, and ChatGPT Desktop.       |
+| **Bridge server**  | `server/server.js`, `server/bridge.js`                          | Local HTTP server; holds one pending question set, serves the UI, streams via SSE. |
+| **Web UI**         | `web/*`                                                         | Browser app where the user answers.                                                |
+| **Shared client**  | `lib/bridge-client.mjs`                                         | Used by both hook and MCP: starts the server, opens the browser, POSTs questions.  |
+| **Host installer** | `lib/host-platforms.cjs`, `bin/cli.js`, `skill/askpro/SKILL.md` | Selects Claude/Codex, registers MCP, and deploys host-native skill guidance.       |
 
 ## Data flow
 
 ```
                     ┌─────────────────────── lib/bridge-client.mjs ───────────────────────┐
-                    │  ensureServer()  openBrowser()  askBridge(questions, {timeoutMs})    │
+                    │  ensureServer()  askBridge()  waitForPending()  openBrowser()       │
                     └──────────────────────────────────────────────────────────────────────┘
                               ▲                                          │
-  Claude Code (≤4 native) ── hook ──┐                                   │ POST /ask
-  Claude Code (unlimited) ── MCP ───┘                                   ▼
+  Claude Code native ── hook ─────────┐                                  │ POST /ask
+  Claude / Codex / Desktop ── MCP ────┘                                  ▼
                                                           server/server.js  (port 4517)
                                                           server/bridge.js  (_pending, single-flight)
                                                                   │  ▲
@@ -31,20 +32,24 @@ Four cooperating pieces plus a shared client library:
 
 Step by step (both entry paths are identical after `bridge-client`):
 
-1. Hook receives stdin JSON, or MCP receives a `tools/call` for `ask`.
+1. The Claude hook receives stdin JSON, or any supported host sends an MCP
+   `tools/call` for `ask`.
 2. `ensureServer()` checks `GET /health`; if down, spawns `server/server.js`
    detached and polls for up to ~3s.
-3. `openBrowser()` opens `http://127.0.0.1:4517` with the OS opener.
-4. `askBridge()` does `POST /ask` with the questions; the request **stays open**
-   until answered or timed out (hook: 60 min; MCP: 60 min). Node's default
-   `server.requestTimeout` (5 min) is disabled (`requestTimeout = 0`); the
-   deadline is managed by the client's `AbortController`.
+3. `askBridge()` starts `POST /ask` with the questions. `waitForPending()`
+   polls `/current`; only after the server exposes the new round does
+   `openBrowser()` open `http://127.0.0.1:4517`. This ordering prevents a
+   transient empty browser state.
+4. The `/ask` request stays open until answered or the application's one-hour
+   `AbortController` deadline. `server.requestTimeout = 0` prevents Node from
+   applying a separate server-side request deadline. Host MCP timeout defaults
+   are separate and are not assumed here.
 5. `server.js` validates and calls `bridge.submitQuestions()`, which stores
    `{id, questions, resolve, reject}` and returns a promise. The server
    broadcasts the new state to all SSE clients via `broadcastCurrent()`.
 6. The browser (connected to `GET /events`) renders the questions, the user
-   answers, and the UI does `POST /answer` with `{answers}`.
-7. `server.js` calls `bridge.provideAnswers()`, resolving the promise; the
+   answers, and the UI does `POST /answer` with `{id, answers}`.
+7. `server.js` calls `bridge.provideAnswers(id, answers)`, resolving the promise; the
    open `/ask` request returns the answers.
 8. Hook wraps answers via `buildHookOutput()` and writes the `PreToolUse`
    response to stdout; MCP returns answers as tool-result JSON.
@@ -61,15 +66,16 @@ Step by step (both entry paths are identical after `bridge-client`):
   (`/events`) is only for pushing state _to_ the browser. This avoids any
   client-side polling loop and any shared state beyond the bridge.
 
-- **Graceful fallback everywhere.** The hook exits `0` (allowing Claude's
-  native picker) on _any_ error — server won't start, timeout, no answers,
-  uncaught exception. The MCP tool returns a message telling Claude to use the
-  built-in tool. The tool is never a hard dependency in the user's flow.
+- **Host-native fallback.** The hook exits `0` on errors or empty answers so
+  Claude can show `AskUserQuestion`. MCP failures return `isError` guidance to
+  use `request_user_input` in Codex or `AskUserQuestion` in Claude Code.
 
-- **Two entry paths, one core.** The 4-question limit lives in Claude Code's
-  built-in tool, not here. The hook handles the native (≤4) path; the MCP
-  `ask` tool exists purely to bypass that limit with unlimited questions. Both
-  reuse `lib/bridge-client.mjs` so behavior is identical.
+- **Two entry paths, one host-neutral core.** Claude can return answers through
+  its native tool's hook contract. Claude and Codex can both call the unlimited
+  MCP `ask` tool. Codex hooks can observe, block, or rewrite
+  `request_user_input` input but cannot return the user's answers as that
+  tool's result, so its `askpro` skill guides tool choice. Both executable paths
+  reuse `lib/bridge-client.mjs`.
 
 - **Zero deps, no build step.** React/Babel are vendored and JSX is compiled
   in the browser. The server is raw `node:http`. This keeps install trivial

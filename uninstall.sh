@@ -1,21 +1,104 @@
 #!/usr/bin/env bash
 # askuserquestionspro — production-grade KALINTISIZ kaldırma.
-# Bridge süreçleri + hook + MCP kaydı + dosyalar + UI ayarları + npm global +
-# askpro skill — hepsini temizler, sonra kalıntı kalmadığını doğrular.
+# Bridge süreçleri + Claude/Codex hook/MCP kayıtları + dosyalar + UI ayarları +
+# npm global + iki host'un askpro skill'i — hepsini temizler ve doğrular.
 # `set -e` YOK — bir adım bulamasa bile temizlik devam etmeli. FAIL ile özetler.
 #
-# Kullanım: uninstall.sh [--keep-skill]
-#   --keep-skill / KEEP_SKILL=1 → ~/.claude/skills/askpro silinmez (reinstall kullanır).
+# Kullanım: uninstall.sh [--keep-skill] [--target auto|all|claude|codex]
+#   --keep-skill / KEEP_SKILL=1 → Claude ve Codex skill dizinleri korunur.
 set -uo pipefail
 
 INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
 SETTINGS="$HOME/.claude/settings.json"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/askuserquestionspro"
-SKILL_DIR="$HOME/.claude/skills/askpro"
+CLAUDE_SKILL_DIR="$HOME/.claude/skills/askpro"
+CODEX_SKILL_DIR="$HOME/.agents/skills/askpro"
 PORT="${ASKUSER_PORT:-4517}"
 
 KEEP_SKILL="${KEEP_SKILL:-0}"
-[ "${1:-}" = "--keep-skill" ] && KEEP_SKILL=1
+TARGET="${ASKUSER_TARGET:-auto}"
+
+usage() {
+  cat <<'EOF'
+Kullanım: uninstall.sh [--keep-skill] [--target auto|all|claude|codex]
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --keep-skill) KEEP_SKILL=1; shift ;;
+    --target)
+      [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+      TARGET="$2"; shift 2
+      ;;
+    --target=*) TARGET=${1#*=}; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'Bilinmeyen argüman: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+case "$TARGET" in
+  auto|all|claude|codex) ;;
+  *) printf 'Geçersiz target: %s\n' "$TARGET" >&2; usage >&2; exit 2 ;;
+esac
+
+find_codex() {
+  if [ -n "${ASKUI_CODEX_BIN:-}" ] && [ -x "$ASKUI_CODEX_BIN" ]; then
+    printf '%s\n' "$ASKUI_CODEX_BIN"
+    return 0
+  fi
+  if command -v codex >/dev/null 2>&1; then
+    command -v codex
+    return 0
+  fi
+  for candidate in \
+    "/Applications/ChatGPT.app/Contents/Resources/codex" \
+    "/Applications/Codex.app/Contents/Resources/codex" \
+    "$HOME/Applications/ChatGPT.app/Contents/Resources/codex" \
+    "$HOME/Applications/Codex.app/Contents/Resources/codex"
+  do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+CLAUDE_APPLIES=0
+CODEX_APPLIES=0
+case "$TARGET" in
+  all) CLAUDE_APPLIES=1; CODEX_APPLIES=1 ;;
+  claude) CLAUDE_APPLIES=1 ;;
+  codex) CODEX_APPLIES=1 ;;
+  auto)
+    if { [ -n "${ASKUI_CLAUDE_BIN:-}" ] && [ -x "$ASKUI_CLAUDE_BIN" ]; } || \
+      command -v claude >/dev/null 2>&1 || [ -f "$SETTINGS" ] || [ -d "$CLAUDE_SKILL_DIR" ]; then
+      CLAUDE_APPLIES=1
+    fi
+    if find_codex >/dev/null 2>&1 || [ -d "$CODEX_SKILL_DIR" ]; then
+      CODEX_APPLIES=1
+    fi
+    ;;
+esac
+
+# Host-specific uninstall must not delete the shared runtime while the other
+# host still has an adapter pointing at it.
+PRESERVE_SHARED=0
+if [ "$TARGET" = "codex" ]; then
+  if [ -d "$CLAUDE_SKILL_DIR" ] || \
+    { [ -f "$SETTINGS" ] && grep -q askuserquestionspro "$SETTINGS" 2>/dev/null; } || \
+    { command -v claude >/dev/null 2>&1 && claude mcp list 2>/dev/null | grep -q askuserquestionspro; }; then
+    PRESERVE_SHARED=1
+  fi
+elif [ "$TARGET" = "claude" ]; then
+  CODEX_CONFIG="${CODEX_HOME:-$HOME/.codex}/config.toml"
+  CODEX_CMD=$(find_codex 2>/dev/null || true)
+  if [ -d "$CODEX_SKILL_DIR" ] || \
+    { [ -f "$CODEX_CONFIG" ] && grep -q 'mcp_servers.askuserquestionspro' "$CODEX_CONFIG" 2>/dev/null; } || \
+    { [ -n "$CODEX_CMD" ] && "$CODEX_CMD" mcp list 2>/dev/null | grep -q askuserquestionspro; }; then
+    PRESERVE_SHARED=1
+  fi
+fi
 
 # ── log helper'ları ──────────────────────────────────────────────────────────
 if [ -t 1 ]; then
@@ -32,22 +115,59 @@ err()  { printf '%s\n' "${C_RED}  ✗ $*${C_RESET}" >&2; }
 
 FAIL=0
 
-printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kaldırma${C_RESET}"
+printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kaldırma — Claude Code + Codex (target: $TARGET)${C_RESET}"
+
+collect_port_pids() {
+  PIDS=()
+  while IFS= read -r pid; do
+    case "$pid" in
+      ''|*[!0-9]*) ;;
+      *) PIDS[${#PIDS[@]}]="$pid" ;;
+    esac
+  done < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
+}
+
+fallback_remove_mcp() {
+  if [ "$CLAUDE_APPLIES" -eq 1 ]; then
+    fallback_claude="${ASKUI_CLAUDE_BIN:-}"
+    if [ -z "$fallback_claude" ] && command -v claude >/dev/null 2>&1; then
+      fallback_claude=$(command -v claude)
+    fi
+    if [ -n "$fallback_claude" ] && [ -x "$fallback_claude" ]; then
+      "$fallback_claude" mcp remove --scope user askuserquestionspro >/dev/null 2>&1 || true
+      "$fallback_claude" mcp remove askuserquestionspro >/dev/null 2>&1 || true
+      info "  Claude MCP fallback temizliği denendi"
+    else
+      warn "Claude CLI bulunamadı — MCP fallback temizliği çalıştırılamadı"
+    fi
+  fi
+  if [ "$CODEX_APPLIES" -eq 1 ]; then
+    fallback_codex=$(find_codex 2>/dev/null || true)
+    if [ -n "$fallback_codex" ]; then
+      "$fallback_codex" mcp remove askuserquestionspro >/dev/null 2>&1 || true
+      info "  Codex MCP fallback temizliği denendi"
+    else
+      warn "Codex executable bulunamadı — MCP fallback temizliği çalıştırılamadı"
+    fi
+  fi
+}
 
 # ── 1/5 Çalışan bridge süreçlerini kapat ────────────────────────────────────
 step "1/5  Çalışan köprü süreçleri kapatılıyor (port $PORT)"
-if command -v lsof >/dev/null 2>&1; then
-  readarray -t pids < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
-  if [ "${#pids[@]}" -gt 0 ]; then
-    kill "${pids[@]}" 2>/dev/null && info "  SIGTERM → ${pids[*]}"
-    for _ in $(seq 1 10); do
+if [ "$PRESERVE_SHARED" -eq 1 ]; then
+  info "  diğer host ortak bridge'i kullanabilir → süreç kapatma atlandı"
+elif command -v lsof >/dev/null 2>&1; then
+  collect_port_pids
+  if [ "${#PIDS[@]}" -gt 0 ]; then
+    kill "${PIDS[@]}" 2>/dev/null && info "  SIGTERM → ${PIDS[*]}"
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
       sleep 0.1
-      readarray -t remaining < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
-      [ "${#remaining[@]}" -eq 0 ] && break
+      collect_port_pids
+      [ "${#PIDS[@]}" -eq 0 ] && break
     done
-    readarray -t remaining < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
-    if [ "${#remaining[@]}" -gt 0 ]; then
-      kill -9 "${remaining[@]}" 2>/dev/null && info "  SIGKILL → ${remaining[*]}"
+    collect_port_pids
+    if [ "${#PIDS[@]}" -gt 0 ]; then
+      kill -9 "${PIDS[@]}" 2>/dev/null && info "  SIGKILL → ${PIDS[*]}"
       sleep 0.2
     fi
     ok "süreç(ler) kapatıldı"
@@ -58,15 +178,23 @@ else
   warn "lsof yok — süreç kontrolü atlandı"
 fi
 
-# ── 2/5 Hook'u settings.json'dan kaldır ──────────────────────────────────────
-step "2/5  Hook ~/.claude/settings.json'dan kaldırılıyor"
-# 2a. Primer: bundled Node logic (exact-path, atomic).
+# ── 2/5 Host kayıtlarını bundled CLI ile kaldır ──────────────────────────────
+step "2/5  Claude/Codex hook ve MCP kayıtları kaldırılıyor (target: $TARGET)"
+# Primer: bundled Node logic tüm host kayıtlarını idempotent kaldırır.
 if [ -f "$INSTALL_DIR/bin/cli.js" ]; then
-  node "$INSTALL_DIR/bin/cli.js" uninstall >/dev/null 2>&1 && info "  bundled uninstall çalıştı" || true
+  if node "$INSTALL_DIR/bin/cli.js" uninstall --target "$TARGET"; then
+    ok "bundled host temizliği tamamlandı"
+  else
+    warn "bundled host temizliği hata verdi — host CLI fallback'i deneniyor"
+    fallback_remove_mcp
+  fi
+else
+  warn "bundled CLI yok — host CLI fallback'i ve savunma kontrolleri kullanılacak"
+  fallback_remove_mcp
 fi
-# 2b. Savunma amaçlı jq süpürmesi: askuserquestionspro geçen TÜM PreToolUse
+# Savunma amaçlı Claude jq süpürmesi: askuserquestionspro geçen TÜM PreToolUse
 #     entry'lerini at (eski/farklı-path kurulumlardan kalıntı için), boş anahtarları buda.
-if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
+if [ "$CLAUDE_APPLIES" -eq 1 ] && [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
   tmp="$(mktemp)"
   if jq '
     if .hooks.PreToolUse then
@@ -82,70 +210,103 @@ if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
   else
     rm -f "$tmp"; warn "jq sweep başarısız — settings dokunulmadı"
   fi
+elif [ "$CLAUDE_APPLIES" -eq 0 ]; then
+  info "  Claude hedeflenmedi; settings hook süpürmesi atlandı"
 elif [ -f "$INSTALL_DIR/bin/cli.js" ]; then
   ok "hook bundled logic ile kaldırıldı (jq yok)"
 else
   warn "jq ve bundled logic yok — hook elle kontrol edilmeli: $SETTINGS"
 fi
 
-# ── 3/5 MCP kaydını kaldır ───────────────────────────────────────────────────
-step "3/5  MCP kaydı kaldırılıyor"
-if command -v claude >/dev/null 2>&1; then
-  claude mcp remove --scope user askuserquestionspro >/dev/null 2>&1 || true
-  claude mcp remove askuserquestionspro >/dev/null 2>&1 || true   # scope'suz fallback
-  ok "MCP kaydı temizlendi"
+# MCP kaydı ayrıca elle değiştirilmez: farklı host konfigürasyonlarının tek sahibi
+# bundled CLI'dır. Aşağıdaki kalıntı kontrolü host CLI'larıyla sonucu doğrular.
+
+# ── 3/5 Dosyalar, UI ayarları, npm global ───────────────────────────────────
+step "3/5  Dosyalar ve ayarlar siliniyor"
+if [ "$PRESERVE_SHARED" -eq 1 ]; then
+  info "  diğer host hâlâ kurulu → ortak runtime, UI ayarları ve npm paketi korunuyor"
 else
-  warn "claude CLI yok — MCP adımı atlandı"
+  if rm -rf "$INSTALL_DIR"; then ok "silindi: $INSTALL_DIR"; else err "$INSTALL_DIR silinemedi"; FAIL=1; fi
+  if rm -rf "$CONFIG_DIR"; then ok "silindi: $CONFIG_DIR (UI ayarları)"; else err "$CONFIG_DIR silinemedi"; FAIL=1; fi
+  if command -v npm >/dev/null 2>&1; then
+    npm uninstall -g askuserquestionspro >/dev/null 2>&1 || true
+    info "  npm global temizlik denendi (varsa kaldırıldı)"
+  fi
 fi
 
-# ── 4/5 Dosyalar, UI ayarları, npm global ───────────────────────────────────
-step "4/5  Dosyalar ve ayarlar siliniyor"
-if rm -rf "$INSTALL_DIR"; then ok "silindi: $INSTALL_DIR"; else err "$INSTALL_DIR silinemedi"; FAIL=1; fi
-if rm -rf "$CONFIG_DIR"; then ok "silindi: $CONFIG_DIR (UI ayarları)"; else err "$CONFIG_DIR silinemedi"; FAIL=1; fi
-if command -v npm >/dev/null 2>&1; then
-  npm uninstall -g askuserquestionspro >/dev/null 2>&1 || true
-  info "  npm global temizlik denendi (varsa kaldırıldı)"
-fi
-
-# ── 5/5 Skill ───────────────────────────────────────────────────────────────
-step "5/5  askpro skill"
+# ── 4/5 Skill ───────────────────────────────────────────────────────────────
+step "4/5  Claude ve Codex askpro skill'leri"
 if [ "$KEEP_SKILL" -eq 1 ]; then
-  info "  --keep-skill → korunuyor: $SKILL_DIR"
-elif [ -d "$SKILL_DIR" ]; then
-  if rm -rf "$SKILL_DIR"; then ok "silindi: $SKILL_DIR"; else err "$SKILL_DIR silinemedi"; FAIL=1; fi
+  info "  --keep-skill → host skill'leri korunuyor"
 else
-  ok "skill zaten yok"
+  if [ "$CLAUDE_APPLIES" -eq 1 ] && [ -d "$CLAUDE_SKILL_DIR" ]; then
+    if rm -rf "$CLAUDE_SKILL_DIR"; then ok "silindi: $CLAUDE_SKILL_DIR"; else err "$CLAUDE_SKILL_DIR silinemedi"; FAIL=1; fi
+  fi
+  if [ "$CODEX_APPLIES" -eq 1 ] && [ -d "$CODEX_SKILL_DIR" ]; then
+    if rm -rf "$CODEX_SKILL_DIR"; then ok "silindi: $CODEX_SKILL_DIR"; else err "$CODEX_SKILL_DIR silinemedi"; FAIL=1; fi
+  fi
 fi
 
 # ── Doğrulama (kalıntısızlık) ────────────────────────────────────────────────
-printf '\n%s\n' "${C_BOLD}Kalıntı kontrolü${C_RESET}"
-if [ ! -d "$INSTALL_DIR" ]; then ok "dosyalar yok"; else err "kalıntı: $INSTALL_DIR"; FAIL=1; fi
-if [ ! -d "$CONFIG_DIR" ]; then ok "UI ayarları yok"; else err "kalıntı: $CONFIG_DIR"; FAIL=1; fi
+step "5/5  Kalıntı kontrolü"
+if [ "$PRESERVE_SHARED" -eq 1 ]; then
+  if [ -d "$INSTALL_DIR" ]; then ok "ortak runtime korundu"; else err "ortak runtime yanlışlıkla silindi"; FAIL=1; fi
+else
+  if [ ! -d "$INSTALL_DIR" ]; then ok "dosyalar yok"; else err "kalıntı: $INSTALL_DIR"; FAIL=1; fi
+  if [ ! -d "$CONFIG_DIR" ]; then ok "UI ayarları yok"; else err "kalıntı: $CONFIG_DIR"; FAIL=1; fi
+fi
 if [ "$KEEP_SKILL" -eq 1 ]; then
   info "  skill korundu (kontrol atlandı)"
-elif [ ! -d "$SKILL_DIR" ]; then
-  ok "skill yok"
 else
-  err "kalıntı: $SKILL_DIR"; FAIL=1
+  if [ "$CLAUDE_APPLIES" -eq 1 ] && [ -d "$CLAUDE_SKILL_DIR" ]; then
+    err "kalıntı: $CLAUDE_SKILL_DIR"; FAIL=1
+  elif [ "$CLAUDE_APPLIES" -eq 1 ]; then
+    ok "Claude skill yok"
+  fi
+  if [ "$CODEX_APPLIES" -eq 1 ] && [ -d "$CODEX_SKILL_DIR" ]; then
+    err "kalıntı: $CODEX_SKILL_DIR"; FAIL=1
+  elif [ "$CODEX_APPLIES" -eq 1 ]; then
+    ok "Codex skill yok"
+  fi
 fi
 # Hook gerçekten gitti mi?
-if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
+if [ "$CLAUDE_APPLIES" -eq 1 ] && [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
   if jq -e '[.. | objects | select(has("command")) | .command // "" | select(test("askuserquestionspro"))] | length > 0' "$SETTINGS" >/dev/null 2>&1; then
     err "kalıntı: settings.json'da hâlâ askuserquestionspro hook var"; FAIL=1
   else
     ok "hook yok"
   fi
-elif [ -f "$SETTINGS" ] && grep -q askuserquestionspro "$SETTINGS"; then
+elif [ "$CLAUDE_APPLIES" -eq 1 ] && [ -f "$SETTINGS" ] && grep -q askuserquestionspro "$SETTINGS"; then
   warn "settings.json'da askuserquestionspro geçiyor (jq yok — elle kontrol edin)"
 else
   ok "hook yok"
 fi
-# MCP gitti mi?
-if command -v claude >/dev/null 2>&1; then
-  if claude mcp list 2>/dev/null | grep -q askuserquestionspro; then err "kalıntı: MCP hâlâ kayıtlı"; FAIL=1; else ok "MCP kaydı yok"; fi
+# Her ulaşılabilir host'ta MCP gitti mi?
+if [ "$CLAUDE_APPLIES" -eq 1 ]; then
+  CLAUDE_CMD="${ASKUI_CLAUDE_BIN:-}"
+  if [ -z "$CLAUDE_CMD" ] && command -v claude >/dev/null 2>&1; then
+    CLAUDE_CMD=$(command -v claude)
+  fi
+  if [ -n "$CLAUDE_CMD" ] && [ -x "$CLAUDE_CMD" ]; then
+    if "$CLAUDE_CMD" mcp list 2>/dev/null | grep -q askuserquestionspro; then err "kalıntı: MCP hâlâ kayıtlı"; FAIL=1; else ok "MCP kaydı yok"; fi
+  fi
+fi
+if [ "$CODEX_APPLIES" -eq 1 ]; then
+  CODEX_CMD=$(find_codex 2>/dev/null || true)
+  if [ -n "$CODEX_CMD" ]; then
+    if "$CODEX_CMD" mcp list 2>/dev/null | grep -q askuserquestionspro; then
+      err "kalıntı: Codex MCP hâlâ kayıtlı"; FAIL=1
+    else
+      ok "Codex MCP kaydı yok"
+    fi
+  else
+    warn "Codex executable bulunamadı — MCP kalıntısı CLI üzerinden doğrulanamadı"
+  fi
 fi
 # Port boş mu?
-if command -v lsof >/dev/null 2>&1; then
+if [ "$PRESERVE_SHARED" -eq 1 ]; then
+  info "  ortak bridge korunuyor → portun açık kalması beklenir"
+elif command -v lsof >/dev/null 2>&1; then
   if [ -z "$(lsof -ti "tcp:$PORT" 2>/dev/null || true)" ]; then ok "port $PORT boş"; else err "port $PORT hâlâ dolu"; FAIL=1; fi
 fi
 
