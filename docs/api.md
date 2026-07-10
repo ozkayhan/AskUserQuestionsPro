@@ -51,7 +51,7 @@ owning round is cancelled, not a newly submitted one).
 Type-specific field rules:
 
 - `binary`: `options` optional; omit for default `[{label:"Evet"},{label:"Hayır"}]`; exactly 2 options; no "Other".
-- `scale`: `min`, `max`, `step` required; no `options`.
+- `scale`: `min`, `max`, `step` required; any provided `options` are ignored for compatibility.
 - `ranking`: `options` required (≥ 2 items); no "Other".
 - `tree`: `options` required (non-empty); `children` makes a non-leaf node; depth ≤ 6; no "Other".
 
@@ -180,7 +180,7 @@ Returns `{ok:true}` or `{ok:false, error:"<human-readable>"}`. Rules per type:
 - All: `type` must be a valid enum value (or absent).
 - `single`/`multi`: `options` non-empty.
 - `binary`: `options` absent or length === 2.
-- `scale`: `min < max`, `step > 0`, all numeric.
+- `scale`: `min < max`, `step > 0`, all numeric; `options` are ignored if provided.
 - `ranking`: `options` length ≥ 2.
 - `tree`: `options` non-empty, `children` (if present) must be arrays, depth ≤ 6.
 

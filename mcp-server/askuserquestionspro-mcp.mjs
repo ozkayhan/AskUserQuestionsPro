@@ -15,13 +15,6 @@ const CURRENT_PROTOCOL_VERSION = '2025-11-25';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([CURRENT_PROTOCOL_VERSION, '2025-06-18', '2024-11-05']);
 const activeRequests = new Map();
 
-class RegistrationTimeoutError extends Error {
-  constructor() {
-    super('question round was not registered by the local bridge within 5 seconds');
-    this.name = 'RegistrationTimeoutError';
-  }
-}
-
 // ASK aracı tanımı — maxItems YOK: sınırsız soru desteklenir.
 const ASK_TOOL = {
   name: 'ask',
@@ -93,7 +86,7 @@ const ASK_TOOL = {
               type: 'array',
               minItems: 1,
               description:
-                'Seçenekler obje olmalıdır: [{"label":"Seçenek"}]. String dizileri geçersizdir. binary: tam 2 şık veya omit. scale: kullanılamaz.',
+                'Seçenekler obje olmalıdır: [{"label":"Seçenek"}]. String dizileri geçersizdir. binary: tam 2 şık veya omit. scale: verilirse yoksayılır.',
               // Kök seçenek şemasını inline yayınla. Bazı hostlar $ref'i
               // çözmeden Array<unknown> gösterdiği için modelin string dizi
               // üretmesini engeller; tree children yine recursive $defs kullanır.
@@ -111,15 +104,6 @@ const ASK_TOOL = {
               },
             },
           },
-          allOf: [
-            {
-              if: {
-                required: ['type'],
-                properties: { type: { const: 'scale' } },
-              },
-              then: { not: { required: ['options'] } },
-            },
-          ],
         },
       },
     },
@@ -218,14 +202,12 @@ async function handleAsk(args, signal) {
       () => new Promise(() => {}),
       (error) => Promise.reject(error)
     );
-    const registered = await Promise.race([
-      waitForPending({ timeoutMs: 5000 }).then((ok) => {
-        if (!ok) throw new RegistrationTimeoutError();
-        return true;
-      }),
-      earlyFailure,
-    ]);
-    if (!registered) throw new RegistrationTimeoutError();
+    const registered = await Promise.race([waitForPending({ timeoutMs: 5000 }), earlyFailure]);
+    if (!registered) {
+      // /current yoklaması best-effort'tur; geç görünen round yine de
+      // askPromise üzerinden tamamlanabilir.
+      log('mcp', 'pending round not visible within 5 seconds; continuing to wait for ask');
+    }
     openBrowser();
     answers = await askPromise;
   } catch (e) {
@@ -235,11 +217,9 @@ async function handleAsk(args, signal) {
     const cause =
       e?.name === 'BridgeError' && e.status === 400
         ? `invalid question input: ${e.message}`
-        : e?.name === 'RegistrationTimeoutError'
-          ? 'the bridge did not register the question round within 5 seconds'
-          : e?.name === 'TimeoutError'
-            ? 'timed out waiting for the user'
-            : `error: ${e?.message || e}`;
+        : e?.name === 'TimeoutError'
+          ? 'timed out waiting for the user'
+          : `error: ${e?.message || e}`;
     const recovery =
       e?.name === 'BridgeError' && e.status === 400
         ? 'Use option objects such as {"label":"Option"}; do not pass string arrays.'

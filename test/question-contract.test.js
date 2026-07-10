@@ -38,3 +38,18 @@ test('question contract allows binary and scale questions without options', () =
     ok: true,
   });
 });
+
+test('question contract accepts scale options from generic MCP clients', () => {
+  assert.deepStrictEqual(
+    validQuestions([
+      {
+        question: 'Güven?',
+        type: 'scale',
+        min: 1,
+        max: 5,
+        options: [{ label: 'Düşük' }, { label: 'Yüksek' }],
+      },
+    ]),
+    { ok: true }
+  );
+});

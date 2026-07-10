@@ -104,10 +104,9 @@
     }
   },
   {
-    "id": "scale-options-rejected",
-    "prompt": "Ask for a confidence score but accidentally include choices.",
-    "expected": "invalid",
-    "errorPattern": "must not include options",
+    "id": "scale-options-accepted",
+    "prompt": "Ask for a confidence score from a generic client that includes choices.",
+    "expected": "valid",
     "payload": {
       "questions": [
         {

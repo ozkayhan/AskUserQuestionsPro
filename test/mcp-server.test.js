@@ -159,15 +159,11 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
   assert.ok(itemProps.leftLabel, 'leftLabel alanı olmalı');
   assert.ok(itemProps.rightLabel, 'rightLabel alanı olmalı');
 
-  // Runtime validator scale sorularında options'ı reddeder; şema da bunu
-  // makine tarafından görünür kılmalı, aksi halde geçerli görünen payload
-  // bridge açılmadan Invalid question input ile sonuçlanır.
-  assert.ok(Array.isArray(qSchema.items.allOf), 'scale koşulu allOf içinde olmalı');
-  const scaleRule = qSchema.items.allOf.find(
-    (rule) => rule.if?.properties?.type?.const === 'scale'
+  assert.strictEqual(
+    qSchema.items.allOf,
+    undefined,
+    'scale options kısıtı istemciye yalnızca koşullu bir ipucu olarak verilmemeli'
   );
-  assert.ok(scaleRule, 'scale için koşullu şema kuralı olmalı');
-  assert.deepStrictEqual(scaleRule.then, { not: { required: ['options'] } });
 });
 
 test('mcp-server: string options bridge timeoutuna düşmeden açık giriş hatası döndürür', async () => {

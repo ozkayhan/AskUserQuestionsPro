@@ -30,7 +30,7 @@ Use this preflight checklist:
 2. `header` is present and identifies the group.
 3. `single`, `multi`, `ranking`, and `tree` use option objects; `ranking` has at least two.
 4. `binary` omits `options` or supplies exactly two option objects.
-5. `scale` supplies `min`, `max`, and positive `step`, and omits `options`.
+5. `scale` supplies `min`, `max`, and positive `step`; generic clients may include `options`, which the scale UI ignores.
 6. Tree `children` values are arrays of the same option-object shape.
 
 ## When to use this tool
@@ -336,7 +336,7 @@ const deployment = answers['Hedef deployment ortamı nedir?']; // ["Cloud", "AWS
 | binary  | —                                                         | options length != 2 if provided |
 | single  | options non-empty                                         | —                               |
 | multi   | options non-empty                                         | —                               |
-| scale   | min, max, step; min < max; step > 0                       | options field                   |
+| scale   | min, max, step; min < max; step > 0                       | —                               |
 | ranking | options length >= 2                                       | —                               |
 | tree    | options non-empty; children arrays if present; depth <= 6 | —                               |
 
