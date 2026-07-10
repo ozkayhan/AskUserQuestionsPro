@@ -4,3 +4,4 @@ package-lock.json
 # .context/ holds orchestrator artifacts (injected-wrapper specs, not source) —
 # eslint.config.js ignores them too; keep the two tools' scopes in sync (L-54).
 .context/**
+.omo/**

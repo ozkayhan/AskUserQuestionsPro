@@ -93,7 +93,7 @@ const ASK_TOOL = {
               type: 'array',
               minItems: 1,
               description:
-                'Seçenekler obje olmalıdır: [{"label":"Seçenek"}]. String dizileri geçersizdir. binary: tam 2 şık veya omit. scale: kullanılmaz.',
+                'Seçenekler obje olmalıdır: [{"label":"Seçenek"}]. String dizileri geçersizdir. binary: tam 2 şık veya omit. scale: kullanılamaz.',
               // Kök seçenek şemasını inline yayınla. Bazı hostlar $ref'i
               // çözmeden Array<unknown> gösterdiği için modelin string dizi
               // üretmesini engeller; tree children yine recursive $defs kullanır.
@@ -111,6 +111,15 @@ const ASK_TOOL = {
               },
             },
           },
+          allOf: [
+            {
+              if: {
+                required: ['type'],
+                properties: { type: { const: 'scale' } },
+              },
+              then: { not: { required: ['options'] } },
+            },
+          ],
         },
       },
     },

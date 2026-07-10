@@ -86,11 +86,11 @@ async function main() {
       timeoutMs: TIMEOUT_MS,
       signal: roundController.signal,
     });
-    // L-8 race guard: tarayıcıyı yalnızca /ask sunucuda tur olarak kaydedildikten
-    // sonra aç. Aksi halde tarayıcı /current'ı POST işlenmeden sorgulayıp boş
-    // ("no pending question") sayfa gösterebilirdi.
+    // L-8 race guard: /ask POST'unun /current'ta görünmesini bekle; ancak
+    // yoklama best-effort kalmalı. Yavaş bir köprüde timeout olsa bile zengin
+    // UI açılmalı ve askPromise'in tamamlanması beklenmeli.
     askPromise.catch(() => undefined);
-    if (!(await waitForPending())) throw new Error('question round was not registered');
+    await waitForPending();
     openBrowser();
     answers = await askPromise;
   } catch {

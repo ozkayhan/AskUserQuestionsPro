@@ -102,7 +102,10 @@
           root.style.removeProperty('--radius-lg');
           return;
         }
-        var px = v === 'sharp' ? { r: '0px', sm: '0px', lg: '0px' } : { r: '16px', sm: '12px', lg: '20px' };
+        var px =
+          v === 'sharp'
+            ? { r: '0px', sm: '0px', lg: '0px' }
+            : { r: '16px', sm: '12px', lg: '20px' };
         root.style.setProperty('--radius', px.r);
         root.style.setProperty('--radius-sm', px.sm);
         root.style.setProperty('--radius-lg', px.lg);
@@ -160,10 +163,7 @@
             'href',
             'https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap'
           );
-          root.style.setProperty(
-            '--font-sans',
-            '"Newsreader", ui-serif, Georgia, serif'
-          );
+          root.style.setProperty('--font-sans', '"Newsreader", ui-serif, Georgia, serif');
         } else {
           if (link) link.remove();
           if (v === 'mono') root.style.setProperty('--font-sans', 'var(--font-mono)');
