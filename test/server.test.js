@@ -104,6 +104,21 @@ test('/current ve /events payload {id, questions} icerir', async () => {
   await askAndAnswer(questions, { 'QID?': 'A' });
 });
 
+test('/current requestId ile yalnizca ilgili pending turunu gosterir', async () => {
+  const requestId = 'request-owner-a';
+  const questions = [{ question: 'OWNER?', options: [{ label: 'A' }], multiSelect: false }];
+  const askPromise = post('/ask', { questions, requestId });
+  const cur = await waitForPending();
+
+  const unrelated = await fetch(`${base}/current?requestId=request-owner-b`);
+  assert.deepStrictEqual(await unrelated.json(), { id: null, questions: null });
+  const owned = await fetch(`${base}/current?requestId=${requestId}`);
+  assert.deepStrictEqual(await owned.json(), cur);
+
+  await post('/answer', { id: cur.id, answers: { 'OWNER?': 'A' } });
+  await askPromise;
+});
+
 // --- Contract R: /answer round-id rendezvous ---
 
 test('/answer stale id -> 409 (cross-round race korumasi)', async () => {

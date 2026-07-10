@@ -134,6 +134,35 @@ test('doctor --target claude: izole HOME altında eksikleri raporlar', () => {
   assert.match(r.stdout, /Claude hook kurulu değil/, 'doctor hook durumunu raporlamalı');
 });
 
+test('install --target auto: host CLI yokken uyumluluk fallback kurulumu basar', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-auto-home-'));
+  const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-auto-xdg-'));
+  try {
+    const env = {
+      ...process.env,
+      HOME: home,
+      XDG_CONFIG_HOME: xdg,
+      ASKUI_CLAUDE_BIN: path.join(home, 'missing-claude'),
+      ASKUI_CODEX_BIN: path.join(home, 'missing-codex'),
+    };
+    const install = spawnSync(process.execPath, [CLI, 'install', '--target', 'auto'], {
+      encoding: 'utf8',
+      env,
+    });
+    assert.strictEqual(install.status, 0, install.stdout + install.stderr);
+    assert.ok(fs.existsSync(path.join(home, '.claude', 'skills', 'askpro', 'SKILL.md')));
+
+    const doctor = spawnSync(process.execPath, [CLI, 'doctor', '--target', 'auto'], {
+      encoding: 'utf8',
+      env,
+    });
+    assert.strictEqual(doctor.status, 0, doctor.stdout + doctor.stderr);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(xdg, { recursive: true, force: true });
+  }
+});
+
 test(
   'install/uninstall --target codex deploys Codex skill and MCP without touching Claude',
   { skip: process.platform === 'win32' },

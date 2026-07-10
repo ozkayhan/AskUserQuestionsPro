@@ -164,8 +164,10 @@ const server = http.createServer(async (req, res) => {
   // app kimliği: eski/yabancı bir server'ın bu portu kapıp /health'e ok demesini ayırt etmek için
   if (req.method === 'GET' && url === '/health')
     return sendJson(res, 200, { ok: true, app: APP_ID });
-  if (req.method === 'GET' && url === '/current')
-    return sendJson(res, 200, bridge.peek() || { id: null, questions: null });
+  if (req.method === 'GET' && url === '/current') {
+    const requestId = new URL(req.url, 'http://127.0.0.1').searchParams.get('requestId');
+    return sendJson(res, 200, bridge.peek(requestId || undefined) || { id: null, questions: null });
+  }
 
   if (req.method === 'GET' && url === '/events') {
     res.writeHead(200, {
@@ -201,8 +203,11 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 400, { error: 'read error' });
     }
     let questions;
+    let requestId;
     try {
-      questions = JSON.parse(body).questions;
+      const payload = JSON.parse(body);
+      questions = payload.questions;
+      requestId = typeof payload.requestId === 'string' ? payload.requestId : undefined;
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
@@ -211,7 +216,7 @@ const server = http.createServer(async (req, res) => {
     // Senkron erken 409: zaten pending varsa close handler kaydetmeden çık. Aksi
     // halde reddedilmiş istek, sahiplenmediği turu (gec onClose ile) iptal edebilir.
     if (bridge.peek()) return sendJson(res, 409, { error: 'A question set is already pending' });
-    const answersPromise = bridge.submitQuestions(questions);
+    const answersPromise = bridge.submitQuestions(questions, requestId);
     // Bu istek pending'i sahiplendi; submit'ten dönen id ile sahipliği işaretle.
     const myId = bridge.peek().id;
     // İstemci yanıttan önce giderse SADECE kendi turunu iptal et (Contract R:

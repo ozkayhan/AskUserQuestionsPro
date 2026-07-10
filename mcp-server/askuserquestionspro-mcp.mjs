@@ -165,7 +165,7 @@ async function handleAsk(args, signal) {
   }
 
   // ESM modülü dinamik olarak içe aktar (hem hook hem MCP paylaşır).
-  const { ensureServer, openBrowser, askBridge, waitForPending } =
+  const { ensureServer, openBrowser, askBridge, waitForPending, createRequestId } =
     await import('../lib/bridge-client.mjs');
 
   if (!(await ensureServer())) {
@@ -188,11 +188,13 @@ async function handleAsk(args, signal) {
 
   let answers;
   const roundController = new AbortController();
+  const requestId = createRequestId();
   const cancelRound = () => roundController.abort();
   signal?.addEventListener('abort', cancelRound, { once: true });
   const askPromise = askBridge(args.questions, {
     timeoutMs: 60 * 60 * 1000,
     signal: roundController.signal,
+    requestId,
   });
   try {
     // HTTP 400/500 gibi erken bridge hataları, pending poll'unun 5 saniyelik
@@ -202,7 +204,10 @@ async function handleAsk(args, signal) {
       () => new Promise(() => {}),
       (error) => Promise.reject(error)
     );
-    const registered = await Promise.race([waitForPending({ timeoutMs: 5000 }), earlyFailure]);
+    const registered = await Promise.race([
+      waitForPending({ timeoutMs: 5000, requestId }),
+      earlyFailure,
+    ]);
     if (!registered) {
       // /current yoklaması best-effort'tur; geç görünen round yine de
       // askPromise üzerinden tamamlanabilir.

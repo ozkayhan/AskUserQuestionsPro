@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
-import { ensureServer, openBrowser, askBridge, waitForPending } from '../lib/bridge-client.mjs';
+import {
+  ensureServer,
+  openBrowser,
+  askBridge,
+  waitForPending,
+  createRequestId,
+} from '../lib/bridge-client.mjs';
 
 const require = createRequire(import.meta.url);
 const { buildHookOutput } = require('./hook-output.js');
@@ -82,15 +88,17 @@ async function main() {
   let answers;
   const roundController = new AbortController();
   try {
+    const requestId = createRequestId();
     const askPromise = askBridge(toolInput.questions, {
       timeoutMs: TIMEOUT_MS,
       signal: roundController.signal,
+      requestId,
     });
     // L-8 race guard: /ask POST'unun /current'ta görünmesini bekle; ancak
     // yoklama best-effort kalmalı. Yavaş bir köprüde timeout olsa bile zengin
     // UI açılmalı ve askPromise'in tamamlanması beklenmeli.
     askPromise.catch(() => undefined);
-    await waitForPending();
+    await waitForPending({ requestId });
     openBrowser();
     answers = await askPromise;
   } catch {

@@ -42,14 +42,16 @@ esac
 
 claude_is_available() {
   if [ -n "${ASKUI_CLAUDE_BIN:-}" ]; then
-    [ -x "$ASKUI_CLAUDE_BIN" ] && return 0
+    [ -x "$ASKUI_CLAUDE_BIN" ]
+    return $?
   fi
   command -v claude >/dev/null 2>&1
 }
 
 codex_is_available() {
   if [ -n "${ASKUI_CODEX_BIN:-}" ]; then
-    [ -x "$ASKUI_CODEX_BIN" ] && return 0
+    [ -x "$ASKUI_CODEX_BIN" ]
+    return $?
   fi
   command -v codex >/dev/null 2>&1 && return 0
   for candidate in \

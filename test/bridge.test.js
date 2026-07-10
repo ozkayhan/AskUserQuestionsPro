@@ -73,3 +73,12 @@ test('her submit artan benzersiz id verir; peek {id,questions} doner', async () 
   const p2 = b.peek();
   assert.ok(p2.id > p1.id, 'id artmali');
 });
+
+test('peek(requestId) yalnizca ilgili istemcinin turunu gosterir', () => {
+  const b = new Bridge();
+  const p = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
+  p.catch(() => {});
+  assert.ok(b.peek('owner-a'));
+  assert.strictEqual(b.peek('owner-b'), null);
+  b.cancel('test');
+});

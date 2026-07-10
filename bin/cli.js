@@ -122,12 +122,12 @@ function deploySkill(host) {
   process.stdout.write(`✓ ${HOSTS[host].label} skill → ${destination}\n`);
 }
 
-function registerMcp(host, executable) {
+function registerMcp(host, executable, { optional = false } = {}) {
   if (!executable) {
     process.stderr.write(
-      `✗ ${HOSTS[host].label} komutu bulunamadı. MCP'yi elle kaydedin:\n  ${manualMcpCommand(host, MCP_ABS)}\n`
+      `${optional ? '·' : '✗'} ${HOSTS[host].label} komutu bulunamadı. MCP'yi elle kaydedin:\n  ${manualMcpCommand(host, MCP_ABS)}\n`
     );
-    return false;
+    return optional;
   }
   if (host === 'codex') {
     fs.mkdirSync(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), { recursive: true });
@@ -207,7 +207,10 @@ function cmdInstall(argv) {
       process.stderr.write(`✗ ${HOSTS[host].label}: ${err.message}\n`);
       ok = false;
     }
-    ok = registerMcp(host, executables[host]) && ok;
+    ok =
+      registerMcp(host, executables[host], {
+        optional: target === 'auto' && !executables[host],
+      }) && ok;
   }
   if (hosts.includes('codex')) {
     process.stdout.write(
@@ -394,10 +397,12 @@ function doctorClaudeHook() {
   return false;
 }
 
-function doctorMcp(host, executable) {
+function doctorMcp(host, executable, { optional = false } = {}) {
   if (!executable) {
-    process.stdout.write(`✗ ${HOSTS[host].label} komutu bulunamadı\n`);
-    return false;
+    process.stdout.write(
+      `${optional ? '·' : '✗'} ${HOSTS[host].label} komutu bulunamadı${optional ? ' (MCP kaydı elle doğrulanmalı)' : ''}\n`
+    );
+    return optional;
   }
   const result = spawnSync(executable, mcpArgs(host, 'check', MCP_ABS), { encoding: 'utf8' });
   let installed = false;
@@ -448,7 +453,10 @@ async function cmdDoctor(argv) {
       process.stdout.write(`✗ skill kurulu değil (${skill})\n`);
       ok = false;
     }
-    ok = doctorMcp(host, executables[host]) && ok;
+    ok =
+      doctorMcp(host, executables[host], {
+        optional: target === 'auto' && !executables[host],
+      }) && ok;
   }
   if (fs.existsSync(HOOK_ABS)) {
     process.stdout.write(`✓ Paket dosyaları mevcut (${PKG_ROOT})\n`);
