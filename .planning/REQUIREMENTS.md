@@ -10,13 +10,13 @@
 - [ ] **TIME-01**: User can complete a 15-question Codex round after at least 10 minutes of idle time without the browser closing or answers being lost.
 - [ ] **TIME-02**: User can complete the equivalent Claude Code round, or the project documents a proven Claude host limitation and provides a supported fallback.
 - [x] **TIME-03**: Maintainers can identify whether a failed round ended by host cancellation, HTTP disconnect, bridge cancellation, browser disconnect, application timeout, or process exit without inspecting question contents.
-- [ ] **TIME-04**: A failed host connection produces a clear recoverable diagnostic and does not silently look like a normal browser close.
+- [x] **TIME-04**: A failed host connection produces a clear recoverable diagnostic and does not silently look like a normal browser close.
 
 ### Host Integrations
 
-- [ ] **HOST-01**: Codex MCP `tools/call` preserves the existing `ask` input/output contract while supporting the selected long-round lifecycle fix.
-- [ ] **HOST-02**: Claude Code native hook preserves its existing fallback contract while using the shared lifecycle/error semantics.
-- [ ] **HOST-03**: A host failure or cancellation leaves the user with a documented, actionable native-host fallback path.
+- [x] **HOST-01**: Codex MCP `tools/call` preserves the existing `ask` input/output contract while supporting the selected long-round lifecycle fix.
+- [x] **HOST-02**: Claude Code native hook preserves its existing fallback contract while using the shared lifecycle/error semantics.
+- [x] **HOST-03**: A host failure or cancellation leaves the user with a documented, actionable native-host fallback path.
 
 ### Bridge and Server Reliability
 
@@ -79,10 +79,10 @@
 | TIME-01 | Phase 7 | Pending |
 | TIME-02 | Phase 7 | Pending |
 | TIME-03 | Phase 1 | Complete |
-| TIME-04 | Phase 2 | Pending |
-| HOST-01 | Phase 2 | Pending |
-| HOST-02 | Phase 2 | Pending |
-| HOST-03 | Phase 2 | Pending |
+| TIME-04 | Phase 2 | Complete |
+| HOST-01 | Phase 2 | Complete |
+| HOST-02 | Phase 2 | Complete |
+| HOST-03 | Phase 2 | Complete |
 | BRDG-01 | Phase 3 | Pending |
 | BRDG-02 | Phase 3 | Pending |
 | BRDG-03 | Phase 3 | Pending |

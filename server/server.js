@@ -2,7 +2,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { Bridge } = require('./bridge.js');
+const { Bridge, terminalReason } = require('./bridge.js');
 const APP_ID = require('../lib/app-id.cjs');
 const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
@@ -159,7 +159,7 @@ function hashBuf(buf) {
   return h.toString(16);
 }
 
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
   const url = req.url.split('?')[0];
 
   // app kimliği: eski/yabancı bir server'ın bu portu kapıp /health'e ok demesini ayırt etmek için
@@ -216,7 +216,11 @@ const server = http.createServer(async (req, res) => {
     if (!vq.ok) return sendJson(res, 400, { error: vq.error });
     // Senkron erken 409: zaten pending varsa close handler kaydetmeden çık. Aksi
     // halde reddedilmiş istek, sahiplenmediği turu (gec onClose ile) iptal edebilir.
-    if (bridge.peek()) return sendJson(res, 409, { error: 'A question set is already pending' });
+    if (bridge.peek())
+      return sendJson(res, 409, {
+        error: 'A question set is already pending',
+        reason: 'round_in_progress',
+      });
     const lifecycle = createLifecycle({
       adapter: 'http',
       requestId,
@@ -225,6 +229,7 @@ const server = http.createServer(async (req, res) => {
     const answersPromise = bridge.submitQuestions(questions, requestId, lifecycle);
     // Bu istek pending'i sahiplendi; submit'ten dönen id ile sahipliği işaretle.
     const myId = bridge.peek().id;
+    res.__askuserRoundId = myId;
     lifecycle.setRoundId(myId);
     lifecycle.event('round_registered');
     // İstemci yanıttan önce giderse SADECE kendi turunu iptal et (Contract R:
@@ -245,9 +250,14 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       settled = true;
       lifecycle.finish('bridge_error');
-      return sendJson(res, 409, { error: e.message });
+      return sendJson(res, 409, {
+        error: e.message,
+        reason: e.code || 'bridge_error',
+        roundId: e.roundId,
+      });
     } finally {
       res.off('close', onClose);
+      delete res.__askuserRoundId;
     }
   }
 
@@ -269,10 +279,51 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 400, { error: 'invalid answers' });
     // Contract R: id eşleşen pending turu resolve eder; eşleşmezse (stale/yok) 409.
     if (!bridge.provideAnswers(id, answers)) {
-      return sendJson(res, 409, { error: 'no matching pending question set' });
+      return sendJson(res, 409, {
+        error: 'no matching pending question set',
+        reason: 'stale_round',
+      });
     }
     broadcastCurrent();
     return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url === '/cancel') {
+    let body;
+    try {
+      body = await readBody(req);
+    } catch {
+      return sendJson(res, 400, { error: 'read error' });
+    }
+    let id;
+    let reason = 'user cancelled';
+    try {
+      const payload = JSON.parse(body);
+      id = payload.id;
+      if (payload.reason !== undefined) reason = payload.reason;
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
+    if (!Number.isInteger(id) || id < 1 || typeof reason !== 'string') {
+      return sendJson(res, 400, { error: 'invalid cancel request' });
+    }
+    const knownReason = new Set([
+      'user cancelled',
+      'host cancelled',
+      'browser disconnected',
+      'timeout',
+    ]);
+    if (!knownReason.has(reason)) {
+      return sendJson(res, 400, { error: 'invalid cancel reason' });
+    }
+    if (!bridge.cancel(reason, id)) {
+      return sendJson(res, 409, {
+        error: 'no matching pending question set',
+        reason: 'stale_round',
+      });
+    }
+    broadcastCurrent();
+    return sendJson(res, 200, { ok: true, reason: terminalReason(reason) });
   }
 
   if (req.method === 'POST' && url === '/settings') {
@@ -304,6 +355,21 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET') return serveStatic(req, res);
   res.writeHead(404);
   res.end();
+}
+
+function handleRequestError(res, error) {
+  log('server', error);
+  const ownerId = res.__askuserRoundId;
+  if (ownerId != null && bridge.cancel('server error', ownerId)) broadcastCurrent();
+  if (res.headersSent) {
+    if (!res.writableEnded) res.destroy();
+    return;
+  }
+  sendJson(res, 500, { error: 'internal server error', reason: 'bridge_error' });
+}
+
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((error) => handleRequestError(res, error));
 });
 
 // Node'un varsayılan requestTimeout'u 5 dk (300000ms) — /ask isteği cevabı

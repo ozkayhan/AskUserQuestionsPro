@@ -1,5 +1,19 @@
 'use strict';
 
+const CANCEL_REASON_MAP = new Map([
+  ['client disconnected', 'host_disconnect'],
+  ['host disconnected', 'host_disconnect'],
+  ['host cancelled', 'host_cancelled'],
+  ['browser disconnected', 'browser_disconnect'],
+  ['user cancelled', 'user_cancelled'],
+  ['timeout', 'application_timeout'],
+  ['application timeout', 'application_timeout'],
+]);
+
+function terminalReason(reason) {
+  return CANCEL_REASON_MAP.get(String(reason || '').toLowerCase()) || 'bridge_error';
+}
+
 // Tek-uçuş randevu: bir soru seti kaydedilir, cevap gelene dek promise açık tutulur.
 // Her tur monoton artan bir `id` taşır (UI'ın tur başına remount kararı için).
 // Cevap/iptal yolları bu id ile sahiplenir: gec gelen bir tur, o sirada bekleyen
@@ -55,11 +69,15 @@ class Bridge {
     if (!this._pending || (expectedId != null && this._pending.id !== expectedId)) return false;
     const p = this._pending;
     this._pending = null;
+    const outcome = terminalReason(reason);
     p.lifecycle?.event('bridge_cancelled');
-    p.lifecycle?.finish(reason === 'client disconnected' ? 'host_disconnect' : 'bridge_error');
-    p.reject(new Error(reason || 'cancelled'));
+    p.lifecycle?.finish(outcome);
+    const error = new Error(reason || 'cancelled');
+    error.code = outcome;
+    error.roundId = p.id;
+    p.reject(error);
     return true;
   }
 }
 
-module.exports = { Bridge };
+module.exports = { Bridge, terminalReason };

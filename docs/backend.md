@@ -73,6 +73,13 @@ cross-round answer mix-up structurally impossible: a late `/answer` carrying
 the previous round's id is rejected by `provideAnswers` before it can silently
 resolve the new round.
 
+Cancellation reasons are normalized at this boundary: `user cancelled` →
+`user_cancelled`, `host cancelled` → `host_cancelled`, `browser disconnected` →
+`browser_disconnect`, `timeout` → `application_timeout`; unknown internal
+reasons become `bridge_error`. The rejected owner error carries both `code` and
+`roundId`, while a mismatched operation leaves the active pending record
+untouched.
+
 ## Shared validation and client
 
 `lib/question-contract.cjs` is the single validation source shared by the HTTP

@@ -25,7 +25,7 @@ Four cooperating runtime pieces plus host adapters and a shared client:
                                                           server/server.js  (port 4517)
                                                           server/bridge.js  (_pending, single-flight)
                                                                   │  ▲
-                                                       SSE /events │  │ POST /answer
+                                                       SSE /events │  │ POST /answer or /cancel
                                                                   ▼  │
                                                             web UI (browser)
 ```
@@ -49,8 +49,11 @@ Step by step (both entry paths are identical after `bridge-client`):
    broadcasts the new state to all SSE clients via `broadcastCurrent()`.
 6. The browser (connected to `GET /events`) renders the questions, the user
    answers, and the UI does `POST /answer` with `{id, answers}`.
-7. `server.js` calls `bridge.provideAnswers(id, answers)`, resolving the promise; the
-   open `/ask` request returns the answers.
+7. `server.js` calls `bridge.provideAnswers(id, answers)`, resolving the promise;
+   or `POST /cancel` calls `bridge.cancel(reason, id)`. Both paths require the
+   current round id; stale operations return a deterministic conflict and leave
+   the active round untouched. The open `/ask` request returns answers or a
+   typed terminal error.
 8. Hook wraps answers via `buildHookOutput()` and writes the `PreToolUse`
    response to stdout; MCP returns answers as tool-result JSON.
 
@@ -65,6 +68,12 @@ Step by step (both entry paths are identical after `bridge-client`):
   synchronization primitive — it blocks until `provideAnswers`/`cancel`. SSE
   (`/events`) is only for pushing state _to_ the browser. This avoids any
   client-side polling loop and any shared state beyond the bridge.
+
+- **Round ids are the ownership boundary.** Every resolve, disconnect, and
+  explicit cancel carries the monotonic round id. Terminal transitions clear
+  the record once; stale operations are no-ops at the bridge and 409 conflicts
+  at HTTP. Human-readable errors and machine-readable terminal codes travel
+  together.
 
 - **Host-native fallback.** The hook exits `0` on errors or empty answers so
   Claude can show `AskUserQuestion`. MCP failures return `isError` guidance to
@@ -90,6 +99,8 @@ Step by step (both entry paths are identical after `bridge-client`):
 
 - Client disconnects mid-`/ask` → server calls `bridge.cancel()` so the next
   caller isn't blocked.
+- Explicit `POST /cancel` → only the matching round is cancelled; stale ids
+  cannot affect a newer round.
 - `readBody()` enforces an 8 MB request cap.
 - Static file serving in `server.js` guards against path traversal outside
   `web/`.

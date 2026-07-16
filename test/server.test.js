@@ -140,6 +140,46 @@ test('/answer pending yokken -> 409', async () => {
   assert.strictEqual(r.status, 409);
 });
 
+test('/cancel correct round id ile typed user_cancelled sonucu döner', async () => {
+  const askPromise = post('/ask', {
+    questions: [{ question: 'CANCEL?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const cancel = await post('/cancel', { id: current.id, reason: 'user cancelled' });
+  assert.strictEqual(cancel.status, 200);
+  assert.deepStrictEqual(await cancel.json(), { ok: true, reason: 'user_cancelled' });
+
+  const askResponse = await askPromise;
+  assert.strictEqual(askResponse.status, 409);
+  assert.strictEqual((await askResponse.json()).reason, 'user_cancelled');
+  await waitForClear();
+});
+
+test('/cancel stale id -> 409 ve active round korunur', async () => {
+  const askPromise = post('/ask', {
+    questions: [{ question: 'KEEP?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const stale = await post('/cancel', { id: current.id + 999, reason: 'user cancelled' });
+  assert.strictEqual(stale.status, 409);
+  assert.strictEqual((await stale.json()).reason, 'stale_round');
+  assert.strictEqual((await (await fetch(`${base}/current`)).json()).id, current.id);
+  await post('/answer', { id: current.id, answers: { 'KEEP?': 'A' } });
+  await askPromise;
+});
+
+test('/cancel unknown reason -> 400 ve active round korunur', async () => {
+  const askPromise = post('/ask', {
+    questions: [{ question: 'REASON?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const bad = await post('/cancel', { id: current.id, reason: 'not-a-terminal-state' });
+  assert.strictEqual(bad.status, 400);
+  assert.match((await bad.json()).error, /cancel reason/i);
+  await post('/answer', { id: current.id, answers: { 'REASON?': 'A' } });
+  await askPromise;
+});
+
 test('/answer answers Array -> 400 (Contract R)', async () => {
   const questions = [{ question: 'AR?', options: [{ label: 'A' }], multiSelect: false }];
   const askPromise = post('/ask', { questions });

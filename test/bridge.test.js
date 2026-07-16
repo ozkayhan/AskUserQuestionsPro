@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { Bridge } = require('../server/bridge.js');
+const { Bridge, terminalReason } = require('../server/bridge.js');
 
 test('submitQuestions, provideAnswers(id) gelince resolve olur', async () => {
   const b = new Bridge();
@@ -58,6 +58,28 @@ test('cancel(reason, expectedId) eslesmeyen id ile iptal etmez (cross-round)', a
   // doğru id ile iptal → reject.
   assert.strictEqual(b.cancel('client disconnected', id), true);
   await assert.rejects(() => p, /client disconnected/);
+});
+
+test('cancel terminal nedenleri typed code ile korunur', async () => {
+  assert.strictEqual(terminalReason('user cancelled'), 'user_cancelled');
+  assert.strictEqual(terminalReason('host cancelled'), 'host_cancelled');
+  assert.strictEqual(terminalReason('browser disconnected'), 'browser_disconnect');
+  assert.strictEqual(terminalReason('timeout'), 'application_timeout');
+  assert.strictEqual(terminalReason('unrecognized'), 'bridge_error');
+
+  const b = new Bridge();
+  const pending = b.submitQuestions([{ question: 'Q?' }]);
+  const roundId = b.peek().id;
+  assert.strictEqual(b.cancel('user cancelled', roundId), true);
+  await assert.rejects(
+    pending,
+    (error) => error.code === 'user_cancelled' && error.roundId === roundId
+  );
+  assert.strictEqual(
+    b.cancel('user cancelled', roundId),
+    false,
+    'terminal geçiş idempotent olmalı'
+  );
 });
 
 test('her submit artan benzersiz id verir; peek {id,questions} doner', async () => {

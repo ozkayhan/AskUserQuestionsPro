@@ -7,7 +7,7 @@ This milestone turns the observed Codex long-round timeout into a measurable, ho
 ## Phases
 
 - [x] **Phase 1: Timeout Diagnosis & Observability** - Reproduce the early closure and identify the true lifecycle owner with redacted diagnostics. (completed 2026-07-16)
-- [ ] **Phase 2: Host Lifecycle Fix** - Make Codex reliable and verify the equivalent Claude Code path and fallback behavior.
+- [x] **Phase 2: Host Lifecycle Fix** - Make Codex reliable and verify the equivalent Claude Code path and fallback behavior. (completed 2026-07-16)
 - [ ] **Phase 3: Bridge & Server Round Reliability** - Harden ownership, cancellation, disconnect, stale-round, and daemon lifecycle contracts.
 - [ ] **Phase 4: Browser State & Recovery** - Make long-round browser state, SSE reconnects, errors, and accessibility behavior resilient.
 - [ ] **Phase 5: Tooling, Packaging & Release** - Audit CLI, installers, host detection, package boundaries, and quality gates.
@@ -49,12 +49,12 @@ Plans:
   3. Claude Code either passes the equivalent long-round test or has a proven host-specific limitation with an explicit supported fallback.
   4. Host errors and fallback guidance identify the actionable cause instead of silently presenting a generic close.
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 
-- [ ] 02-01: Implement the evidence-backed Codex/Claude lifecycle fix and typed host errors.
-- [ ] 02-02: Verify host cancellation, keepalive/progress or resumable fallback behavior end to end.
+- [x] 02-01: Implement the evidence-backed Codex/Claude lifecycle fix and typed host errors.
+- [x] 02-02: Verify host cancellation, keepalive/progress or resumable fallback behavior end to end.
 
 ### Phase 3: Bridge & Server Round Reliability
 
@@ -164,7 +164,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Timeout Diagnosis & Observability | 2/2 | Complete    | 2026-07-16 |
-| 2. Host Lifecycle Fix | 0/2 | Not started | - |
+| 2. Host Lifecycle Fix | 2/2 | Complete    | 2026-07-16 |
 | 3. Bridge & Server Round Reliability | 0/2 | Not started | - |
 | 4. Browser State & Recovery | 0/2 | Not started | - |
 | 5. Tooling, Packaging & Release | 0/2 | Not started | - |

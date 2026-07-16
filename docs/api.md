@@ -8,19 +8,22 @@ its hooks cannot return answers as the native `request_user_input` result.
 
 All on `127.0.0.1`. No auth (localhost-only, single user).
 
-| Method & path    | Body                      | Response                                                       | Purpose                                                                                                                                                                                      |
-| ---------------- | ------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /health`    | —                         | `{ ok: true, app: "<APP_ID>" }`                                | Liveness probe (used by `ensureServer`). Includes `app` field so the client can distinguish this server from any other process that happens to own the port.                                 |
-| `GET /current`   | —                         | `{ id, questions }` or `{ id: null, questions: null }`         | Peek at the pending set.                                                                                                                                                                     |
-| `GET /events`    | —                         | `text/event-stream`                                            | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                                                  |
-| `POST /ask`      | `{ questions: [...] }`    | `{ answers: {...} }` (blocks until answered) or error          | Submit a question set; request stays open until answered or the caller's deadline. Returns HTTP 400 on validation failure, 409 if a set is already pending.                                  |
-| `POST /answer`   | `{ id, answers: {...} }`  | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. `id` must match the current pending round (Contract R); mismatched id → 409. `answers` must be a plain object (not null/array/primitive) → else 400. |
-| `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` (200) or `{ error }` (400/500) | Persist a UI-settings patch. Returns 400 on bad JSON/non-object, 500 if the disk write fails (Contract W). `_v` is stripped from the response.                                               |
-| `GET *`          | —                         | static file                                                    | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                                                |
+| Method & path    | Body                      | Response                                                       | Purpose                                                                                                                                                                                                                   |
+| ---------------- | ------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health`    | —                         | `{ ok: true, app: "<APP_ID>" }`                                | Liveness probe (used by `ensureServer`). Includes `app` field so the client can distinguish this server from any other process that happens to own the port.                                                              |
+| `GET /current`   | —                         | `{ id, questions }` or `{ id: null, questions: null }`         | Peek at the pending set.                                                                                                                                                                                                  |
+| `GET /events`    | —                         | `text/event-stream`                                            | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                                                                               |
+| `POST /ask`      | `{ questions: [...] }`    | `{ answers: {...} }` (blocks until answered) or error          | Submit a question set; request stays open until answered or the caller's deadline. Returns HTTP 400 on validation failure, 409 if a set is already pending.                                                               |
+| `POST /answer`   | `{ id, answers: {...} }`  | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. `id` must match the current pending round (Contract R); mismatched id → 409 with `reason: "stale_round"`. `answers` must be a plain object (not null/array/primitive) → else 400. |
+| `POST /cancel`   | `{ id, reason? }`         | `{ ok: true, reason }` (200) or error                          | Cancel exactly the matching round. Allowlisted reasons are `user cancelled`, `host cancelled`, `browser disconnected`, and `timeout`; stale ids → 409.                                                                    |
+| `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` (200) or `{ error }` (400/500) | Persist a UI-settings patch. Returns 400 on bad JSON/non-object, 500 if the disk write fails (Contract W). `_v` is stripped from the response.                                                                            |
+| `GET *`          | —                         | static file                                                    | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                                                                             |
 
 Request bodies are capped at 8 MB. If the `/ask` client disconnects, the
 server cancels the pending set using the round's `id` (Contract R — only the
-owning round is cancelled, not a newly submitted one).
+owning round is cancelled, not a newly submitted one). The explicit `/cancel`
+route uses the same id ownership check and is safe to repeat after the first
+terminal transition.
 
 ### Question shape
 
@@ -93,7 +96,8 @@ is answer-opaque.
 **`/ask` error responses:**
 
 - `400` — `validQuestions` rejected the payload (missing fields, wrong type, depth > 6, etc.)
-- `409` — a question set is already pending (`bridge.peek()` non-null at request time)
+- `409` — a question set is already pending (`reason: "round_in_progress"`),
+  or a stale/missing round was targeted (`reason: "stale_round"`)
 
 ## MCP tool: `mcp__askuserquestionspro__ask`
 
