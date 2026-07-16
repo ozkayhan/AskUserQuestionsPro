@@ -44,11 +44,11 @@
 
 ### Documentation
 
-- [ ] **DOC-01**: Maintained documentation has a coherent index and stable descriptive filenames with no dead internal links.
-- [ ] **DOC-02**: Current architecture, lifecycle invariants, timeout ownership, host differences, and recovery procedures are documented against verified source behavior.
-- [ ] **DOC-03**: Valid architecture decisions and actionable findings from old audit/plan documents are extracted into maintained docs or planning artifacts with provenance.
-- [ ] **DOC-04**: Obsolete, duplicate, empty, or misleading documents are archived or removed only after inbound references and durable knowledge are handled.
-- [ ] **DOC-05**: README, API, backend, frontend, testing, architecture, tech-stack, and troubleshooting documents agree with the implementation and release contract.
+- [x] **DOC-01**: Maintained documentation has a coherent index and stable descriptive filenames with no dead internal links.
+- [x] **DOC-02**: Current architecture, lifecycle invariants, timeout ownership, host differences, and recovery procedures are documented against verified source behavior.
+- [x] **DOC-03**: Valid architecture decisions and actionable findings from old audit/plan documents are extracted into maintained docs or planning artifacts with provenance.
+- [x] **DOC-04**: Obsolete, duplicate, empty, or misleading documents are archived or removed only after inbound references and durable knowledge are handled.
+- [x] **DOC-05**: README, API, backend, frontend, testing, architecture, tech-stack, and troubleshooting documents agree with the implementation and release contract.
 
 ## v2 Requirements
 
@@ -98,11 +98,11 @@
 | TEST-03     | Phase 5 | Complete |
 | PKG-01      | Phase 5 | Complete |
 | TOOL-01     | Phase 5 | Complete |
-| DOC-01      | Phase 6 | Pending  |
-| DOC-02      | Phase 6 | Pending  |
-| DOC-03      | Phase 6 | Pending  |
-| DOC-04      | Phase 6 | Pending  |
-| DOC-05      | Phase 6 | Pending  |
+| DOC-01      | Phase 6 | Complete |
+| DOC-02      | Phase 6 | Complete |
+| DOC-03      | Phase 6 | Complete |
+| DOC-04      | Phase 6 | Complete |
+| DOC-05      | Phase 6 | Complete |
 
 **Coverage:**
 

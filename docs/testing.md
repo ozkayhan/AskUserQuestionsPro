@@ -14,7 +14,7 @@ CI runs `npm ci && npm test` on Node 18, 20, 22
 
 ## Layout
 
-There are 31 top-level `*.test.js` files:
+There are 32 top-level `*.test.js` files:
 
 `evals/askpro-skill-cases.json` contains positive and negative payload cases,
 including the string-options failure that prompted the contract hardening.
@@ -29,6 +29,7 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `bridge.test.js`                 | Single-flight submit/resolve/cancel/round identity.                                       |
 | `changesets-config.test.js`      | Changesets configuration.                                                                 |
 | `cli.test.js`                    | CLI help/settings/doctor plus Codex-only install/doctor/uninstall isolation.              |
+| `docs-integrity.test.js`         | Canonical docs index, archive layout, and relative-link integrity.                        |
 | `eslint-prettier-config.test.js` | Lint and formatting configuration invariants.                                             |
 | `hook-output.test.js`            | Claude `PreToolUse` output filtering and shape.                                           |
 | `host-platforms.test.js`         | Target parsing/selection, macOS bundled Codex discovery, host MCP argv, and skill paths.  |
@@ -43,6 +44,7 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `round-lifecycle.test.js`        | Redacted lifecycle event names, terminal reasons, and logger safety.                      |
 | `server.test.js`                 | HTTP/SSE/static/settings behavior, validation fuzzing, and round-safe wire flow.          |
 | `shell-lifecycle.test.js`        | Target-specific shell cleanup preserves the runtime used by the other host.               |
+| `skill-evals.test.js`            | Skill guidance against valid and invalid question payload cases.                          |
 | `settings-panel.test.js`         | Settings panel behavior.                                                                  |
 | `settings-schema.test.js`        | Settings schema validation/coercion.                                                      |
 | `settings.test.js`               | Disk read/write, atomicity, self-heal, and concurrency.                                   |

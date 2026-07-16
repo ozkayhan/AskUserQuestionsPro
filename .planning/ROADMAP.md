@@ -11,7 +11,7 @@ This milestone turns the observed Codex long-round timeout into a measurable, ho
 - [x] **Phase 3: Bridge & Server Round Reliability** - Harden ownership, cancellation, disconnect, stale-round, and daemon lifecycle contracts. (completed 2026-07-16)
 - [x] **Phase 4: Browser State & Recovery** - Make long-round browser state, SSE reconnects, errors, and accessibility behavior resilient. (completed 2026-07-16)
 - [x] **Phase 5: Tooling, Packaging & Release** - Audit CLI, installers, host detection, package boundaries, and quality gates. (completed 2026-07-16)
-- [ ] **Phase 6: Documentation Consolidation** - Create a coherent maintained documentation set and evidence-preserving historical archive.
+- [x] **Phase 6: Documentation Consolidation** - Create a coherent maintained documentation set and evidence-preserving historical archive. (completed 2026-07-16)
 - [ ] **Phase 7: Cross-Host Hardening & Acceptance** - Run full wire/host verification, close integration gaps, and lock the milestone contracts.
 
 ## Phase Details
@@ -129,12 +129,12 @@ Plans:
 3. Durable decisions and actionable findings from old audit/plan documents are extracted with provenance before cleanup.
 4. Empty, duplicate, obsolete, and misleading documents are archived or removed according to documented rules without deleting needed rationale.
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 
-- [ ] 06-01: Consolidate current references and create the reliability troubleshooting/runbook document.
-- [ ] 06-02: Classify, migrate, archive/remove historical documents and repair indexes/cross-links.
+- [x] 06-01: Consolidate current references and create the reliability troubleshooting/runbook document.
+- [x] 06-02: Classify, migrate, archive/remove historical documents and repair indexes/cross-links.
 
 ### Phase 7: Cross-Host Hardening & Acceptance
 
@@ -168,5 +168,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Bridge & Server Round Reliability | 2/2            | Complete    | 2026-07-16 |
 | 4. Browser State & Recovery          | 2/2            | Complete    | 2026-07-16 |
 | 5. Tooling, Packaging & Release      | 2/2            | Complete    | 2026-07-16 |
-| 6. Documentation Consolidation       | 0/2            | Not started | -          |
+| 6. Documentation Consolidation       | 2/2            | Complete    | 2026-07-16 |
 | 7. Cross-Host Hardening & Acceptance | 0/2            | Not started | -          |

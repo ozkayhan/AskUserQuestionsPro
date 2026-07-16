@@ -36,7 +36,7 @@ Start here to navigate. Real paths; "to change X, go to Y".
 | `uninstall.sh`                           | Target-aware cleanup and residue verification for Claude/Codex registrations, skills, files, settings, and bridge processes.                                                 | Change standalone uninstall behavior.                                                         |
 | `reinstall.sh`                           | Passes the same target through uninstall and a fresh install.                                                                                                                | Change recovery/reinstall behavior.                                                           |
 | `mcp-server/askuserquestionspro-mcp.mjs` | Host-neutral JSON-RPC 2.0 stdio server. Defines `ASK_TOOL`, output schema, annotations, server instructions, structured results, and pending-before-browser flow.            | Change the `ask` tool schema, metadata, result, or MCP protocol handling.                     |
-| `server/server.js`                       | `node:http` server (port `ASKUSER_PORT` or 4517). Routes `/health` `/current` `/events` `/ask` `/answer` + static files from `../web`. Exports `server`, `bridge`.           | Change HTTP endpoints, SSE, static serving, request limits.                                   |
+| `server/server.js`                       | `node:http` server (port `ASKUSER_PORT` or 4517). Routes `/health` `/current` `/events` `/ask` `/answer` `/cancel` + static files from `../web`. Exports `server`, `bridge`. | Change HTTP endpoints, SSE, static serving, request limits.                                   |
 | `server/bridge.js`                       | `Bridge` class: single-flight `_pending` + `_seq`. Methods `submitQuestions` `peek` `getCurrent` `provideAnswers` `cancel`.                                                  | Change question/answer coordination semantics.                                                |
 | `lib/bridge-client.mjs`                  | `ensureServer()` `askBridge()` `waitForPending()` `openBrowser()`. Shared by hook + MCP.                                                                                     | Change server bootstrap, pending-round race guard, browser opening, or `/ask` calling.        |
 | `lib/question-contract.cjs`              | Shared question/option validator used by the HTTP bridge and MCP preflight.                                                                                                  | Change accepted question types, option shape, or validation error messages.                   |
@@ -66,7 +66,7 @@ Loaded by `web/index.html` in order: vendor libs → app files (`type="text/babe
 
 ## Tests
 
-There are 24 top-level `test/*.test.js` files, run with `node --test`. Host
+There are 32 top-level `test/*.test.js` files, run with `node --test`. Host
 coverage is split between `host-platforms.test.js` (selection/discovery/argv/
 paths), `cli.test.js` (Codex-only lifecycle isolation), and
 `mcp-server.test.js` (instructions, `outputSchema`, and annotations). See
@@ -74,5 +74,5 @@ paths), `cli.test.js` (Codex-only lifecycle isolation), and
 
 ## Out of scope (not current runtime behavior)
 
-- `design-reference/` — original prototype (`app.jsx`, `styles.css`,
-  screenshots) used to design the UI; not loaded at runtime.
+- `docs/archive/` — historical audit reports and workflow plans; not current
+  implementation instructions.

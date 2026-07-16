@@ -9,4 +9,6 @@ package-lock.json
 .codex/**
 # Research cache files are generated JSON blobs, not maintained project docs.
 .planning/research/.cache/**
+# Historical archive includes a JavaScript workflow specimen, not application source.
+docs/archive/**
 .omo/**

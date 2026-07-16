@@ -34,6 +34,6 @@
 - `docs/architecture.md`
 - `docs/api.md`
 - `docs/testing.md`
-- `docs/old/audit-report.md`
-- `docs/old/planv2.md`
-- `docs/old/plan-dynamic-hardening-workflow-for-askuserquestio.md`
+- `docs/archive/audit-report-legacy.md`
+- `docs/archive/hardening-plan-v2.md`
+- `docs/archive/hardening-plan-dynamic.md`

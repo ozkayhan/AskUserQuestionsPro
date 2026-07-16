@@ -30,10 +30,10 @@
 
 ### Historical evidence
 
-- `docs/old/audit-report.md` is a large findings source and should be mined for still-open issues, not deleted wholesale.
-- `docs/old/planv2.md` and `docs/old/plan-dynamic-hardening-workflow-for-askuserquestio.md` contain overlapping architecture/contract decisions; consolidate their durable content.
-- The two dynamic workflow documents and `docs/old/hardening-workflow.js` describe process mechanics rather than product truth; archive or remove after extracting any still-used validation ideas.
-- `docs/old/todos.md` is empty and is a safe deletion candidate unless git history itself is required for audit purposes.
+- `docs/archive/audit-report-legacy.md` is a large findings source and should be mined for still-open issues, not deleted wholesale.
+- `docs/archive/hardening-plan-v2.md` and `docs/archive/hardening-plan-dynamic.md` contain overlapping architecture/contract decisions; consolidate their durable content.
+- The two dynamic workflow documents and `docs/archive/hardening-workflow-spec.js` describe process mechanics rather than product truth; archive or remove after extracting any still-used validation ideas.
+- The former `docs/old/todos.md` was empty and was deleted during documentation consolidation.
 
 ## Cleanup Rules
 

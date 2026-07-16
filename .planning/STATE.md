@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5
-current_phase_name: Tooling, Packaging & Release
+current_phase: 7
+current_phase_name: Cross-Host Hardening & Acceptance
 status: executing
-stopped_at: Phase 5 complete; ready to plan Phase 6.
+stopped_at: Phase 6 complete; ready to plan Phase 7.
 last_updated: '2026-07-16T13:59:38.521Z'
 last_activity: 2026-07-16
 last_activity_desc: Phase 4 complete, transitioned to Phase 5
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-16)
 
 **Core value:** Users must be able to complete a long, multi-question round at their own pace without the bridge, browser, or host integration timing out or losing their answers.
-**Current focus:** Phase 6 — Documentation Consolidation
+**Current focus:** Phase 7 — Cross-Host Hardening & Acceptance
 
 ## Current Position
 
-Phase: 6 of 7 (Documentation Consolidation)
+Phase: 7 of 7 (Cross-Host Hardening & Acceptance)
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-07-16 — Phase 5 complete, transitioned to Phase 6
+Last activity: 2026-07-16 — Phase 6 complete, transitioned to Phase 7
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -51,7 +51,7 @@ Progress: [███████░░░] 71%
 | 3     | 2     | -     | -        |
 | 4     | 2     | -     | -        |
 | 5     | 2     | 2     | -        |
-| 6     | 0     | 2     | -        |
+| 6     | 2     | 2     | -        |
 | 7     | 0     | 2     | -        |
 
 ## Accumulated Context
@@ -84,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-07-16
-Stopped at: Phase 5 complete; ready to plan Phase 6.
+Stopped at: Phase 6 complete; ready to plan Phase 7.
 Resume file: None

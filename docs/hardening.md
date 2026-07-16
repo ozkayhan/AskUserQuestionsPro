@@ -1,6 +1,7 @@
 # Hardening — systemic security & reliability fixes
 
-> CHANGELOG-style summary of the 191-finding remediation sprint (planv2.md).
+> CHANGELOG-style summary of the 191-finding remediation sprint (historical
+> plan: [archive/hardening-plan-v2.md](archive/hardening-plan-v2.md)).
 > Describes **what was changed**, **why**, and **which regression guard closes each class**.
 > Commit range: up to `18b634f`.
 

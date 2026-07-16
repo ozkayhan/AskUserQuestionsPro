@@ -40,7 +40,7 @@ askuserquestionspro/
 
 **`test/`:** Flat `*.test.js` files, generally named after the module or contract they cover. `test/helpers/isolation.js` protects tests that mutate process/global state.
 
-**`docs/`:** `docs/architecture.md`, `docs/api.md`, `docs/backend.md`, `docs/frontend.md`, `docs/testing.md`, and `docs/tech-stack.md` are maintained reference docs; `docs/old/` is excluded from lint and contains archived planning/audit material.
+**`docs/`:** The root Markdown files are maintained reference docs; `docs/archive/` contains archived planning/audit material and is excluded from lint/format scope.
 
 ## Key File Locations
 

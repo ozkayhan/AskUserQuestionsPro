@@ -87,7 +87,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 - ESLint uses flat config in `eslint.config.js`; Node files extend `@eslint/js` recommended rules.
 - `no-empty` disallows silent catch blocks; unused variables/args may use a leading underscore where intentionally ignored.
 - Browser JSX is parsed by `@babel/eslint-parser`; React hook rules are enforced and exhaustive-deps is a warning.
-- `web/vendor/**`, `node_modules/**`, `.context/**`, and `docs/old/**` are excluded from normal lint scope.
+- `web/vendor/**`, `node_modules/**`, `.context/**`, `.codex/**`, and `docs/archive/**` are excluded from normal lint scope.
 
 ## Import Organization
 
@@ -109,7 +109,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 - `lib/log.cjs` is the shared stderr logger and should be used when errors are intentionally recovered.
 - Comments explain invariants and reasons, especially around race prevention, atomic writes, host fallback, and React state freshness.
 - Existing comments may be Turkish or English; preserve local terminology when editing a nearby section.
-- Avoid adding speculative abstractions: `planv2.md` explicitly favors small reused, tested chokepoints and a zero-runtime-dependency invariant.
+- Avoid adding speculative abstractions: `docs/decisions.md` records the small, reused, tested chokepoint and zero-runtime-dependency invariants.
 
 ## Function and UI Design
 
