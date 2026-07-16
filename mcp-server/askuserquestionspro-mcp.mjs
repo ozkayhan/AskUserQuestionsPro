@@ -16,6 +16,12 @@ process.on('unhandledRejection', (r) => log('mcp', r));
 const CURRENT_PROTOCOL_VERSION = '2025-11-25';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([CURRENT_PROTOCOL_VERSION, '2025-06-18', '2024-11-05']);
 const activeRequests = new Map();
+let stdinClosed = false;
+
+function disconnectActiveRequests() {
+  stdinClosed = true;
+  for (const controller of activeRequests.values()) controller.abort();
+}
 
 // ASK aracı tanımı — maxItems YOK: sınırsız soru desteklenir.
 const ASK_TOOL = {
@@ -232,6 +238,13 @@ async function handleAsk(args, signal, { progressToken } = {}) {
   let answers;
   const roundController = new AbortController();
   const cancelRound = () => {
+    if (stdinClosed) {
+      // STDIN EOF means the host connection disappeared. Aborting the HTTP
+      // request lets the bridge's request close handler detach this round for
+      // resume; explicit notifications/cancelled still cancel it below.
+      roundController.abort();
+      return;
+    }
     void cancelBridge(requestId, 'host cancelled')
       .catch((error) => log('mcp', error))
       .finally(() => roundController.abort());
@@ -490,4 +503,10 @@ process.stdin.on('end', () => {
     }
     handleMessage(msg).catch((e) => log('mcp', e));
   }
+  disconnectActiveRequests();
+});
+
+process.stdin.on('error', (error) => {
+  log('mcp', error);
+  disconnectActiveRequests();
 });

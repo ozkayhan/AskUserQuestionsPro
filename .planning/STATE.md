@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 7
 current_phase_name: Cross-Host Hardening & Acceptance
 status: complete
-stopped_at: "Milestone shipped; PR #22 open for merge"
-last_updated: "2026-07-16T15:21:38.534Z"
+stopped_at: 'Milestone shipped; PR #22 open for merge'
+last_updated: '2026-07-16T15:21:38.534Z'
 last_activity: 2026-07-16
-last_activity_desc: "Milestone v1.0 shipped; PR #22 opened with security gate passed"
+last_activity_desc: 'Milestone v1.0 shipped; PR #22 opened with security gate passed'
 progress:
   total_phases: 7
   completed_phases: 7
