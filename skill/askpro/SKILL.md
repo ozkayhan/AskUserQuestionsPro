@@ -50,7 +50,13 @@ the returned category once:
 
 - `Invalid question input` → correct the payload (especially `{ "label": ... }`) and retry once.
 - `bridge unavailable`, registration timeout, or user cancellation → use the native tool that exists in the current host.
+- `host cancelled` or a host timeout → treat the round as incomplete and use the native tool; do not claim the user submitted answers.
 - Never describe an input-validation error as a bridge outage or run local diagnostics for it.
+
+For long rounds, the MCP server may send optional progress notifications while
+the browser is waiting. This keeps the request visibly active for hosts that
+support MCP progress tokens, but it does not guarantee that a host has no hard
+deadline. If the host still cancels the call, fall back to the native tool.
 
 ## Tool call shape
 

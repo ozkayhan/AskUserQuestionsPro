@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
+const { createProgressHeartbeat, isProgressToken } = require('../lib/mcp-progress.cjs');
 const { validQuestions } = require('../lib/question-contract.cjs');
 
 process.on('uncaughtException', (e) => log('mcp', e));
@@ -138,13 +139,18 @@ function sendResponse(obj) {
   }
 }
 
+function progressIntervalMs() {
+  const configured = Number(process.env.ASKUSER_MCP_PROGRESS_INTERVAL_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : 15_000;
+}
+
 // JSON-RPC hata yanıtı gönder.
 function sendError(id, code, message) {
   sendResponse({ jsonrpc: '2.0', id, error: { code, message } });
 }
 
 // 'ask' aracı çağrısını işle.
-async function handleAsk(args, signal) {
+async function handleAsk(args, signal, { progressToken } = {}) {
   if (!Array.isArray(args?.questions) || args.questions.length === 0) {
     return {
       content: [{ type: 'text', text: "Invalid input: 'questions' must be a non-empty array." }],
@@ -200,6 +206,11 @@ async function handleAsk(args, signal) {
     requestId,
     lifecycle,
   });
+  const heartbeat = createProgressHeartbeat({
+    token: progressToken,
+    send: sendResponse,
+    intervalMs: progressIntervalMs(),
+  });
   try {
     // HTTP 400/500 gibi erken bridge hataları, pending poll'unun 5 saniyelik
     // timeout'u tarafından maskelenmemeli. Başarısız askPromise'i pending poll
@@ -223,22 +234,25 @@ async function handleAsk(args, signal) {
   } catch (e) {
     roundController.abort();
     await askPromise.catch(() => undefined);
+    const hostCancelled = signal?.aborted === true;
     lifecycle.finish(
-      e?.name === 'TimeoutError'
-        ? 'application_timeout'
-        : signal?.aborted
-          ? 'host_cancelled'
+      hostCancelled
+        ? 'host_cancelled'
+        : e?.name === 'TimeoutError'
+          ? 'application_timeout'
           : 'bridge_error'
     );
     log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
-    const cause =
-      e?.name === 'BridgeError' && e.status === 400
+    const cause = hostCancelled
+      ? 'the host cancelled the pending request before the user submitted answers'
+      : e?.name === 'BridgeError' && e.status === 400
         ? `invalid question input: ${e.message}`
         : e?.name === 'TimeoutError'
           ? 'timed out waiting for the user'
           : `error: ${e?.message || e}`;
-    const recovery =
-      e?.name === 'BridgeError' && e.status === 400
+    const recovery = hostCancelled
+      ? 'Retry with the host-native user-input tool or submit a shorter round.'
+      : e?.name === 'BridgeError' && e.status === 400
         ? 'Use option objects such as {"label":"Option"}; do not pass string arrays.'
         : 'Use the host-native user-input tool if it is available in the current host.';
     return {
@@ -251,6 +265,7 @@ async function handleAsk(args, signal) {
       isError: true,
     };
   } finally {
+    heartbeat.stop();
     signal?.removeEventListener('abort', cancelRound);
   }
 
@@ -321,7 +336,10 @@ async function handleMessage(msg) {
     activeRequests.set(id, controller);
     let toolResult;
     try {
-      toolResult = await handleAsk(params?.arguments, controller.signal);
+      const progressToken = params?._meta?.progressToken;
+      toolResult = await handleAsk(params?.arguments, controller.signal, {
+        progressToken: isProgressToken(progressToken) ? progressToken : undefined,
+      });
     } finally {
       activeRequests.delete(id);
     }

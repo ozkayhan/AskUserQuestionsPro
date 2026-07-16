@@ -33,6 +33,8 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `host-platforms.test.js`         | Target parsing/selection, macOS bundled Codex discovery, host MCP argv, and skill paths.  |
 | `install.test.js`                | Claude hook settings mutations and conflict handling.                                     |
 | `live.test.js`                   | Browser SSE and answer-posting helpers.                                                   |
+| `mcp-long-round.test.js`         | Real MCP stdio process, delayed 15-question answer, and progress heartbeat lifecycle.     |
+| `mcp-progress.test.js`           | Progress-token validation, monotonic values, and heartbeat cleanup.                       |
 | `mcp-server.test.js`             | JSON-RPC lifecycle/version negotiation, cancellation, schema, instructions, and metadata. |
 | `server.test.js`                 | HTTP/SSE/static/settings behavior, validation fuzzing, and round-safe wire flow.          |
 | `shell-lifecycle.test.js`        | Target-specific shell cleanup preserves the runtime used by the other host.               |
@@ -99,6 +101,13 @@ If the browser closes, look for `ask_response_closed`, `host_abort`,
 `round_timeout`, `bridge_cancelled`, or `process_exit`. The first terminal event
 identifies the boundary to investigate; do not infer that the one-hour app
 timeout was reached merely because the host reported a timeout.
+
+`test/mcp-long-round.test.js` exercises the actual MCP stdio entrypoint. It
+passes `_meta.progressToken`, waits for multiple `notifications/progress`
+messages, then posts the answer to the live localhost round. This verifies the
+wire contract without opening a real browser (`ASKUSER_OPEN_BROWSER=0`). It is
+not a substitute for a live Codex or Claude run: a host can ignore progress or
+apply a separate wall-clock deadline.
 
 ## Notes
 

@@ -106,6 +106,23 @@ Used by both the hook and the MCP server. Port/base from `ASKUSER_PORT`
 - `BridgeError` — exported class with `status` and parsed `body`; used to show
   actionable validation failures such as the required `{label}` option shape.
 
+### MCP host liveness
+
+`mcp-server/askuserquestionspro-mcp.mjs` keeps the `tools/call` response open
+while the browser round is active. If the caller includes a valid
+`params._meta.progressToken`, it emits rate-limited
+`notifications/progress` messages with that same token and a monotonically
+increasing progress value. The heartbeat is stopped in `finally` on answer,
+cancellation, bridge failure, or application timeout. It never invents a token
+and never carries question or answer data.
+
+This is an optional MCP liveness signal, not a replacement for the one-hour
+application timeout and not proof that a host has no separate hard deadline.
+On host cancellation the lifecycle records an explicit `host_cancelled` reason
+without emitting a late tool result; the host-native input tool remains the
+recovery path. On a bridge timeout or other bridge error it preserves the
+distinct category so the fallback is actionable.
+
 ## Settings persistence (`lib/settings.js` + `web/settings-schema.js`)
 
 `web/settings-schema.js` is a UMD module (browser global `Settings_Schema`,
