@@ -15,14 +15,18 @@ const fs = require('node:fs');
 const { spawn, spawnSync } = require('node:child_process');
 const { addHook, removeHook, readSettings, writeSettings } = require('./install.js');
 const Settings = require('../lib/settings.js');
+const { writeFileAtomic } = require('../lib/atomic-write.cjs');
 const Schema = require('../web/settings-schema.js');
 const {
   HOSTS,
+  DEFAULT_CODEX_TOOL_TIMEOUT_SEC,
   manualMcpCommand,
   mcpArgs,
+  mcpToolTimeoutSec,
   parseTarget,
   resolveExecutable,
   selectedHosts,
+  setMcpToolTimeoutSec,
   skillDestination,
 } = require('../lib/host-platforms.cjs');
 
@@ -160,6 +164,27 @@ function registerMcp(host, executable, { optional = false } = {}) {
       `✗ ${HOSTS[host].label} MCP kaydı başarısız. Elle deneyin:\n  ${manualMcpCommand(host, MCP_ABS)}\n`
     );
     return false;
+  }
+  if (host === 'codex') {
+    const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+    const configPath = path.join(codexHome, 'config.toml');
+    try {
+      const currentConfig = fs.readFileSync(configPath, 'utf8');
+      const previousTimeout = mcpToolTimeoutSec(currentConfig);
+      if (previousTimeout !== DEFAULT_CODEX_TOOL_TIMEOUT_SEC) {
+        const nextConfig = setMcpToolTimeoutSec(currentConfig, DEFAULT_CODEX_TOOL_TIMEOUT_SEC);
+        writeFileAtomic(configPath, nextConfig);
+      }
+      process.stdout.write(
+        `✓ Codex MCP tool timeout → ${DEFAULT_CODEX_TOOL_TIMEOUT_SEC}s (${configPath})\n`
+      );
+    } catch (error) {
+      process.stderr.write(
+        `✗ Codex MCP kaydı yapıldı ancak tool_timeout_sec ayarlanamadı: ${error.message}\n` +
+          `  ${configPath} içindeki [mcp_servers.askuserquestionspro] bölümüne tool_timeout_sec = ${DEFAULT_CODEX_TOOL_TIMEOUT_SEC} ekleyin.\n`
+      );
+      return false;
+    }
   }
   process.stdout.write(`✓ ${HOSTS[host].label} MCP aracı kaydedildi\n`);
   return true;
@@ -414,7 +439,8 @@ function doctorMcp(host, executable, { optional = false } = {}) {
         config.transport.command === process.execPath &&
         Array.isArray(config.transport.args) &&
         config.transport.args.length === 1 &&
-        path.resolve(config.transport.args[0]) === path.resolve(MCP_ABS);
+        path.resolve(config.transport.args[0]) === path.resolve(MCP_ABS) &&
+        Number(config.tool_timeout_sec) >= DEFAULT_CODEX_TOOL_TIMEOUT_SEC;
     } catch {
       installed = false;
     }

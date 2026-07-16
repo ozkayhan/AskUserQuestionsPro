@@ -13,24 +13,31 @@ registration with:
 codex mcp get askuserquestionspro --json
 ```
 
-The local server keeps the tool call pending for up to one hour. When Codex
+The local server keeps the tool call pending for up to one hour. The installer
+also writes `tool_timeout_sec = 3600` to the Codex MCP registration. When Codex
 supplies an MCP progress token, the server sends periodic progress
 notifications while the browser round is waiting. This helps a host recognize
 that the request is still active, but it cannot override an undocumented host
-wall-clock deadline. The live 1/5/10-minute Codex matrix remains a Phase 7
-acceptance task.
+wall-clock deadline.
 
-If Codex cancels the tool, the round is cancelled and the result is not
-replaced with a false successful answer. The actionable fallback is Codex's
-native `request_user_input` for a shorter or simpler question set.
+The real Codex CLI 0.144.4 check in Phase 7 reproduced a hard disconnect at
+300 seconds. A requestId-bearing round is now detached and kept in the browser
+bridge for up to one hour; call the MCP `resume` tool before starting a new
+round to collect its answer. An explicit Codex cancellation remains terminal.
+The actionable native fallback is `request_user_input` when resume reports no
+available round.
 
 ## Claude Code
 
 Claude can use the same MCP server for unlimited/richer rounds. Its native
 `AskUserQuestion` path is intercepted by the hook where configured; hook
-failure exits cleanly so Claude can use its native picker. The equivalent live
-long-round matrix and any Claude-specific deadline are not assumed from the
-Codex result and remain explicitly tracked for Phase 7.
+failure exits cleanly so Claude can use its native picker. The Claude hook wire
+path was verified with 15 questions and a delayed answer, producing the normal
+`PreToolUse` allow payload. A full model session was unavailable because the
+installed CLI was not authenticated, so no Claude-specific host deadline is
+inferred from that limitation. Claude MCP disconnects use the same bounded
+detached/resume path; hook requests without an MCP host requestId preserve
+native fallback behavior.
 
 ## Terminal reason guide
 

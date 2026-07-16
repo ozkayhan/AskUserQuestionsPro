@@ -12,7 +12,7 @@ This milestone turns the observed Codex long-round timeout into a measurable, ho
 - [x] **Phase 4: Browser State & Recovery** - Make long-round browser state, SSE reconnects, errors, and accessibility behavior resilient. (completed 2026-07-16)
 - [x] **Phase 5: Tooling, Packaging & Release** - Audit CLI, installers, host detection, package boundaries, and quality gates. (completed 2026-07-16)
 - [x] **Phase 6: Documentation Consolidation** - Create a coherent maintained documentation set and evidence-preserving historical archive. (completed 2026-07-16)
-- [ ] **Phase 7: Cross-Host Hardening & Acceptance** - Run full wire/host verification, close integration gaps, and lock the milestone contracts.
+- [x] **Phase 7: Cross-Host Hardening & Acceptance** - Run full wire/host verification, close integration gaps, and lock the milestone contracts. (completed 2026-07-16)
 
 ## Phase Details
 
@@ -149,24 +149,24 @@ Plans:
 3. Lifecycle ownership, timeout policy, fallback behavior, and operational diagnostics are documented as one coherent contract.
 4. All phase regressions and quality gates pass together from a clean checkout.
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 
-- [ ] 07-01: Run cross-host integration acceptance and close remaining contract gaps.
-- [ ] 07-02: Final audit, verification evidence, and milestone handoff.
+- [x] 07-01: Run cross-host integration acceptance and close remaining contract gaps.
+- [x] 07-02: Final audit, verification evidence, and milestone handoff.
 
 ## Progress
 
 **Execution Order:**
 Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
-| Phase                                | Plans Complete | Status      | Completed  |
-| ------------------------------------ | -------------- | ----------- | ---------- |
-| 1. Timeout Diagnosis & Observability | 2/2            | Complete    | 2026-07-16 |
-| 2. Host Lifecycle Fix                | 2/2            | Complete    | 2026-07-16 |
-| 3. Bridge & Server Round Reliability | 2/2            | Complete    | 2026-07-16 |
-| 4. Browser State & Recovery          | 2/2            | Complete    | 2026-07-16 |
-| 5. Tooling, Packaging & Release      | 2/2            | Complete    | 2026-07-16 |
-| 6. Documentation Consolidation       | 2/2            | Complete    | 2026-07-16 |
-| 7. Cross-Host Hardening & Acceptance | 0/2            | Not started | -          |
+| Phase                                | Plans Complete | Status   | Completed  |
+| ------------------------------------ | -------------- | -------- | ---------- |
+| 1. Timeout Diagnosis & Observability | 2/2            | Complete | 2026-07-16 |
+| 2. Host Lifecycle Fix                | 2/2            | Complete | 2026-07-16 |
+| 3. Bridge & Server Round Reliability | 2/2            | Complete | 2026-07-16 |
+| 4. Browser State & Recovery          | 2/2            | Complete | 2026-07-16 |
+| 5. Tooling, Packaging & Release      | 2/2            | Complete | 2026-07-16 |
+| 6. Documentation Consolidation       | 2/2            | Complete | 2026-07-16 |
+| 7. Cross-Host Hardening & Acceptance | 2/2            | Complete | 2026-07-16 |

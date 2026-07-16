@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 7
 current_phase_name: Cross-Host Hardening & Acceptance
-status: executing
-stopped_at: Phase 6 complete; ready to plan Phase 7.
-last_updated: '2026-07-16T13:59:38.521Z'
+status: complete
+stopped_at: Phase 7 complete; milestone acceptance and handoff recorded.
+last_updated: '2026-07-16T18:05:00.000Z'
 last_activity: 2026-07-16
-last_activity_desc: Phase 4 complete, transitioned to Phase 5
+last_activity_desc: Phase 7 complete; Codex detach/resume and Claude hook wire paths verified
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_phases: 7
+  completed_phases: 7
+  total_plans: 14
+  completed_plans: 14
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-16)
 
 **Core value:** Users must be able to complete a long, multi-question round at their own pace without the bridge, browser, or host integration timing out or losing their answers.
-**Current focus:** Phase 7 — Cross-Host Hardening & Acceptance
+**Current focus:** Milestone complete — cross-host acceptance and documentation handoff
 
 ## Current Position
 
 Phase: 7 of 7 (Cross-Host Hardening & Acceptance)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-16 — Phase 6 complete, transitioned to Phase 7
+Plan: 07-02 complete
+Status: Complete
+Last activity: 2026-07-16 — Phase 7 complete; acceptance evidence recorded
 
-Progress: [█████████░] 86%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,7 +52,7 @@ Progress: [█████████░] 86%
 | 4     | 2     | -     | -        |
 | 5     | 2     | 2     | -        |
 | 6     | 2     | 2     | -        |
-| 7     | 0     | 2     | -        |
+| 7     | 2     | 2     | -        |
 
 ## Accumulated Context
 
@@ -72,7 +72,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Host boundary ownership is unconfirmed; Codex/Claude reproduction evidence is required in Phase 7.
+- Codex CLI 0.144.4 has a measured 300-second host boundary; detach/resume is the supported mitigation. Claude model CLI was not authenticated, so the Claude hook wire path and native fallback are the verified scope.
 - Subagent research/roadmapper dispatch stalled in this runtime; equivalent research and roadmap artifacts were created inline and remain committed.
 
 ## Deferred Items
@@ -84,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-07-16
-Stopped at: Phase 6 complete; ready to plan Phase 7.
+Stopped at: Phase 7 complete; milestone acceptance and documentation handoff recorded.
 Resume file: None

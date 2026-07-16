@@ -4,6 +4,7 @@ import {
   ensureServer,
   openBrowser,
   askBridge,
+  cancelBridge,
   waitForPending,
   createRequestId,
 } from '../lib/bridge-client.mjs';
@@ -89,8 +90,9 @@ async function main() {
   let answers;
   const roundController = new AbortController();
   let lifecycle;
+  let requestId;
   try {
-    const requestId = createRequestId();
+    requestId = createRequestId();
     lifecycle = createLifecycle({ adapter: 'hook', requestId });
     const askPromise = askBridge(toolInput.questions, {
       timeoutMs: TIMEOUT_MS,
@@ -107,7 +109,10 @@ async function main() {
     lifecycle.event('browser_opened');
     answers = await askPromise;
     lifecycle.finish('completed');
-  } catch {
+  } catch (error) {
+    if (error?.name === 'TimeoutError') {
+      await cancelBridge(requestId, 'timeout').catch((cancelError) => log('hook', cancelError));
+    }
     lifecycle?.finish(roundController.signal.aborted ? 'host_cancelled' : 'bridge_error');
     roundController.abort();
     process.exit(0); // timeout/hata → native fallback

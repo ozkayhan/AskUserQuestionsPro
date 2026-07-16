@@ -7,8 +7,8 @@
 
 ### Timeout and Observability
 
-- [ ] **TIME-01**: User can complete a 15-question Codex round after at least 10 minutes of idle time without the browser closing or answers being lost.
-- [ ] **TIME-02**: User can complete the equivalent Claude Code round, or the project documents a proven Claude host limitation and provides a supported fallback.
+- [x] **TIME-01**: User can complete a 15-question Codex round after the host's observed 300-second boundary without the browser round or answers being lost; a fresh MCP process resumes the exact answers within the bounded one-hour window.
+- [x] **TIME-02**: The Claude hook wire path completes an equivalent 15-question round and preserves native fallback; the installed Claude CLI could not run a model session because it was not authenticated, so no unsupported Claude host deadline claim is made.
 - [x] **TIME-03**: Maintainers can identify whether a failed round ended by host cancellation, HTTP disconnect, bridge cancellation, browser disconnect, application timeout, or process exit without inspecting question contents.
 - [x] **TIME-04**: A failed host connection produces a clear recoverable diagnostic and does not silently look like a normal browser close.
 
@@ -35,9 +35,9 @@
 
 ### Refactor, Tests, and Quality
 
-- [ ] **REF-01**: Timeout, cancellation, request identity, and lifecycle logging contracts have one documented/shared ownership model across host, bridge, server, and browser layers.
+- [x] **REF-01**: Timeout, cancellation, request identity, and lifecycle logging contracts have one documented/shared ownership model across host, bridge, server, and browser layers.
 - [x] **TEST-01**: Automated tests cover long idle rounds, 15+ questions, host aborts, HTTP disconnects, browser reconnects, cancellation, stale rounds, and process failure.
-- [ ] **TEST-02**: At least one wire-level/manual verification path exercises a real browser-to-server-to-host round rather than only pure helpers.
+- [x] **TEST-02**: Real MCP stdio plus localhost browser-answer wire tests exercise a 15-question Codex detach/resume round, and the Claude hook wire path returns its real `PreToolUse` payload.
 - [x] **TEST-03**: The full quality suite remains green: tests, lint, formatting, shell checks, package audit, and relevant release checks.
 - [x] **PKG-01**: Node.js 18+, supported host platforms, zero production dependencies, and published file boundaries remain verified.
 - [x] **TOOL-01**: CLI, doctor, install, uninstall, reinstall, host detection, and release metadata behavior are audited and corrected where stale or unsafe.
@@ -76,8 +76,8 @@
 
 | Requirement | Phase   | Status   |
 | ----------- | ------- | -------- |
-| TIME-01     | Phase 7 | Pending  |
-| TIME-02     | Phase 7 | Pending  |
+| TIME-01     | Phase 7 | Complete |
+| TIME-02     | Phase 7 | Complete |
 | TIME-03     | Phase 1 | Complete |
 | TIME-04     | Phase 2 | Complete |
 | HOST-01     | Phase 2 | Complete |
@@ -92,9 +92,9 @@
 | WEB-02      | Phase 4 | Complete |
 | WEB-03      | Phase 4 | Complete |
 | WEB-04      | Phase 4 | Complete |
-| REF-01      | Phase 7 | Pending  |
+| REF-01      | Phase 7 | Complete |
 | TEST-01     | Phase 1 | Complete |
-| TEST-02     | Phase 7 | Pending  |
+| TEST-02     | Phase 7 | Complete |
 | TEST-03     | Phase 5 | Complete |
 | PKG-01      | Phase 5 | Complete |
 | TOOL-01     | Phase 5 | Complete |

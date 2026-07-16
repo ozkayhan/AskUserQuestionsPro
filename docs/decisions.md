@@ -92,3 +92,22 @@ bugs without new evidence.
 
 **Evidence:** `archive/audit-report-legacy.md`,
 `archive/hardening-plan-dynamic.md`, and `docs/hardening.md`.
+
+## D-008 — Host disconnect detaches resumable MCP rounds
+
+When a host-owned `/ask` connection carrying a `requestId` disappears without
+an explicit cancellation, the bridge marks the round detached instead of
+rejecting it. The browser remains authoritative for the answer; a later
+`resume` call receives the answer while the bridge enforces a one-hour bounded
+TTL. Explicit MCP cancellation still calls `/cancel` first and remains
+terminal. Legacy requests without a `requestId` retain cancel-on-disconnect.
+
+**Why:** the real Codex CLI 0.144.4 reproduction closes the MCP call at 300
+seconds even when the registered `tool_timeout_sec` is 3600. A server-side
+request timeout change cannot prevent that host boundary, but detaching the
+round prevents the browser page and answer state from being destroyed. The
+recovery is bounded and observable rather than an unbounded orphan.
+
+**Evidence:** `server/bridge.js`, `server/server.js`,
+`mcp-server/askuserquestionspro-mcp.mjs`, `test/mcp-long-round.test.js`, and
+`docs/timeout-runbook.md`.

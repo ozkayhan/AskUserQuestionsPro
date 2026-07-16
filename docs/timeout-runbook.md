@@ -13,9 +13,12 @@ the host boundary instead of “fixed” by increasing the application constant.
 
 The supported recovery paths are:
 
-- Codex: call `request_user_input` natively if the MCP round is cancelled.
+- Either MCP host: call `mcp__askuserquestionspro__resume` after an unexpected
+  host disconnect, before creating a new round. With no argument it selects the
+  latest detached round.
+- Codex: call `request_user_input` natively if resume reports no available
+  round or the MCP round was explicitly cancelled.
 - Claude Code: call native `AskUserQuestion` if the hook cannot complete.
-- Either host: rerun the MCP question set after the browser/server has cleaned up.
 
 ## Reproduce safely
 
@@ -35,7 +38,10 @@ ASKUSER_OPEN_BROWSER=0 npm test -- test/long-round.test.js test/mcp-long-round.t
 
 The MCP integration test starts the real stdio entrypoint, sends a progress token,
 waits for multiple progress notifications, posts a delayed answer, and checks the
-structured result. It proves the local wire contract, not a host’s deadline.
+structured result. Its resume case destroys a host HTTP connection, keeps the
+browser round pending, starts a fresh MCP process, and verifies the exact answer
+is returned. It proves the local recovery wire contract, not Claude's
+undocumented deadline.
 
 ## Read lifecycle evidence
 
@@ -49,14 +55,15 @@ round_started → ask_received → round_registered → browser_opened
 
 The first terminal event is the ownership clue:
 
-| Evidence                                               | Meaning                                              | Next action                                                         |
-| ------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------- |
-| `host_abort` or `round_finished` with `host_cancelled` | Host ended the JSON-RPC/hook call                    | Use the host-native fallback; record host/version and elapsed time  |
-| `ask_response_closed` with `host_disconnect`           | Caller connection closed before the browser answered | Inspect host process logs and retry with the native fallback        |
-| `bridge_cancelled` with `browser_disconnect`           | Browser connection/round owner was lost              | Reopen the flow and check SSE/browser console state                 |
-| `round_finished` with `application_timeout`            | Shared one-hour application deadline                 | Inspect why the browser remained unanswered for an hour             |
-| `process_exit`                                         | Bridge, hook, or MCP process exited                  | Preserve stderr and run `doctor`; inspect startup/permission errors |
-| no lifecycle terminal event                            | Evidence gap or host killed the process before flush | Re-run with stderr capture and inspect host cancellation logs       |
+| Evidence                                               | Meaning                                                                      | Next action                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `host_abort` or `round_finished` with `host_cancelled` | Host ended the JSON-RPC/hook call                                            | Use the host-native fallback; record host/version and elapsed time  |
+| `ask_response_closed` with `host_disconnect`           | Caller connection closed before the browser answered                         | Inspect host process logs and retry with the native fallback        |
+| `host_detached` followed by `round_resumed`            | Host connection ended, but the browser round remains bounded and recoverable | Call MCP `resume`; do not start a duplicate `ask` round             |
+| `bridge_cancelled` with `browser_disconnect`           | Browser connection/round owner was lost                                      | Reopen the flow and check SSE/browser console state                 |
+| `round_finished` with `application_timeout`            | Shared one-hour application deadline                                         | Inspect why the browser remained unanswered for an hour             |
+| `process_exit`                                         | Bridge, hook, or MCP process exited                                          | Preserve stderr and run `doctor`; inspect startup/permission errors |
+| no lifecycle terminal event                            | Evidence gap or host killed the process before flush                         | Re-run with stderr capture and inspect host cancellation logs       |
 
 Never infer “the one-hour timeout fired” from a generic host timeout message. The
 typed lifecycle reason and elapsed time are the source of truth for the local
@@ -87,6 +94,14 @@ Host stderr excerpt (redacted):
 Native fallback result:
 ```
 
-The unresolved acceptance requirement is a real Codex and Claude run beyond ten
-minutes. That matrix is Phase 7 work; local tests must not be presented as proof
-of host behavior.
+The Claude hook wire path was also verified with 15 questions and a 12-second
+delayed answer, producing the expected `PreToolUse` allow payload. A full
+Claude model session could not be run in this environment because the installed
+CLI reports `Not logged in`; that is an authentication limitation, not evidence
+of a Claude timeout. The Codex CLI 0.144.4 reproduction is recorded: its MCP connection closed at 300s
+despite `tool_timeout_sec = 3600`. In the verified run the lifecycle recorded
+`host_detached` at `elapsedMs: 300991`; a fresh Codex process called `resume`
+56 seconds later and received all 15 answers, followed by
+`round_finished(reason=completed)`. The detached/resume path is the supported
+mitigation for that host boundary, while the one-hour TTL remains the local
+application deadline.

@@ -25,10 +25,15 @@ Responsibilities:
 - `readBody()` reads request bodies with an 8 MB cap (tracked by byte count;
   `req.destroy()` on overflow; single-settle guard prevents double
   reject/resolve on the concurrent `data`/`close`/`error` race).
-- On client disconnect during an open `/ask`, call `bridge.cancel('client
-disconnected', myId)` where `myId` is the round id captured at submit time
-  (Contract R — only the owning round is cancelled, not a concurrently
-  submitted new one).
+- On a requestId-bearing client disconnect during an open `/ask`, call
+  `bridge.detach('host disconnected', myId)` where `myId` is the round id
+  captured at submit time. The browser round remains available to `/resume`
+  for the bounded detached TTL. Requests without a requestId retain
+  `bridge.cancel('client disconnected', myId)` (Contract R).
+- `POST /resume` waits on a detached round, or returns its short-lived cached
+  answer if the browser submitted just before the new host connected. Closing
+  the `/resume` response removes only that waiter; it never cancels the browser
+  round.
 - `POST /answer` parses `{ id, answers }`. Validates
   `!answers || typeof answers !== 'object' || Array.isArray(answers)` → 400
   (plain object required); then `bridge.provideAnswers(id, answers)` → 409 on
@@ -50,15 +55,18 @@ disconnected', myId)` where `myId` is the round id captured at submit time
   process on the same port.
 - `server.requestTimeout = 0` — disables Node's server-side request deadline;
   the application deadline is the client's one-hour `AbortController`. A
-  host may impose a separate MCP timeout, which this project does not assume.
+  host may impose a separate MCP timeout. RequestId-bearing host disconnects
+  are therefore detached and resumable instead of being treated as completed
+  cancellation.
 - `server.on('error')` — EADDRINUSE → `exit(0)` (silent, expected race on
   daemon spawn); other errors → `log('server', e)` + `exit(1)` (no silent
   orphan).
 
 ## Bridge (`server/bridge.js`)
 
-The single-flight coordinator. State: `_pending` (`{id, questions, resolve,
-reject}` or `null`) and `_seq` (monotonic counter for ids).
+The single-flight coordinator. State: `_pending` (round ownership, lifecycle,
+detached flag, and resume waiters), `_completed` (short-lived requestId cache),
+and `_seq` (monotonic counter for ids).
 
 | Method                        | Behavior                                                                                                                                            |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -67,6 +75,8 @@ reject}` or `null`) and `_seq` (monotonic counter for ids).
 | `getCurrent()`                | Just the questions array (or `null`).                                                                                                               |
 | `provideAnswers(id, answers)` | **Contract R:** resolves only if `id` matches the current pending round's id. Returns `true` on resolve, `false` on mismatch/no pending (no throw). |
 | `cancel(reason, expectedId?)` | **Contract R:** rejects the pending promise only if `expectedId` is absent or matches. Returns `true` on cancel, `false` on mismatch/no pending.    |
+| `detach(reason, expectedId)`  | Keeps a requestId-bearing round alive after host disconnect until the bounded TTL; ownership-checked.                                               |
+| `waitForAnswers(requestId?)`  | Returns a cancellable waiter for the detached/latest completed round without cancelling the browser round.                                          |
 
 Round identity (`_seq` monotonically incremented) is the mechanism that makes
 cross-round answer mix-up structurally impossible: a late `/answer` carrying
@@ -112,6 +122,10 @@ Used by both the hook and the MCP server. Port/base from `ASKUSER_PORT`
   `AbortController` timeout (not on HTTP errors or JSON failures).
 - `BridgeError` — exported class with `status` and parsed `body`; used to show
   actionable validation failures such as the required `{label}` option shape.
+- `resumeBridge(requestId?, { timeoutMs?, signal? })` — `POST /resume`; recovers
+  a detached round after a host-side connection deadline.
+- `cancelBridge(requestId, reason?)` — resolves the current round id and sends
+  explicit `/cancel` before an MCP cancellation closes the owning stream.
 
 ### MCP host liveness
 
@@ -216,9 +230,10 @@ reporting with a single consistent output line.
 ## MCP server (`mcp-server/askuserquestionspro-mcp.mjs`)
 
 JSON-RPC 2.0 over stdio (STDOUT = protocol, STDERR = logs). Zero deps.
-Exposes one host-neutral tool, `ask` (full name
-`mcp__askuserquestionspro__ask`) to Claude Code, Codex CLI, and ChatGPT
-Desktop. Its `questions` schema has no `maxItems` limit.
+Exposes host-neutral `ask` and `resume` tools (full names
+`mcp__askuserquestionspro__ask` and `mcp__askuserquestionspro__resume`) to
+Claude Code, Codex CLI, and ChatGPT Desktop. The `ask` questions schema has no
+`maxItems` limit.
 
 Methods: `initialize`, `tools/list`, `tools/call`, `ping`. Notifications
 (`id === undefined`) are logged and ignored. Reads line-delimited JSON from
@@ -241,9 +256,10 @@ the same `{answers}` object as both JSON text `content` and
 channels. Failure returns `isError` guidance to use the host-native user-input
 tool (`request_user_input` in Codex, `AskUserQuestion` in Claude Code).
 If pending-round registration fails, the caller aborts its `/ask` request so the
-single-flight bridge is not left occupied.
-`notifications/cancelled` also aborts the controller associated with the
-in-flight JSON-RPC request id and suppresses its now-unused response.
+single-flight bridge is not left occupied. `handleResume(args)` waits on a
+detached round and returns the same structured answer shape. An explicit MCP
+`notifications/cancelled` sends `/cancel` first; a host that disappears without
+that notification leaves a bounded detached round for `resume`.
 
 The tool publishes an `outputSchema` requiring an `answers` object and these
 annotations: `readOnlyHint: true`, `destructiveHint: false`,

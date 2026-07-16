@@ -104,3 +104,39 @@ test('peek(requestId) yalnizca ilgili istemcinin turunu gosterir', () => {
   assert.strictEqual(b.peek('owner-b'), null);
   b.cancel('test');
 });
+
+test('detach host baglantisi kopsa da pending roundu korur ve resume cevabi alir', async () => {
+  const b = new Bridge({ detachedTtlMs: 1000 });
+  const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
+  const round = b.peek('owner-a');
+  assert.strictEqual(b.detach('host disconnected', round.id), true);
+  assert.deepStrictEqual(b.peek('owner-a'), round);
+
+  const resumed = b.waitForAnswers('owner-a');
+  assert.equal(b.provideAnswers(round.id, { 'Q?': 'A' }), true);
+  assert.deepStrictEqual(await resumed.promise, { 'Q?': 'A' });
+  assert.deepStrictEqual(await owner, { 'Q?': 'A' });
+  assert.equal(b.peek('owner-a'), null);
+});
+
+test('resume round requestId olmadan en son detached cevabi bulur', async () => {
+  const b = new Bridge({ detachedTtlMs: 1000 });
+  const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
+  const round = b.peek('owner-a');
+  b.detach('host disconnected', round.id);
+  const resumed = b.waitForAnswers();
+  b.provideAnswers(round.id, { 'Q?': 'A' });
+  assert.deepStrictEqual(await resumed.promise, { 'Q?': 'A' });
+  await owner;
+});
+
+test('detached round TTL sonunda typed application timeout ile temizlenir', async () => {
+  const b = new Bridge({ detachedTtlMs: 15 });
+  const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
+  const round = b.peek('owner-a');
+  b.detach('host disconnected', round.id);
+  const rejection = assert.rejects(owner, (error) => error.code === 'application_timeout');
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  await rejection;
+  assert.equal(b.peek(), null);
+});

@@ -119,6 +119,31 @@ test('/current requestId ile yalnizca ilgili pending turunu gosterir', async () 
   await askPromise;
 });
 
+test('requestId li /ask host soketi kapaninca round korunur ve /resume cevap verir', async () => {
+  const requestId = 'resume-owner-a';
+  const questions = [{ question: 'RESUME?', options: [{ label: 'A' }] }];
+  const request = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  request.on('error', () => {});
+  request.write(JSON.stringify({ questions, requestId }));
+  request.end();
+
+  const current = await waitForPending();
+  request.destroy();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  const retained = await fetch(`${base}/current?requestId=${requestId}`);
+  assert.deepStrictEqual(await retained.json(), current);
+
+  const resumed = post('/resume', {});
+  await post('/answer', { id: current.id, answers: { 'RESUME?': 'A' } });
+  const resumeResponse = await resumed;
+  assert.strictEqual(resumeResponse.status, 200);
+  assert.deepStrictEqual(await resumeResponse.json(), { answers: { 'RESUME?': 'A' } });
+});
+
 // --- Contract R: /answer round-id rendezvous ---
 
 test('/answer stale id -> 409 (cross-round race korumasi)', async () => {

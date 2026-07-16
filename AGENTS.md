@@ -56,7 +56,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 ## Configuration
 
 - `package.json` defines package metadata, Node engine, npm scripts, executable bins, and the published file allowlist.
-- Environment variables are read directly by `server/server.js`, `lib/bridge-client.mjs`, `lib/settings.js`, `bin/cli.js`, and the shell installers: `ASKUSER_PORT`, `ASKUI_FORCE_MCP`, host executable overrides, `ASKUSER_TARGET`, and `XDG_CONFIG_HOME`.
+- Environment variables are read directly by `server/server.js`, `lib/bridge-client.mjs`, `lib/settings.js`, `bin/cli.js`, and the shell installers: `ASKUSER_PORT`, `ASKUSER_DETACHED_ROUND_TTL_MS`, `ASKUI_FORCE_MCP`, host executable overrides, `ASKUSER_TARGET`, and `XDG_CONFIG_HOME`.
 - `eslint.config.js`, `.prettierrc.json`, `.prettierignore`, and `.github/workflows/ci.yml` define quality gates.
 - `web/settings-schema.js` is the browser-side settings schema; `lib/settings.js` persists validated settings atomically.
 
@@ -179,7 +179,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 
 ## Error Handling and Cross-Cutting Concerns
 
-- Boundary validation returns HTTP 400 or MCP error results; concurrent/stale rounds return HTTP 409.
+- Boundary validation returns HTTP 400 or MCP error results; concurrent/stale rounds return HTTP 409. RequestId-bearing host disconnects detach a round for bounded `resume`; explicit cancellation remains terminal.
 - Hook failures log and exit successfully so Claude can use its native fallback; MCP failures provide fallback guidance.
 - `lib/log.cjs` centralizes non-throwing stderr logging; `server/server.js` guards request disconnects and static traversal.
 - `lib/atomic-write.cjs` uses a lockfile, temp file, and rename for settings durability.

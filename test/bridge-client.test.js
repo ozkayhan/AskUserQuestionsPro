@@ -146,6 +146,27 @@ test('askBridge() caller abort ile iptal olur ve pending turu serbest bırakır'
   }
 });
 
+test('resumeBridge() host kopmasindan sonra ayni round cevaplarini alir', async () => {
+  const requestId = 'bridge-client-resume';
+  const controller = new AbortController();
+  const pending = bridgeClient.askBridge(
+    [{ question: 'Resume?', header: 'H', options: [{ label: 'A' }] }],
+    { timeoutMs: 5000, signal: controller.signal, requestId }
+  );
+  const current = await waitForPending();
+  controller.abort();
+  await assert.rejects(pending, /cancelled by caller/);
+  await bridgeClient.waitForPending({ timeoutMs: 2000, requestId });
+
+  const resumed = bridgeClient.resumeBridge(undefined, { timeoutMs: 2000 });
+  await fetch(`${base}/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: current.id, answers: { Resume: 'A' } }),
+  });
+  assert.deepStrictEqual(await resumed, { Resume: 'A' });
+});
+
 // --- Regression: askBridge geçersiz JSON → açık hata (timeout gibi görünmemeli) ---
 test('askBridge() geçersiz JSON gövdesinde açık hata fırlatır', async () => {
   // 200 OK ama JSON olmayan gövde dönen geçici bir sunucu kur.

@@ -2,7 +2,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { Bridge, terminalReason } = require('./bridge.js');
+const { Bridge, DEFAULT_DETACHED_TTL_MS, terminalReason } = require('./bridge.js');
 const APP_ID = require('../lib/app-id.cjs');
 const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
@@ -11,7 +11,12 @@ const { validQuestions: validateQuestionSet } = require('../lib/question-contrac
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
-const bridge = new Bridge();
+const configuredDetachedTtl = Number(process.env.ASKUSER_DETACHED_ROUND_TTL_MS);
+const bridge = new Bridge({
+  detachedTtlMs: Number.isFinite(configuredDetachedTtl)
+    ? configuredDetachedTtl
+    : DEFAULT_DETACHED_TTL_MS,
+});
 const sseClients = new Set();
 const MIME = {
   '.html': 'text/html',
@@ -237,7 +242,9 @@ async function handleRequest(req, res) {
     let settled = false;
     const onClose = () => {
       lifecycle.event('ask_response_closed');
-      if (!settled && bridge.cancel('client disconnected', myId)) {
+      const preserved = !settled && requestId && bridge.detach('host disconnected', myId);
+      const cancelled = !settled && !preserved && bridge.cancel('client disconnected', myId);
+      if (preserved || cancelled) {
         broadcastCurrent();
       }
     };
@@ -246,6 +253,7 @@ async function handleRequest(req, res) {
     try {
       const answers = await answersPromise;
       settled = true;
+      if (res.destroyed || !res.writable) return;
       return sendJson(res, 200, { answers });
     } catch (e) {
       settled = true;
@@ -258,6 +266,47 @@ async function handleRequest(req, res) {
     } finally {
       res.off('close', onClose);
       delete res.__askuserRoundId;
+    }
+  }
+
+  if (req.method === 'POST' && url === '/resume') {
+    let body;
+    try {
+      body = await readBody(req);
+    } catch {
+      return sendJson(res, 400, { error: 'read error' });
+    }
+    let requestId;
+    try {
+      const payload = body ? JSON.parse(body) : {};
+      if (payload.requestId !== undefined && typeof payload.requestId !== 'string') {
+        return sendJson(res, 400, { error: 'invalid requestId' });
+      }
+      requestId = payload.requestId;
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
+
+    const waiter = bridge.waitForAnswers(requestId);
+    let settled = false;
+    const onClose = () => {
+      if (!settled) waiter.cancel();
+    };
+    res.on('close', onClose);
+    try {
+      const answers = await waiter.promise;
+      settled = true;
+      if (res.destroyed || !res.writable) return;
+      return sendJson(res, 200, { answers });
+    } catch (e) {
+      settled = true;
+      return sendJson(res, 409, {
+        error: e.message,
+        reason: e.code || 'bridge_error',
+        roundId: e.roundId,
+      });
+    } finally {
+      res.off('close', onClose);
     }
   }
 

@@ -118,7 +118,8 @@ the shared runtime and UI settings when the other host is still installed.
 
 ## MCP tool
 
-The installed tool is `mcp__askuserquestionspro__ask`. It accepts one or many
+The installed tools are `mcp__askuserquestionspro__ask` and
+`mcp__askuserquestionspro__resume`. `ask` accepts one or many
 questions; there is no schema-level `maxItems` limit. Six types are supported:
 
 | Type      | Result value                                    |
@@ -170,10 +171,11 @@ handling; the installed skill remains the explicit usage guidance for hosts.
 
 The bridge registers a pending round before opening the browser. This prevents
 the browser from racing ahead and briefly rendering an empty state. The tool's
-own answer wait is bounded to one hour; no claim is made about a host's separate
-MCP timeout defaults. If the tool fails, the model is told to use the native
-fallback available in that host: `request_user_input` in Codex or
-`AskUserQuestion` in Claude Code.
+own answer wait is bounded to one hour. If a host connection disappears without
+explicit cancellation, call `mcp__askuserquestionspro__resume` before starting a
+duplicate round; the browser round remains recoverable for that bounded window.
+If resume is unavailable, the model is told to use the native fallback available
+in that host: `request_user_input` in Codex or `AskUserQuestion` in Claude Code.
 
 ## Claude hook behavior
 
@@ -223,8 +225,9 @@ rejected with HTTP 409 so answers cannot cross rounds.
 - If the UI does not open, run `askuserquestionspro serve` and visit
   `http://127.0.0.1:4517`.
 - The hook has a 30-second stdin-read watchdog and each hook/MCP answer wait is
-  bounded to one hour. These are application limits, independent of any
-  additional host-side timeout.
+  bounded to one hour. These are application limits; Codex installation also
+  requests a 3600-second MCP tool timeout, but a host can still impose another
+  deadline. Use the resumable round recovery when a host disconnects.
 
 ## Tests
 

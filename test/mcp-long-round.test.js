@@ -177,3 +177,101 @@ test('MCP stdio: 15 soru heartbeat arkasında bekler ve doğru cevapla tamamlan�
     fs.rmSync(xdg, { recursive: true, force: true });
   }
 });
+
+test('MCP resume: kopan host turu browser cevabini yeni MCP processine verir', async () => {
+  const port = await unusedPort();
+  const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-mcp-resume-'));
+  const env = {
+    ...process.env,
+    ASKUSER_PORT: String(port),
+    ASKUSER_OPEN_BROWSER: '0',
+    XDG_CONFIG_HOME: xdg,
+  };
+  const server = spawn(process.execPath, [SERVER_PATH], { stdio: 'ignore', env });
+  const mcp = spawn(process.execPath, [MCP_PATH], { stdio: ['pipe', 'pipe', 'pipe'], env });
+  let output = '';
+  const messages = [];
+  const waitForResult = (id) =>
+    new Promise((resolve, reject) => {
+      const deadline = setTimeout(() => reject(new Error('resume MCP sonucu gelmedi')), 5000);
+      const check = () => {
+        const message = messages.find((item) => item.id === id);
+        if (message) {
+          clearTimeout(deadline);
+          resolve(message);
+          return true;
+        }
+        return false;
+      };
+      if (check()) return;
+      const interval = setInterval(() => {
+        if (check()) clearInterval(interval);
+      }, 10);
+    });
+
+  try {
+    await waitForHealth(port);
+    const request = require('node:http').request(`http://127.0.0.1:${port}/ask`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    request.on('error', () => {});
+    request.end(
+      JSON.stringify({
+        requestId: 'lost-host',
+        questions: [{ question: 'Kopan tur?', header: 'Resume', options: [{ label: 'Tamam' }] }],
+      })
+    );
+    let current;
+    const currentDeadline = Date.now() + 5000;
+    while (Date.now() < currentDeadline) {
+      current = await (await fetch(`http://127.0.0.1:${port}/current`)).json();
+      if (current.id != null) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.ok(current?.id != null, 'detached test round sunucuda pending olmali');
+    request.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.strictEqual(
+      (await (await fetch(`http://127.0.0.1:${port}/current`)).json()).id,
+      current.id
+    );
+
+    mcp.stdout.setEncoding('utf8');
+    mcp.stdout.on('data', (chunk) => {
+      output += chunk;
+      const lines = output.split('\n');
+      output = lines.pop();
+      for (const line of lines) if (line.trim()) messages.push(JSON.parse(line));
+    });
+    mcp.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'tools/call',
+        params: { name: 'resume', arguments: {} },
+      }) + '\n'
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const answer = await fetch(`http://127.0.0.1:${port}/answer`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: current.id, answers: { 'Kopan tur?': 'Tamam' } }),
+    });
+    assert.strictEqual(answer.status, 200);
+    const result = await waitForResult(9);
+    assert.deepStrictEqual(result.result.structuredContent, { answers: { 'Kopan tur?': 'Tamam' } });
+  } finally {
+    await Promise.all(
+      [mcp, server].map((child) =>
+        child.exitCode === null
+          ? new Promise((resolve) => {
+              child.once('exit', resolve);
+              child.kill();
+            })
+          : Promise.resolve()
+      )
+    );
+    fs.rmSync(xdg, { recursive: true, force: true });
+  }
+});

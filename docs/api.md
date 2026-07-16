@@ -14,16 +14,20 @@ All on `127.0.0.1`. No auth (localhost-only, single user).
 | `GET /current`   | —                         | `{ id, questions }` or `{ id: null, questions: null }`         | Peek at the pending set.                                                                                                                                                                                                  |
 | `GET /events`    | —                         | `text/event-stream`                                            | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                                                                               |
 | `POST /ask`      | `{ questions: [...] }`    | `{ answers: {...} }` (blocks until answered) or error          | Submit a question set; request stays open until answered or the caller's deadline. Returns HTTP 400 on validation failure, 409 if a set is already pending.                                                               |
+| `POST /resume`   | `{ requestId? }`          | `{ answers: {...} }` (blocks until answered) or 409            | Resume the latest detached host round, or the detached round for a specific request id.                                                                                                                                   |
 | `POST /answer`   | `{ id, answers: {...} }`  | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. `id` must match the current pending round (Contract R); mismatched id → 409 with `reason: "stale_round"`. `answers` must be a plain object (not null/array/primitive) → else 400. |
 | `POST /cancel`   | `{ id, reason? }`         | `{ ok: true, reason }` (200) or error                          | Cancel exactly the matching round. Allowlisted reasons are `user cancelled`, `host cancelled`, `browser disconnected`, and `timeout`; stale ids → 409.                                                                    |
 | `POST /settings` | `{ <key>: <value>, ... }` | `{ ok: true, settings: {...} }` (200) or `{ error }` (400/500) | Persist a UI-settings patch. Returns 400 on bad JSON/non-object, 500 if the disk write fails (Contract W). `_v` is stripped from the response.                                                                            |
 | `GET *`          | —                         | static file                                                    | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                                                                             |
 
-Request bodies are capped at 8 MB. If the `/ask` client disconnects, the
-server cancels the pending set using the round's `id` (Contract R — only the
-owning round is cancelled, not a newly submitted one). The explicit `/cancel`
-route uses the same id ownership check and is safe to repeat after the first
-terminal transition.
+Request bodies are capped at 8 MB. If a requestId-bearing `/ask` client
+disconnects, the server detaches rather than cancels the pending set. The
+browser may continue collecting answers for up to one hour; a new host process
+can call `/resume` to receive them. Detached rounds are bounded by
+`ASKUSER_DETACHED_ROUND_TTL_MS` (default one hour), so they cannot become
+unbounded orphans. Requests without a requestId preserve the original
+cancel-on-disconnect behavior. The explicit `/cancel` route uses the same id
+ownership check and is safe to repeat after the first terminal transition.
 
 ### Question shape
 
@@ -99,7 +103,7 @@ is answer-opaque.
 - `409` — a question set is already pending (`reason: "round_in_progress"`),
   or a stale/missing round was targeted (`reason: "stale_round"`)
 
-## MCP tool: `mcp__askuserquestionspro__ask`
+## MCP tools: `mcp__askuserquestionspro__ask` and `mcp__askuserquestionspro__resume`
 
 Defined in `mcp-server/askuserquestionspro-mcp.mjs` as tool `ask`. Transport:
 JSON-RPC 2.0 over stdio.
@@ -174,8 +178,14 @@ and `AskUserQuestion` in Claude Code; no host timeout default is assumed.
 Supported RPC methods: `initialize`, `tools/list`, `tools/call`, `ping`.
 `initialize` recognizes protocol versions `2025-11-25`, `2025-06-18`, and
 `2024-11-05`; other requested versions negotiate to `2025-11-25` rather than
-being echoed. `notifications/cancelled` accepts the request id and aborts the
-associated in-flight `tools/call` without returning its unused result.
+being echoed. `notifications/cancelled` accepts the request id and explicitly
+cancels the associated round before aborting the in-flight `tools/call` without
+returning its unused result. If a host drops the connection without that
+notification, the detached round remains recoverable through `resume`.
+
+The `resume` tool accepts an optional original `requestId`; with no argument it
+selects the latest detached round for this single-user bridge. It waits for the
+browser answer and returns the same `{ answers }` result shape as `ask`.
 
 ### Shared validation (`lib/question-contract.cjs`)
 

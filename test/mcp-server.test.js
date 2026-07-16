@@ -103,7 +103,10 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
   const tools = listRes.result.tools;
   assert.ok(Array.isArray(tools) && tools.length > 0, 'tools dizisi boş olmamalı');
   const askTool = tools.find((t) => t.name === 'ask');
+  const resumeTool = tools.find((t) => t.name === 'resume');
   assert.ok(askTool, '"ask" adında araç olmalı');
+  assert.ok(resumeTool, '"resume" adında araç olmalı');
+  assert.match(resumeTool.description, /detached|timeout|resume/i);
   assert.match(askTool.description, /request_user_input/);
   assert.deepStrictEqual(askTool.outputSchema.required, ['answers']);
   assert.strictEqual(askTool.annotations.readOnlyHint, true);
