@@ -1,8 +1,6 @@
 # docs — askuserquestionspro
 
-> **Synced:** 2026-07-10 against HEAD `4fa311e` plus the current uncommitted
-> Claude Code + Codex App/CLI working-tree changes. Those changes do not have a
-> commit id yet; do not treat `4fa311e` as containing them.
+> **Synced:** 2026-07-16 against the current reliability-overhaul branch.
 
 Read this folder before exploring the source — it maps the whole codebase.
 
@@ -25,6 +23,7 @@ bridge, and the browser UI.
 - [code-map.md](code-map.md) — where everything lives (start here to navigate)
 - [frontend.md](frontend.md) — web UI: React-via-Babel app, views, themes, answer logic
 - [backend.md](backend.md) — bridge server, hook, MCP server, CLI, install
+- [hosts.md](hosts.md) — Codex/Claude lifecycle contracts, fallbacks, and host-boundary evidence
 - [api.md](api.md) — HTTP endpoints, MCP tool contract, hook I/O shapes
 - [testing.md](testing.md) — test suite layout and how to run it
 - [hardening.md](hardening.md) — 5-theme systemic hardening sprint: what was changed, why, and the CI guards
