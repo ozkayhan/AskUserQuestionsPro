@@ -44,11 +44,11 @@
 
 ## Dependencies and Complexity
 
-| Capability | Complexity | Dependencies |
-|------------|------------|--------------|
-| Lifecycle instrumentation | Medium | Shared request/round identity and redacted logger |
-| Host-specific reproduction harness | High | Codex/Claude integration access and controllable idle timing |
-| MCP keepalive/progress strategy | High/uncertain | Client protocol behavior and host support |
-| Resumable/chunked round fallback | High | New state/contract semantics, persistence or ticket lifecycle, skill guidance |
-| Browser reconnect safety | Medium/high | SSE state machine and answer-map identity |
-| Documentation taxonomy and migration | Medium | Inventory, cross-link audit, factual verification |
+| Capability                           | Complexity     | Dependencies                                                                  |
+| ------------------------------------ | -------------- | ----------------------------------------------------------------------------- |
+| Lifecycle instrumentation            | Medium         | Shared request/round identity and redacted logger                             |
+| Host-specific reproduction harness   | High           | Codex/Claude integration access and controllable idle timing                  |
+| MCP keepalive/progress strategy      | High/uncertain | Client protocol behavior and host support                                     |
+| Resumable/chunked round fallback     | High           | New state/contract semantics, persistence or ticket lifecycle, skill guidance |
+| Browser reconnect safety             | Medium/high    | SSE state machine and answer-map identity                                     |
+| Documentation taxonomy and migration | Medium         | Inventory, cross-link audit, factual verification                             |

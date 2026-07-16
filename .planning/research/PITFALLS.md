@@ -4,15 +4,15 @@
 
 ## Technical Pitfalls
 
-| Pitfall | Early warning | Prevention | Phase |
-|---------|---------------|------------|-------|
-| Treating the one-hour app timeout as the root cause | Constants increase but Codex still closes at the same wall-clock boundary | Capture host disconnect/cancel/close timestamps and reproduce at multiple idle durations | Diagnosis |
-| Canceling a newer round after an old `/ask` socket closes | Intermittent wrong-round cancellation or 409s | Require both request/round ownership on every cancel and test delayed close events | Bridge hardening |
-| Sending unsupported MCP keepalives | Host logs protocol errors or terminates the server | Confirm protocol/client support, gate behavior, and test raw JSON-RPC interoperability | Host fix |
-| Solving a hard host deadline by hiding errors | Browser closes with no user-visible reason and no trace | Separate host failure, bridge cancellation, and user cancellation in diagnostics and fallback | Host fix |
-| Introducing resumable state without a lifecycle owner | Orphaned rounds survive forever or answers attach to the wrong call | Define ticket expiry, ownership, cleanup, and replay semantics before implementation | Architecture |
-| Refactoring CommonJS/ESM boundaries casually | CLI/MCP works on one Node version but fails on another | Keep module boundaries explicit and run the full Node 18 matrix | Cross-cutting |
-| Testing only pure helpers | Unit suite passes while real browser/host connection still dies | Retain wire-level and manual host tests with long idle windows | Verification |
+| Pitfall                                                   | Early warning                                                             | Prevention                                                                                    | Phase            |
+| --------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------- |
+| Treating the one-hour app timeout as the root cause       | Constants increase but Codex still closes at the same wall-clock boundary | Capture host disconnect/cancel/close timestamps and reproduce at multiple idle durations      | Diagnosis        |
+| Canceling a newer round after an old `/ask` socket closes | Intermittent wrong-round cancellation or 409s                             | Require both request/round ownership on every cancel and test delayed close events            | Bridge hardening |
+| Sending unsupported MCP keepalives                        | Host logs protocol errors or terminates the server                        | Confirm protocol/client support, gate behavior, and test raw JSON-RPC interoperability        | Host fix         |
+| Solving a hard host deadline by hiding errors             | Browser closes with no user-visible reason and no trace                   | Separate host failure, bridge cancellation, and user cancellation in diagnostics and fallback | Host fix         |
+| Introducing resumable state without a lifecycle owner     | Orphaned rounds survive forever or answers attach to the wrong call       | Define ticket expiry, ownership, cleanup, and replay semantics before implementation          | Architecture     |
+| Refactoring CommonJS/ESM boundaries casually              | CLI/MCP works on one Node version but fails on another                    | Keep module boundaries explicit and run the full Node 18 matrix                               | Cross-cutting    |
+| Testing only pure helpers                                 | Unit suite passes while real browser/host connection still dies           | Retain wire-level and manual host tests with long idle windows                                | Verification     |
 
 ## Documentation Taxonomy
 

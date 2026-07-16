@@ -14,7 +14,7 @@ CI runs `npm ci && npm test` on Node 18, 20, 22
 
 ## Layout
 
-There are 24 top-level `*.test.js` files:
+There are 31 top-level `*.test.js` files:
 
 `evals/askpro-skill-cases.json` contains positive and negative payload cases,
 including the string-options failure that prompted the contract hardening.
@@ -24,6 +24,7 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | Test file                        | Covers                                                                                    |
 | -------------------------------- | ----------------------------------------------------------------------------------------- |
 | `answer-map.test.js`             | Pure answer mapping and activation decisions.                                             |
+| `app-state.test.js`              | Browser submit/retry/stale-round state transitions.                                       |
 | `bridge-client.test.js`          | Server bootstrap, pending-round wait, browser/client behavior, and timeout typing.        |
 | `bridge.test.js`                 | Single-flight submit/resolve/cancel/round identity.                                       |
 | `changesets-config.test.js`      | Changesets configuration.                                                                 |
@@ -33,9 +34,13 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `host-platforms.test.js`         | Target parsing/selection, macOS bundled Codex discovery, host MCP argv, and skill paths.  |
 | `install.test.js`                | Claude hook settings mutations and conflict handling.                                     |
 | `live.test.js`                   | Browser SSE and answer-posting helpers.                                                   |
+| `long-round.test.js`             | 15-question bridge idle-round and delayed-owner regression.                               |
 | `mcp-long-round.test.js`         | Real MCP stdio process, delayed 15-question answer, and progress heartbeat lifecycle.     |
 | `mcp-progress.test.js`           | Progress-token validation, monotonic values, and heartbeat cleanup.                       |
 | `mcp-server.test.js`             | JSON-RPC lifecycle/version negotiation, cancellation, schema, instructions, and metadata. |
+| `package-boundary.test.js`       | npm allowlist, Node engine, and package/lockfile version parity.                          |
+| `question-contract.test.js`      | Shared question payload validation and result contract.                                   |
+| `round-lifecycle.test.js`        | Redacted lifecycle event names, terminal reasons, and logger safety.                      |
 | `server.test.js`                 | HTTP/SSE/static/settings behavior, validation fuzzing, and round-safe wire flow.          |
 | `shell-lifecycle.test.js`        | Target-specific shell cleanup preserves the runtime used by the other host.               |
 | `settings-panel.test.js`         | Settings panel behavior.                                                                  |
@@ -44,6 +49,7 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `themes.test.js`                 | Theme registry and token application.                                                     |
 | `ui-kit.test.js`                 | Shared UI primitives and type-specific Other-option behavior.                             |
 | `views-a11y.test.js`             | Accessibility structure and annotations.                                                  |
+| `views-a11y-recovery.test.js`    | Stable browser IDs, button semantics, and recovery annotations.                           |
 | `views.test.js`                  | Question and summary view rendering behavior.                                             |
 | `workflows-ci.test.js`           | CI workflow guards.                                                                       |
 | `workflows-release.test.js`      | Release workflow guards.                                                                  |
@@ -53,6 +59,25 @@ owns pure selection/discovery/command contracts, `cli.test.js` proves a Codex
 target does not touch Claude state, `shell-lifecycle.test.js` protects shared
 runtime ownership, and `mcp-server.test.js` proves the metadata that helps both
 hosts discover and consume the tool.
+
+## Release gate
+
+Run the same local gates used by CI before shipping a release:
+
+```bash
+npm ci
+npm test
+npm run lint
+npm run format:check
+npm audit --audit-level=high --omit=dev
+npm pack --dry-run --json
+find . -name '*.sh' -not -path './node_modules/*' -not -path './.codex/*' -not -path './.git/*' -print0 \
+  | xargs -0 shellcheck --severity=warning
+```
+
+The `.codex/` directory is a gitignored Conductor/GSD workspace bundle and is
+excluded from lint, formatting, and npm packaging. It must never be copied into
+an installed runtime or used as a release artifact.
 
 ## Isolation helper (`test/helpers/isolation.js`)
 

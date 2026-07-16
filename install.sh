@@ -161,6 +161,20 @@ for f in "${REQUIRED[@]}"; do
 done
 ok "tüm kritik dosyalar mevcut"
 
+# Never use the live install directory as its own source. Without this guard,
+# a recovery command such as ASKUSER_SOURCE_DIR="$INSTALL_DIR" would delete
+# the source tree in step 4 before it had anything to copy.
+case "$SRC/" in
+  "$INSTALL_DIR"|"$INSTALL_DIR"/*)
+    die "yerel kaynak kurulum dizininin içinde; ayrı bir checkout belirtin: $INSTALL_DIR"
+    ;;
+esac
+case "$INSTALL_DIR/" in
+  "$SRC"|"$SRC"/*)
+    die "kurulum dizini yerel kaynağın içinde; ayrı bir install path belirtin: $SRC"
+    ;;
+esac
+
 # ── 4/6 Kalıcı konuma kopyala ────────────────────────────────────────────────
 CURRENT_STEP="dosyaların kalıcı konuma kopyalanması"
 step "4/6  Dosyalar kuruluyor → $INSTALL_DIR"

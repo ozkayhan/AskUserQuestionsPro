@@ -58,4 +58,4 @@ last_mapped_commit: 947e12628a1c5d5e9620539381d274a8c053053d
 - Run `npm test`, `npm run lint`, and `npm run format:check` before handoff; shell changes also need ShellCheck.
 - Release-visible changes use `.changeset/*.md`; update the maintained docs when API or host behavior changes.
 
-*Convention analysis: 2026-07-16*
+_Convention analysis: 2026-07-16_

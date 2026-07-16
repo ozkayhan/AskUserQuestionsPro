@@ -15,29 +15,35 @@ Instrument and reproduce the long-round failure so the project can identify the 
 ## Implementation Decisions
 
 ### Evidence first
+
 - Preserve the existing one-hour client timeout and disabled Node request timeout while diagnosing; do not mask the problem by increasing constants.
 - Correlate host request id, bridge round id, host adapter, process id, and timestamps.
 - Log lifecycle reasons without question text or answer values.
 
 ### the agent's Discretion
+
 - Select the smallest shared module/API that can be used by both MCP and hook without changing their public contracts.
 - Use deterministic fake-client and server tests for boundaries that cannot be exercised by a real Codex/Claude process in CI.
 
 </decisions>
 
 <code_context>
+
 ## Existing Code Insights
 
 ### Reusable Assets
+
 - `lib/log.cjs` is the non-throwing stderr logger.
 - `createRequestId()` and bridge round ids already exist.
 - `test/bridge-client.test.js` and `test/server.test.js` already provide live localhost test fixtures.
 
 ### Established Patterns
+
 - Node built-in `node:test`, CommonJS tests, dynamic ESM imports, and temporary `XDG_CONFIG_HOME` isolation.
 - Host errors currently fall back silently; diagnostics must remain stderr-only and redacted.
 
 ### Integration Points
+
 - `lib/bridge-client.mjs` owns `/ask` timeout/abort mapping.
 - `server/server.js` owns `/ask` response close and bridge cancellation.
 - `mcp-server/askuserquestionspro-mcp.mjs` and `hooks/askuserquestionspro-bridge.mjs` own host-specific lifecycle entry/exit.

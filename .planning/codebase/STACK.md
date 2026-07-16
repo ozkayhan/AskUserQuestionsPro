@@ -10,20 +10,24 @@ last_mapped_commit: 947e12628a1c5d5e9620539381d274a8c053053d
 ## Languages
 
 **Primary:**
+
 - JavaScript (CommonJS and ES modules) for the Node runtime, CLI, bridge, MCP server, hooks, and browser application.
 - JSX embedded in `web/*.js`, transpiled by Babel in the browser.
 
 **Secondary:**
+
 - POSIX shell in `install.sh`, `uninstall.sh`, and `reinstall.sh`.
 - Markdown and JSON for documentation, skill guidance, eval cases, changesets, and configuration.
 
 ## Runtime
 
 **Environment:**
+
 - Node.js `>=18` (`package.json`) using Node built-ins such as `node:http`, `node:fs`, `fetch`, `AbortController`, `node:test`, and ESM support.
 - Browser runtime for `web/index.html` and the React UI served by the local bridge.
 
 **Package Manager:**
+
 - npm; `package-lock.json` is present and lockfile version 3.
 - No production `dependencies` are declared; runtime code is intentionally zero-dependency.
 
@@ -57,4 +61,4 @@ last_mapped_commit: 947e12628a1c5d5e9620539381d274a8c053053d
 - Host integrations: Claude Code and/or Codex CLI/ChatGPT Desktop, selected by `--target auto|all|claude|codex` in `bin/cli.js` and the installers.
 - Distribution: npm package or `install.sh`; the package ships the bridge, MCP server, skills, web assets, and shell helpers.
 
-*Stack analysis: 2026-07-16*
+_Stack analysis: 2026-07-16_

@@ -78,6 +78,7 @@ describe('ci.yml yapısı', () => {
 
   it('shellcheck step in lint job', () => {
     assert.match(ciYml, /shellcheck/i);
+    assert.match(ciYml, /-not -path ['"]?\.\/\.codex\/\*['"]?/);
   });
 
   it('npm audit comment is accurate (no misleading js-yaml claim)', () => {

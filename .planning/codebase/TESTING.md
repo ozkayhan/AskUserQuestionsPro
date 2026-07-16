@@ -60,4 +60,4 @@ last_mapped_commit: 947e12628a1c5d5e9620539381d274a8c053053d
 - Use `withClean` for any test that mutates `process.env`, global answer-map enablement, or shared bridge state.
 - Run the focused file first, then `npm test`, lint, and format checks.
 
-*Testing analysis: 2026-07-16*
+_Testing analysis: 2026-07-16_

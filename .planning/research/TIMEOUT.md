@@ -15,13 +15,13 @@
 
 ## Leading Hypotheses
 
-| Rank | Hypothesis | Evidence | Confidence |
-|------|------------|----------|------------|
-| 1 | Codex or its MCP client imposes an approximately five-minute tool-call/request deadline; the `/ask` HTTP connection drops, and the server's `close` handler intentionally cancels the round | App timeouts are one hour and Node request timeout is disabled; observed browser closure is consistent with `/ask` disconnect | High |
-| 2 | MCP transport/process lifecycle kills or restarts the stdio server while `tools/call` is pending | The result is returned only after the browser answers; a host watchdog or process supervisor can terminate a long-silent call | Medium |
-| 3 | A proxy/socket idle timeout exists outside the local Node server | SSE has a ping, but the long-lived `/ask` response has no application-level progress/heartbeat | Medium |
-| 4 | Browser SSE or UI state fails independently | Possible, but the reported fixed-duration closure and server-side `/ask` ownership make it a secondary hypothesis | Low/medium |
-| 5 | The 5-second `/current` race guard is the cause | It is best-effort and the code continues waiting for `askPromise`; it should not close a registered round | Low |
+| Rank | Hypothesis                                                                                                                                                                                  | Evidence                                                                                                                      | Confidence |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1    | Codex or its MCP client imposes an approximately five-minute tool-call/request deadline; the `/ask` HTTP connection drops, and the server's `close` handler intentionally cancels the round | App timeouts are one hour and Node request timeout is disabled; observed browser closure is consistent with `/ask` disconnect | High       |
+| 2    | MCP transport/process lifecycle kills or restarts the stdio server while `tools/call` is pending                                                                                            | The result is returned only after the browser answers; a host watchdog or process supervisor can terminate a long-silent call | Medium     |
+| 3    | A proxy/socket idle timeout exists outside the local Node server                                                                                                                            | SSE has a ping, but the long-lived `/ask` response has no application-level progress/heartbeat                                | Medium     |
+| 4    | Browser SSE or UI state fails independently                                                                                                                                                 | Possible, but the reported fixed-duration closure and server-side `/ask` ownership make it a secondary hypothesis             | Low/medium |
+| 5    | The 5-second `/current` race guard is the cause                                                                                                                                             | It is best-effort and the code continues waiting for `askPromise`; it should not close a registered round                     | Low        |
 
 ## Deterministic Reproduction Matrix
 

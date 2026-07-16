@@ -9,8 +9,8 @@ This milestone turns the observed Codex long-round timeout into a measurable, ho
 - [x] **Phase 1: Timeout Diagnosis & Observability** - Reproduce the early closure and identify the true lifecycle owner with redacted diagnostics. (completed 2026-07-16)
 - [x] **Phase 2: Host Lifecycle Fix** - Make Codex reliable and verify the equivalent Claude Code path and fallback behavior. (completed 2026-07-16)
 - [x] **Phase 3: Bridge & Server Round Reliability** - Harden ownership, cancellation, disconnect, stale-round, and daemon lifecycle contracts. (completed 2026-07-16)
-- [ ] **Phase 4: Browser State & Recovery** - Make long-round browser state, SSE reconnects, errors, and accessibility behavior resilient.
-- [ ] **Phase 5: Tooling, Packaging & Release** - Audit CLI, installers, host detection, package boundaries, and quality gates.
+- [x] **Phase 4: Browser State & Recovery** - Make long-round browser state, SSE reconnects, errors, and accessibility behavior resilient. (completed 2026-07-16)
+- [x] **Phase 5: Tooling, Packaging & Release** - Audit CLI, installers, host detection, package boundaries, and quality gates. (completed 2026-07-16)
 - [ ] **Phase 6: Documentation Consolidation** - Create a coherent maintained documentation set and evidence-preserving historical archive.
 - [ ] **Phase 7: Cross-Host Hardening & Acceptance** - Run full wire/host verification, close integration gaps, and lock the milestone contracts.
 
@@ -24,10 +24,10 @@ This milestone turns the observed Codex long-round timeout into a measurable, ho
 **Requirements:** [TIME-03, TEST-01]
 **Success Criteria** (what must be TRUE):
 
-  1. A repeatable 15-question test matrix records Codex and Claude outcomes at multiple idle durations, including at least one run beyond five minutes.
-  2. Logs identify round registration, browser opening, answer, response close, abort, cancellation, timeout, and process-exit reasons without logging question contents or answers.
-  3. The team can distinguish a host hard deadline from an application timeout, HTTP disconnect, SSE failure, or browser failure using automated evidence.
-  4. Regression tests fail if a lifecycle terminal reason is collapsed into an untyped generic timeout.
+1. A repeatable 15-question test matrix records Codex and Claude outcomes at multiple idle durations, including at least one run beyond five minutes.
+2. Logs identify round registration, browser opening, answer, response close, abort, cancellation, timeout, and process-exit reasons without logging question contents or answers.
+3. The team can distinguish a host hard deadline from an application timeout, HTTP disconnect, SSE failure, or browser failure using automated evidence.
+4. Regression tests fail if a lifecycle terminal reason is collapsed into an untyped generic timeout.
 
 **Plans:** 2/2 plans complete
 
@@ -44,10 +44,10 @@ Plans:
 **Requirements:** [TIME-04, HOST-01, HOST-02, HOST-03]
 **Success Criteria** (what must be TRUE):
 
-  1. A Codex user can complete a 15-question round after at least 10 minutes of idle time without the custom browser closing unexpectedly.
-  2. The selected host-lifecycle strategy is tested against real JSON-RPC/MCP cancellation and response behavior, not only internal mocks.
-  3. Claude Code either passes the equivalent long-round test or has a proven host-specific limitation with an explicit supported fallback.
-  4. Host errors and fallback guidance identify the actionable cause instead of silently presenting a generic close.
+1. A Codex user can complete a 15-question round after at least 10 minutes of idle time without the custom browser closing unexpectedly.
+2. The selected host-lifecycle strategy is tested against real JSON-RPC/MCP cancellation and response behavior, not only internal mocks.
+3. Claude Code either passes the equivalent long-round test or has a proven host-specific limitation with an explicit supported fallback.
+4. Host errors and fallback guidance identify the actionable cause instead of silently presenting a generic close.
 
 **Plans:** 2/2 plans complete
 
@@ -64,10 +64,10 @@ Plans:
 **Requirements:** [BRDG-01, BRDG-02, BRDG-03, BRDG-04, BRDG-05]
 **Success Criteria** (what must be TRUE):
 
-  1. Resolve, cancel, disconnect, and reconnect operations require the correct request/round owner and are idempotent.
-  2. A delayed close from an old `/ask` request cannot cancel or resolve a newer round.
-  3. Stale answers, concurrent rounds, malformed bodies, and daemon startup races return deterministic safe responses.
-  4. Process restart and server errors leave no silent orphan or cross-round answer path.
+1. Resolve, cancel, disconnect, and reconnect operations require the correct request/round owner and are idempotent.
+2. A delayed close from an old `/ask` request cannot cancel or resolve a newer round.
+3. Stale answers, concurrent rounds, malformed bodies, and daemon startup races return deterministic safe responses.
+4. Process restart and server errors leave no silent orphan or cross-round answer path.
 
 **Plans:** 2/2 plans complete
 
@@ -84,17 +84,17 @@ Plans:
 **Requirements:** [WEB-01, WEB-02, WEB-03, WEB-04]
 **Success Criteria** (what must be TRUE):
 
-  1. Long-round navigation, review, back/jump behavior, and answer submission never use stale state.
-  2. SSE reconnects are bounded and round-aware; a new round cannot inherit old answers.
-  3. Timeout, disconnect, server conflict, and retry states are visibly distinct and actionable.
-  4. Existing question types, keyboard shortcuts, focus management, and accessibility semantics remain verified.
+1. Long-round navigation, review, back/jump behavior, and answer submission never use stale state.
+2. SSE reconnects are bounded and round-aware; a new round cannot inherit old answers.
+3. Timeout, disconnect, server conflict, and retry states are visibly distinct and actionable.
+4. Existing question types, keyboard shortcuts, focus management, and accessibility semantics remain verified.
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 
-- [ ] 04-01: Refactor live transport and browser round state around explicit lifecycle states.
-- [ ] 04-02: Harden UI error/retry/accessibility behavior and browser-compatible tests.
+- [x] 04-01: Refactor live transport and browser round state around explicit lifecycle states.
+- [x] 04-02: Harden UI error/retry/accessibility behavior and browser-compatible tests.
 
 ### Phase 5: Tooling, Packaging & Release
 
@@ -104,17 +104,17 @@ Plans:
 **Requirements:** [TEST-03, PKG-01, TOOL-01]
 **Success Criteria** (what must be TRUE):
 
-  1. CLI doctor, serve, mcp, install, uninstall, and reinstall report actionable failures and handle process/host errors safely.
-  2. Node 18+, supported platform behavior, zero runtime dependencies, package allowlists, and version metadata are consistent and tested.
-  3. Full automated tests, lint, formatting, shell checks, audit, and release checks pass from a clean checkout.
-  4. Installer changes preserve idempotency, safe cleanup, and host registration boundaries.
+1. CLI doctor, serve, mcp, install, uninstall, and reinstall report actionable failures and handle process/host errors safely.
+2. Node 18+, supported platform behavior, zero runtime dependencies, package allowlists, and version metadata are consistent and tested.
+3. Full automated tests, lint, formatting, shell checks, audit, and release checks pass from a clean checkout.
+4. Installer changes preserve idempotency, safe cleanup, and host registration boundaries.
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 
-- [ ] 05-01: Audit and harden CLI/installers/host platform operations.
-- [ ] 05-02: Align package/release metadata and run complete quality gates.
+- [x] 05-01: Audit and harden CLI/installers/host platform operations.
+- [x] 05-02: Align package/release metadata and run complete quality gates.
 
 ### Phase 6: Documentation Consolidation
 
@@ -124,10 +124,10 @@ Plans:
 **Requirements:** [DOC-01, DOC-02, DOC-03, DOC-04, DOC-05]
 **Success Criteria** (what must be TRUE):
 
-  1. The docs index has stable names, clear ownership, and no dead internal links.
-  2. Architecture, API, backend, frontend, testing, host differences, timeout ownership, and recovery instructions match verified source behavior.
-  3. Durable decisions and actionable findings from old audit/plan documents are extracted with provenance before cleanup.
-  4. Empty, duplicate, obsolete, and misleading documents are archived or removed according to documented rules without deleting needed rationale.
+1. The docs index has stable names, clear ownership, and no dead internal links.
+2. Architecture, API, backend, frontend, testing, host differences, timeout ownership, and recovery instructions match verified source behavior.
+3. Durable decisions and actionable findings from old audit/plan documents are extracted with provenance before cleanup.
+4. Empty, duplicate, obsolete, and misleading documents are archived or removed according to documented rules without deleting needed rationale.
 
 **Plans:** 2 plans
 
@@ -144,10 +144,10 @@ Plans:
 **Requirements:** [TIME-01, TIME-02, REF-01, TEST-02]
 **Success Criteria** (what must be TRUE):
 
-  1. Codex and Claude end-to-end verification covers long idle rounds, host cancellation, browser reconnect, stale answers, and recovery.
-  2. A real browser-to-server-to-host wire path passes with at least 15 questions and no unexplained early close.
-  3. Lifecycle ownership, timeout policy, fallback behavior, and operational diagnostics are documented as one coherent contract.
-  4. All phase regressions and quality gates pass together from a clean checkout.
+1. Codex and Claude end-to-end verification covers long idle rounds, host cancellation, browser reconnect, stale answers, and recovery.
+2. A real browser-to-server-to-host wire path passes with at least 15 questions and no unexplained early close.
+3. Lifecycle ownership, timeout policy, fallback behavior, and operational diagnostics are documented as one coherent contract.
+4. All phase regressions and quality gates pass together from a clean checkout.
 
 **Plans:** 2 plans
 
@@ -161,12 +161,12 @@ Plans:
 **Execution Order:**
 Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Timeout Diagnosis & Observability | 2/2 | Complete    | 2026-07-16 |
-| 2. Host Lifecycle Fix | 2/2 | Complete    | 2026-07-16 |
-| 3. Bridge & Server Round Reliability | 2/2 | Complete    | 2026-07-16 |
-| 4. Browser State & Recovery | 0/2 | Not started | - |
-| 5. Tooling, Packaging & Release | 0/2 | Not started | - |
-| 6. Documentation Consolidation | 0/2 | Not started | - |
-| 7. Cross-Host Hardening & Acceptance | 0/2 | Not started | - |
+| Phase                                | Plans Complete | Status      | Completed  |
+| ------------------------------------ | -------------- | ----------- | ---------- |
+| 1. Timeout Diagnosis & Observability | 2/2            | Complete    | 2026-07-16 |
+| 2. Host Lifecycle Fix                | 2/2            | Complete    | 2026-07-16 |
+| 3. Bridge & Server Round Reliability | 2/2            | Complete    | 2026-07-16 |
+| 4. Browser State & Recovery          | 2/2            | Complete    | 2026-07-16 |
+| 5. Tooling, Packaging & Release      | 2/2            | Complete    | 2026-07-16 |
+| 6. Documentation Consolidation       | 0/2            | Not started | -          |
+| 7. Cross-Host Hardening & Acceptance | 0/2            | Not started | -          |

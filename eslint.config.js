@@ -12,7 +12,7 @@ module.exports = [
     // bodies execute inside an injected async wrapper with injected globals).
     // They are not importable source modules, so they are not linted as such.
     // docs/old/ holds archived sprint docs (e.g. workflow-spec JS snippets), not source.
-    ignores: ['web/vendor/**', 'node_modules/**', '.context/**', 'docs/old/**'],
+    ignores: ['web/vendor/**', 'node_modules/**', '.context/**', '.codex/**', 'docs/old/**'],
   },
   // Node files (server, lib, bin, mcp-server, hooks, test)
   {

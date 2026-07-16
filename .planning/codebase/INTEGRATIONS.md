@@ -10,11 +10,13 @@ last_mapped_commit: 947e12628a1c5d5e9620539381d274a8c053053d
 ## Host APIs
 
 **Claude Code:**
+
 - `hooks/askuserquestionspro-bridge.mjs` consumes Claude `PreToolUse` stdin for native `AskUserQuestion` calls and returns the hook-specific JSON contract from `hooks/hook-output.js`.
 - `bin/install.js` adds/removes the idempotent hook entry in `~/.claude/settings.json`.
 - `ASKUI_FORCE_MCP` optionally directs Claude to the MCP path instead of the native hook path.
 
 **Codex CLI / ChatGPT Desktop:**
+
 - `bin/cli.js` registers `mcp-server/askuserquestionspro-mcp.mjs` through the host's `codex mcp` command and deploys `skill/askpro/SKILL.md` to the host-native skill directory.
 - Codex `request_user_input` cannot receive answers back through a `PreToolUse` hook, so the supported integration is MCP plus skill guidance rather than native result rewriting.
 - `lib/host-platforms.cjs` discovers host executables, including bundled macOS app paths.
@@ -50,4 +52,4 @@ last_mapped_commit: 947e12628a1c5d5e9620539381d274a8c053053d
 - `.github/workflows/release.yml`, `.changeset/`, and `@changesets/cli` publish releases to npm.
 - `install.sh` can download a GitHub source archive; `reinstall.sh` and `uninstall.sh` manage host artifacts and the shared runtime.
 
-*Integration audit: 2026-07-16*
+_Integration audit: 2026-07-16_

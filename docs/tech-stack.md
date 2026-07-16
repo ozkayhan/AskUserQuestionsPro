@@ -50,6 +50,9 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
   - `askuserquestionspro-mcp` → `mcp-server/askuserquestionspro-mcp.mjs`
   - `files` whitelist: `bin/ hooks/ server/ lib/ mcp-server/ web/ skill/`, the
     install/uninstall/reinstall scripts, `README.md`, and `LICENSE`.
+    Repository-only planning, test, documentation, and local `.codex/` workspace
+    files are intentionally excluded from the published artifact; the package
+    boundary is regression-tested with `npm pack --dry-run --json`.
 
 ## npm scripts
 
@@ -60,8 +63,8 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
 | `mcp`          | `node mcp-server/askuserquestionspro-mcp.mjs` | Run the MCP stdio server                              |
 | `install-hook` | `node bin/cli.js install`                     | Auto-detect hosts; register adapters, MCP, and skills |
 | `lint`         | `eslint .`                                    | Lint all non-excluded source files                    |
-| `format`       | `prettier --write .`                          | Auto-format all files                                 |
-| `format:check` | `prettier --check .`                          | Check formatting (used in CI)                         |
+| `format`       | `prettier --write .`                          | Auto-format maintained source and project docs        |
+| `format:check` | `prettier --check .`                          | Check maintained source/docs (used in CI)             |
 | `changeset`    | `changeset`                                   | Add a changeset for release tracking                  |
 | `version`      | `changeset version`                           | Bump versions per pending changesets                  |
 | `release`      | `changeset publish`                           | Publish to npm (run by release.yml)                   |

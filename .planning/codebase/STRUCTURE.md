@@ -67,4 +67,4 @@ askuserquestionspro/
 - New UI settings: `web/settings-schema.js`, `web/settings-panel.js`, `lib/settings.js`, and settings/server tests.
 - New user-facing operational behavior: update `README.md`, relevant `docs/*.md`, and add a `.changeset/*.md` file when release-worthy.
 
-*Structure analysis: 2026-07-16*
+_Structure analysis: 2026-07-16_

@@ -31,7 +31,7 @@ jobs:
       - name: Shellcheck
         # severity=warning: SC2015 (A && B || C) gibi info-level notları geçer; bilinçli
         # echo/true kalıpları için false-positive. Warning+ (SC2034, SC2115 vb.) yine fail eder.
-        run: find . -name '*.sh' -not -path './node_modules/*' -print0 | xargs -0 shellcheck --severity=warning
+        run: find . -name '*.sh' -not -path './node_modules/*' -not -path './.codex/*' -not -path './.git/*' -print0 | xargs -0 shellcheck --severity=warning
 
       - run: npm run lint
 
