@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 7
 current_phase_name: Cross-Host Hardening & Acceptance
 status: complete
-stopped_at: Phase 7 complete; milestone acceptance and handoff recorded.
-last_updated: '2026-07-16T18:05:00.000Z'
+stopped_at: "Milestone shipped; PR #22 open for merge"
+last_updated: "2026-07-16T15:21:38.534Z"
 last_activity: 2026-07-16
-last_activity_desc: Phase 7 complete; Codex detach/resume and Claude hook wire paths verified
+last_activity_desc: "Milestone v1.0 shipped; PR #22 opened with security gate passed"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-16)
 Phase: 7 of 7 (Cross-Host Hardening & Acceptance)
 Plan: 07-02 complete
 Status: Complete
-Last activity: 2026-07-16 — Phase 7 complete; acceptance evidence recorded
+Last activity: 2026-07-16 — Milestone v1.0 shipped; PR #22 opened with security gate passed
 
 Progress: [██████████] 100%
 
@@ -84,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-07-16
-Stopped at: Phase 7 complete; milestone acceptance and documentation handoff recorded.
+Stopped at: Milestone shipped; PR #22 open for merge
 Resume file: None
