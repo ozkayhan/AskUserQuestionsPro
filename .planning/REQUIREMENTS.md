@@ -9,7 +9,7 @@
 
 - [ ] **TIME-01**: User can complete a 15-question Codex round after at least 10 minutes of idle time without the browser closing or answers being lost.
 - [ ] **TIME-02**: User can complete the equivalent Claude Code round, or the project documents a proven Claude host limitation and provides a supported fallback.
-- [ ] **TIME-03**: Maintainers can identify whether a failed round ended by host cancellation, HTTP disconnect, bridge cancellation, browser disconnect, application timeout, or process exit without inspecting question contents.
+- [x] **TIME-03**: Maintainers can identify whether a failed round ended by host cancellation, HTTP disconnect, bridge cancellation, browser disconnect, application timeout, or process exit without inspecting question contents.
 - [ ] **TIME-04**: A failed host connection produces a clear recoverable diagnostic and does not silently look like a normal browser close.
 
 ### Host Integrations
@@ -36,7 +36,7 @@
 ### Refactor, Tests, and Quality
 
 - [ ] **REF-01**: Timeout, cancellation, request identity, and lifecycle logging contracts have one documented/shared ownership model across host, bridge, server, and browser layers.
-- [ ] **TEST-01**: Automated tests cover long idle rounds, 15+ questions, host aborts, HTTP disconnects, browser reconnects, cancellation, stale rounds, and process failure.
+- [x] **TEST-01**: Automated tests cover long idle rounds, 15+ questions, host aborts, HTTP disconnects, browser reconnects, cancellation, stale rounds, and process failure.
 - [ ] **TEST-02**: At least one wire-level/manual verification path exercises a real browser-to-server-to-host round rather than only pure helpers.
 - [ ] **TEST-03**: The full quality suite remains green: tests, lint, formatting, shell checks, package audit, and relevant release checks.
 - [ ] **PKG-01**: Node.js 18+, supported host platforms, zero production dependencies, and published file boundaries remain verified.
@@ -78,7 +78,7 @@
 |-------------|-------|--------|
 | TIME-01 | Phase 7 | Pending |
 | TIME-02 | Phase 7 | Pending |
-| TIME-03 | Phase 1 | Pending |
+| TIME-03 | Phase 1 | Complete |
 | TIME-04 | Phase 2 | Pending |
 | HOST-01 | Phase 2 | Pending |
 | HOST-02 | Phase 2 | Pending |
@@ -93,7 +93,7 @@
 | WEB-03 | Phase 4 | Pending |
 | WEB-04 | Phase 4 | Pending |
 | REF-01 | Phase 7 | Pending |
-| TEST-01 | Phase 1 | Pending |
+| TEST-01 | Phase 1 | Complete |
 | TEST-02 | Phase 7 | Pending |
 | TEST-03 | Phase 5 | Pending |
 | PKG-01 | Phase 5 | Pending |
@@ -105,6 +105,7 @@
 | DOC-05 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 27 total
 - Mapped to phases: 27
 - Unmapped: 0 ✓

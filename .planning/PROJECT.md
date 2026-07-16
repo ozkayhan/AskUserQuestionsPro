@@ -25,6 +25,8 @@ Users must be able to complete a long, multi-question round at their own pace wi
 - ✓ The browser supports typed questions, review/navigation, settings, themes, and accessibility behavior — existing
 - ✓ Bridge, contract, client, host, installer, and UI behavior have broad automated tests — existing
 - ✓ The runtime supports Node.js 18+, macOS/Linux/Windows host discovery, and zero production dependencies — existing
+- ✓ Lifecycle events can correlate round boundaries and terminal reasons without logging question/answer payloads — Phase 1
+- ✓ Automated coverage protects 15-question idle rounds and delayed stale-owner close behavior — Phase 1
 
 ### Active
 
@@ -69,6 +71,8 @@ Users must be able to complete a long, multi-question round at their own pace wi
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Treat long-round completion as the primary reliability invariant | The core product fails when users lose an in-progress round, regardless of other features | — Pending |
+| Diagnose lifecycle ownership before changing timeout constants | Current app constants do not explain the observed host-scale closure; evidence is required | ✓ Good |
+| Reserve live Codex/Claude acceptance for the final cross-host phase | Local tests can prove bridge behavior, but host deadlines require a real host boundary | — Pending |
 | Audit Codex and Claude paths separately | Their integration contracts differ: MCP for Codex versus native hook behavior for Claude | — Pending |
 | Make timeout/cancellation ownership explicit across boundaries | A timeout reported by the browser may originate in the host, HTTP request, process, or bridge | — Pending |
 | Use existing plans/audits as evidence, not as unquestioned scope | Old documents may contain valuable decisions mixed with stale or duplicate work | — Pending |
@@ -92,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-16 after initialization*
+*Last updated: 2026-07-16 after Phase 1*

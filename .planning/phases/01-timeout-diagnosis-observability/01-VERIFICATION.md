@@ -32,3 +32,5 @@ Real interactive Codex and Claude host runs are intentionally reserved for Phase
 - TIME-03: satisfied for local lifecycle boundaries.
 - TEST-01: satisfied for automated idle, cancellation, and stale-round coverage.
 - TIME-01/TIME-02: mapped to Phase 7 because they require live host acceptance.
+
+**Verification refresh:** 2026-07-16 after plan summaries were finalized.
