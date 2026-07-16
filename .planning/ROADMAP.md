@@ -20,7 +20,7 @@ This milestone turns the observed Codex long-round timeout into a measurable, ho
 **Goal:** Determine exactly which host, transport, process, or application boundary ends a long question round and make that evidence available to maintainers.
 **Mode:** mvp
 **Depends on:** Nothing (first phase)
-**Requirements:** [TIME-01, TIME-02, TIME-03, TEST-01]
+**Requirements:** [TIME-03, TEST-01]
 **Success Criteria** (what must be TRUE):
   1. A repeatable 15-question test matrix records Codex and Claude outcomes at multiple idle durations, including at least one run beyond five minutes.
   2. Logs identify round registration, browser opening, answer, response close, abort, cancellation, timeout, and process-exit reasons without logging question contents or answers.
@@ -116,7 +116,7 @@ Plans:
 **Goal:** Prove the integrated system satisfies the core reliability invariant across supported hosts and lock the shared lifecycle contract for future work.
 **Mode:** mvp
 **Depends on:** Phases 1-6
-**Requirements:** [REF-01, TEST-02]
+**Requirements:** [TIME-01, TIME-02, REF-01, TEST-02]
 **Success Criteria** (what must be TRUE):
   1. Codex and Claude end-to-end verification covers long idle rounds, host cancellation, browser reconnect, stale answers, and recovery.
   2. A real browser-to-server-to-host wire path passes with at least 15 questions and no unexplained early close.

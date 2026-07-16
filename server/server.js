@@ -6,6 +6,7 @@ const { Bridge } = require('./bridge.js');
 const APP_ID = require('../lib/app-id.cjs');
 const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
+const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { validQuestions: validateQuestionSet } = require('../lib/question-contract.cjs');
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
@@ -216,13 +217,21 @@ const server = http.createServer(async (req, res) => {
     // Senkron erken 409: zaten pending varsa close handler kaydetmeden çık. Aksi
     // halde reddedilmiş istek, sahiplenmediği turu (gec onClose ile) iptal edebilir.
     if (bridge.peek()) return sendJson(res, 409, { error: 'A question set is already pending' });
-    const answersPromise = bridge.submitQuestions(questions, requestId);
+    const lifecycle = createLifecycle({
+      adapter: 'http',
+      requestId,
+    });
+    lifecycle.event('ask_received');
+    const answersPromise = bridge.submitQuestions(questions, requestId, lifecycle);
     // Bu istek pending'i sahiplendi; submit'ten dönen id ile sahipliği işaretle.
     const myId = bridge.peek().id;
+    lifecycle.setRoundId(myId);
+    lifecycle.event('round_registered');
     // İstemci yanıttan önce giderse SADECE kendi turunu iptal et (Contract R:
     // expectedId). Yeni bir tur kurulmuşsa gec onClose onu iptal edemez.
     let settled = false;
     const onClose = () => {
+      lifecycle.event('ask_response_closed');
       if (!settled && bridge.cancel('client disconnected', myId)) {
         broadcastCurrent();
       }
@@ -235,6 +244,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { answers });
     } catch (e) {
       settled = true;
+      lifecycle.finish('bridge_error');
       return sendJson(res, 409, { error: e.message });
     } finally {
       res.off('close', onClose);

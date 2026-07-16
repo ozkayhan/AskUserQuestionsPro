@@ -6,6 +6,7 @@
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { log } = require('../lib/log.cjs');
+const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { validQuestions } = require('../lib/question-contract.cjs');
 
 process.on('uncaughtException', (e) => log('mcp', e));
@@ -179,7 +180,10 @@ async function handleAsk(args, signal) {
       isError: true,
     };
   }
+  const requestId = createRequestId();
+  const lifecycle = createLifecycle({ adapter: 'mcp', requestId });
   if (signal?.aborted) {
+    lifecycle.finish('host_cancelled');
     return {
       content: [{ type: 'text', text: 'askuserquestionspro request cancelled.' }],
       isError: true,
@@ -188,13 +192,13 @@ async function handleAsk(args, signal) {
 
   let answers;
   const roundController = new AbortController();
-  const requestId = createRequestId();
   const cancelRound = () => roundController.abort();
   signal?.addEventListener('abort', cancelRound, { once: true });
   const askPromise = askBridge(args.questions, {
     timeoutMs: 60 * 60 * 1000,
     signal: roundController.signal,
     requestId,
+    lifecycle,
   });
   try {
     // HTTP 400/500 gibi erken bridge hataları, pending poll'unun 5 saniyelik
@@ -214,10 +218,18 @@ async function handleAsk(args, signal) {
       log('mcp', 'pending round not visible within 5 seconds; continuing to wait for ask');
     }
     openBrowser();
+    lifecycle.event('browser_opened');
     answers = await askPromise;
   } catch (e) {
     roundController.abort();
     await askPromise.catch(() => undefined);
+    lifecycle.finish(
+      e?.name === 'TimeoutError'
+        ? 'application_timeout'
+        : signal?.aborted
+          ? 'host_cancelled'
+          : 'bridge_error'
+    );
     log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
     const cause =
       e?.name === 'BridgeError' && e.status === 400

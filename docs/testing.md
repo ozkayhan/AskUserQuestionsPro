@@ -77,6 +77,29 @@ In addition to unit-level HTTP tests, `server.test.js` includes:
   load.
 - **`requestTimeout = 0`** — asserted directly: `server.requestTimeout === 0`.
 
+## Long-round timeout diagnosis
+
+`test/long-round.test.js` keeps a 15-question `Bridge` round pending through an
+idle interval, then resolves it and checks the exact answer map. It also proves
+that a delayed close from an old request owner cannot cancel a newer round.
+These are accelerated deterministic tests; they do not claim to reproduce a
+Codex or Claude host wall-clock deadline by themselves.
+
+For a real host reproduction, submit at least 15 questions through the Codex
+MCP tool and repeat through the Claude hook. Leave the browser idle for 1, 5,
+and 10 minutes while capturing stderr. Lifecycle lines use the
+`[askuser:lifecycle]` prefix and contain only redacted correlation fields:
+adapter, request id when available, round id, process id, elapsed time, event,
+and terminal reason. The important sequence is:
+
+`round_started → ask_received → round_registered → browser_opened →
+answer_received → round_finished`
+
+If the browser closes, look for `ask_response_closed`, `host_abort`,
+`round_timeout`, `bridge_cancelled`, or `process_exit`. The first terminal event
+identifies the boundary to investigate; do not infer that the one-hour app
+timeout was reached merely because the host reported a timeout.
+
 ## Notes
 
 - The pure modules (`answer-map`, `bridge`, `install`, `hook-output`, `themes`)

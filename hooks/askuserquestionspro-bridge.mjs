@@ -11,6 +11,7 @@ import {
 const require = createRequire(import.meta.url);
 const { buildHookOutput } = require('./hook-output.js');
 const { log } = require('../lib/log.cjs');
+const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 
 const TIMEOUT_MS = 60 * 60 * 1000;
 // stdin EOF gelmezse (parent yazma ucunu açık tutarsa) süresiz asılmamak için watchdog.
@@ -87,12 +88,15 @@ async function main() {
 
   let answers;
   const roundController = new AbortController();
+  let lifecycle;
   try {
     const requestId = createRequestId();
+    lifecycle = createLifecycle({ adapter: 'hook', requestId });
     const askPromise = askBridge(toolInput.questions, {
       timeoutMs: TIMEOUT_MS,
       signal: roundController.signal,
       requestId,
+      lifecycle,
     });
     // L-8 race guard: /ask POST'unun /current'ta görünmesini bekle; ancak
     // yoklama best-effort kalmalı. Yavaş bir köprüde timeout olsa bile zengin
@@ -100,8 +104,11 @@ async function main() {
     askPromise.catch(() => undefined);
     await waitForPending({ requestId });
     openBrowser();
+    lifecycle.event('browser_opened');
     answers = await askPromise;
+    lifecycle.finish('completed');
   } catch {
+    lifecycle?.finish(roundController.signal.aborted ? 'host_cancelled' : 'bridge_error');
     roundController.abort();
     process.exit(0); // timeout/hata → native fallback
   }

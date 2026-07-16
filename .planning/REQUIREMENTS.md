@@ -76,8 +76,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TIME-01 | Phase 1 | Pending |
-| TIME-02 | Phase 1 | Pending |
+| TIME-01 | Phase 7 | Pending |
+| TIME-02 | Phase 7 | Pending |
 | TIME-03 | Phase 1 | Pending |
 | TIME-04 | Phase 2 | Pending |
 | HOST-01 | Phase 2 | Pending |
