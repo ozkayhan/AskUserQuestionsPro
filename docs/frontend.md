@@ -32,9 +32,17 @@ always-visible `SettingsButton` fab and, when open, the `SettingsModal`. The
 - **dir**: `"left" | "right"` — drives slide-animation direction.
 - **popup**: `{ qid, optIdx, draft }` for the custom ("Other") text editor.
 - **submitted**: guard against double submission.
+- **sendError**: `network` (retryable), `server` (host/bridge rejected), or
+  `stale` (round already completed/replaced; never retry blindly).
 
 Questions themselves come from the server via `useLiveQuestions()`, not local
 state.
+
+The server's monotonic round id is the browser state boundary. A reconnect that
+replays the same id leaves the current `Flow` and its answers mounted; a new id
+changes the React key and initializes a fresh answer map. Answers are not stored
+in localStorage, so a full page reload intentionally starts from the server's
+current round rather than resurrecting stale private data.
 
 ### Navigation & keyboard
 
@@ -57,18 +65,20 @@ Arrow/number shortcuts are suppressed while focus is in an `<input>`/`<textarea>
 ## Server communication (`web/live.js`)
 
 - `useLiveQuestions()` — opens `new EventSource('/events')`. `onmessage`
-  parses `{ id, questions }`; `questions` is `null` while idle. `onerror`
-  closes the broken connection and reconnects after an exponential-backoff
-  delay with full jitter (`reconnectDelay(attempt)`: base 1 s, cap 30 s,
-  random in `[0, min(cap, base * 2^attempt))`). A `timerRef` prevents orphan
-  timers on rapid error cycling. `setRound` uses an equality guard so an
-  identical heartbeat payload skips a React re-render. Returns `{ id, questions }`.
+  parses `{ id, questions }`; `questions` is `null` while idle. Each connection
+  has a generation token, so callbacks from a closed EventSource cannot reset
+  backoff or schedule a second reconnect loop. `onerror` closes the broken
+  connection and reconnects after exponential full jitter (`reconnectDelay`: base
+  1 s, cap 30 s). Same-id snapshots preserve the mounted Flow; a new id is the
+  only state reset. Malformed SSE diagnostics omit the payload contents.
 - `postAnswers(id, answers)` — `POST /answer` with `{ id, answers }` (Contract R:
   `id` is the current round id from `useLiveQuestions`). Has a 10 s
   `AbortController` timeout to prevent infinite hangs. On non-OK response,
-  attaches `err.server = true` so callers can distinguish a server 4xx/5xx
-  from a transient network error and avoid infinite retry loops. Throws on
-  failure; UI surfaces a toast.
+  attaches `err.server`, `err.status`, `err.reason`, and `err.roundId`; a
+  `stale_round` is not retried as a network failure. Throws on failure; UI
+  surfaces a typed toast.
+- `cancelRound(id, reason)` — `POST /cancel` with an id-owned allowlisted
+  reason. Uses the same 10 s abort guard and typed error parser.
 
 ## Question types
 
@@ -119,15 +129,19 @@ disabled, it degrades to `"multi"` or `"single"` based on `q.multiSelect`.
   `aria-modal="true"`, focus-trap; Save / Remove / Cancel; `Enter` save,
   `Shift+Enter` newline, `Esc` cancel.
 - `Summary` — review all answers as tags; per-question Edit; Submit disabled
-  until ≥1 answer. Answer text uses `AnswerMap.summaryText(q, a)`.
+  until ≥1 answer. Answer text uses `AnswerMap.summaryText(q, a)`. A stale-round
+  error is actionable but does not start a duplicate submit retry.
 
 ### Accessibility
 
-Components carry ARIA annotations verified by axe-core: `aria-expanded` on
+Components carry ARIA annotations verified by structural tests and the planned
+axe smoke: `aria-expanded` on
 accordions, `aria-valuetext` on range inputs, `role=listbox/option` on
 ranking, `role=tree/treeitem` on tree, `aria-pressed` on binary/single/multi
 option buttons, labelled search input, `aria-current` on active sidebar item,
-`role=progressbar` on progress bar, `aria-hidden` on decorative SVG icons.
+`aria-controls` with stable hashed group ids, `role=progressbar` on progress bar,
+`type="button"` on non-submit controls, and `aria-hidden` on decorative SVG
+icons. The custom-answer dialog restores focus to its trigger after closing.
 
 ## UI primitives (`web/ui-kit.js`)
 

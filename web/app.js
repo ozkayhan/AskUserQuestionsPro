@@ -51,7 +51,7 @@ function Flow({ questions, roundId }) {
   const [dir, setDir] = useState('right');
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
-  // sendError: null | 'network' | 'server' (net=kurtarılabilir, server=4xx/5xx kalıcı).
+  // sendError: null | 'network' | 'server' | 'stale' (yalnızca network retry edilebilir).
   const [sendError, setSendError] = useState(null);
   // confirmSubmit ayarı açıkken: ilk Enter/tık "silahlar", ikincisi gerçekten gönderir.
   const [confirmArmed, setConfirmArmed] = useState(false);
@@ -257,7 +257,7 @@ function Flow({ questions, roundId }) {
     (src) => {
       const stateForMap = {};
       QUESTIONS.forEach((q) => {
-        const a = src[q.question];
+        const a = src[q.question] || {};
         // value/order/path yeni tipler için stateForMap'e eklenir.
         stateForMap[q.question] = {
           sel: a.sel,
@@ -298,7 +298,9 @@ function Flow({ questions, roundId }) {
         // (HTTP 4xx/5xx, err.server) ayrılır; 4xx'te sonsuz retry yerine "server" mesajı.
         inflight.current = false;
         setSubmitted(false);
-        setSendError(err && err.server ? 'server' : 'network');
+        setSendError(
+          err && err.reason === 'stale_round' ? 'stale' : err && err.server ? 'server' : 'network'
+        );
       });
   }, [mappedAnswers, roundId]);
 
@@ -325,7 +327,9 @@ function Flow({ questions, roundId }) {
         if (inTextField) return;
         e.preventDefault();
         if (R.isSummary) {
-          submit();
+          // Stale cevap çoğunlukla daha önce kabul edilmiş veya başka turla
+          // değiştirilmiş bir round'dur; yeniden POST etmek yanlış turu tekrarlar.
+          if (R.sendError !== 'stale') submit();
           return;
         }
         // Summary dışındayken yalnızca KURTARILABİLİR (network) hatada Enter retry'ı yapsın:
@@ -335,6 +339,7 @@ function Flow({ questions, roundId }) {
           submit();
           return;
         }
+        if (R.sendError === 'stale') return;
         confirmCurrent();
       } else if (R.isSummary && (e.key === 'b' || e.key === 'B')) {
         if (inTextField) return;
@@ -467,9 +472,11 @@ function Flow({ questions, roundId }) {
       )}
       {sendError && (
         <div className="toast toast--err" role="alert" aria-live="assertive" aria-atomic="true">
-          {sendError === 'server'
-            ? "Couldn't send — the agent rejected this round. "
-            : "Couldn't send — bridge unavailable. Press Enter to retry. "}
+          {sendError === 'stale'
+            ? 'This round already completed or was replaced. Reopen the question flow to continue. '
+            : sendError === 'server'
+              ? "Couldn't send — the agent rejected this round. "
+              : "Couldn't send — bridge unavailable. Press Enter to retry. "}
           <button
             type="button"
             className="toast__close"

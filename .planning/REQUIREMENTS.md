@@ -20,11 +20,11 @@
 
 ### Bridge and Server Reliability
 
-- [ ] **BRDG-01**: Every active round has stable request and round ownership that is checked by resolve, cancel, disconnect, and reconnect paths.
-- [ ] **BRDG-02**: User cancellation, host cancellation, browser disconnect, and application timeout are distinct idempotent terminal outcomes.
-- [ ] **BRDG-03**: A stale or mismatched answer can never resolve a later round and receives a deterministic conflict response.
-- [ ] **BRDG-04**: A dropped `/ask` connection cannot cancel a newer round and cannot leave an unbounded orphaned pending round.
-- [ ] **BRDG-05**: The bridge remains localhost-only, single-flight, and safe across daemon startup races and process restarts.
+- [x] **BRDG-01**: Every active round has stable request and round ownership that is checked by resolve, cancel, disconnect, and reconnect paths.
+- [x] **BRDG-02**: User cancellation, host cancellation, browser disconnect, and application timeout are distinct idempotent terminal outcomes.
+- [x] **BRDG-03**: A stale or mismatched answer can never resolve a later round and receives a deterministic conflict response.
+- [x] **BRDG-04**: A dropped `/ask` connection cannot cancel a newer round and cannot leave an unbounded orphaned pending round.
+- [x] **BRDG-05**: The bridge remains localhost-only, single-flight, and safe across daemon startup races and process restarts.
 
 ### Browser Interaction and Accessibility
 
@@ -83,11 +83,11 @@
 | HOST-01 | Phase 2 | Complete |
 | HOST-02 | Phase 2 | Complete |
 | HOST-03 | Phase 2 | Complete |
-| BRDG-01 | Phase 3 | Pending |
-| BRDG-02 | Phase 3 | Pending |
-| BRDG-03 | Phase 3 | Pending |
-| BRDG-04 | Phase 3 | Pending |
-| BRDG-05 | Phase 3 | Pending |
+| BRDG-01 | Phase 3 | Complete |
+| BRDG-02 | Phase 3 | Complete |
+| BRDG-03 | Phase 3 | Complete |
+| BRDG-04 | Phase 3 | Complete |
+| BRDG-05 | Phase 3 | Complete |
 | WEB-01 | Phase 4 | Pending |
 | WEB-02 | Phase 4 | Pending |
 | WEB-03 | Phase 4 | Pending |

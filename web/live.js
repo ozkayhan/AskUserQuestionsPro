@@ -21,42 +21,62 @@ function useLiveQuestions() {
     let es;
     let closed = false;
     let attempt = 0;
+    let generation = 0;
     const connect = () => {
-      es = new EventSource('/events');
-      es.onopen = () => {
+      const currentGeneration = ++generation;
+      const source = new EventSource('/events');
+      es = source;
+      source.onopen = () => {
+        if (closed || currentGeneration !== generation) return;
         attempt = 0; // başarılı bağlantı backoff'u sıfırlar.
       };
-      es.onmessage = (e) => {
+      source.onmessage = (e) => {
+        if (closed || currentGeneration !== generation) return;
         let d;
         try {
           d = JSON.parse(e.data);
         } catch (err) {
           // ': ping' yorumları onmessage'a düşmez; geçersiz payload'ı izlenebilir biçimde yut.
-          console.warn('[live] SSE parse edilemedi:', err.message, e.data);
+          console.warn('[live] SSE parse edilemedi:', err.message);
           return;
         }
         const next = { id: d.id ?? null, questions: d.questions ?? null };
-        // Eşitlik guard'ı: aynı tur tekrar yayınlanırsa (heartbeat) boş re-render planlama.
-        setRound((prev) =>
-          prev.id === next.id && prev.questions === next.questions ? prev : next
-        );
+        // Round id state boundary'sidir: reconnect aynı round'u yeniden yayınlasa da
+        // Flow içindeki cevaplar korunur; yeni id React key ile temiz remount eder.
+        setRound((prev) => (prev.id === next.id ? prev : next));
       };
-      es.onerror = () => {
-        es.close();
-        if (closed) return;
+      source.onerror = () => {
+        if (closed || currentGeneration !== generation) return;
+        source.close();
         // Orphan timer'ları önle: yeni timer kurmadan önce öncekini iptal et.
         clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(connect, reconnectDelay(attempt++));
+        const delay = reconnectDelay(attempt++);
+        timerRef.current = setTimeout(() => {
+          if (!closed && currentGeneration === generation) connect();
+        }, delay);
       };
     };
     connect();
     return () => {
       closed = true;
+      generation += 1;
       clearTimeout(timerRef.current);
       if (es) es.close();
     };
   }, []);
   return round;
+}
+
+async function responseError(path, response) {
+  const body = await response.json().catch(() => ({}));
+  const detail = body && typeof body.error === 'string' ? `: ${body.error}` : '';
+  const reason = body && typeof body.reason === 'string' ? ` [${body.reason}]` : '';
+  const err = new Error(`${path} ${response.status}${reason}${detail}`);
+  err.server = true;
+  err.status = response.status;
+  err.reason = body?.reason;
+  err.roundId = body?.roundId;
+  return err;
 }
 
 // Eşlenmiş cevapları köprüye gönder; başarısızlıkta THROW eder (UI kurtarsın).
@@ -73,10 +93,27 @@ async function postAnswers(id, answers) {
       signal: ctrl.signal,
     });
     if (!r.ok) {
-      const err = new Error(`/answer ${r.status}`);
-      err.server = true; // HTTP 4xx/5xx → kurtarılamaz, sonsuz retry'a girme.
-      throw err;
+      // HTTP 4xx/5xx → kurtarılamaz; server reason'ı UI'nin stale/network ayrımını
+      // doğru yapabilmesi için korunur.
+      throw await responseError('/answer', r);
     }
+    return r.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function cancelRound(id, reason = 'user cancelled') {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const r = await fetch('/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, reason }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) throw await responseError('/cancel', r);
     return r.json();
   } finally {
     clearTimeout(timer);
@@ -85,5 +122,5 @@ async function postAnswers(id, answers) {
 
 // node:test için CommonJS dışa aktarımı (tarayıcıda global olarak yüklenir).
 if (typeof module === 'object' && module.exports) {
-  module.exports = { postAnswers, reconnectDelay };
+  module.exports = { postAnswers, cancelRound, reconnectDelay };
 }

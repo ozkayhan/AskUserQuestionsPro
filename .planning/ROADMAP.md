@@ -8,7 +8,7 @@ This milestone turns the observed Codex long-round timeout into a measurable, ho
 
 - [x] **Phase 1: Timeout Diagnosis & Observability** - Reproduce the early closure and identify the true lifecycle owner with redacted diagnostics. (completed 2026-07-16)
 - [x] **Phase 2: Host Lifecycle Fix** - Make Codex reliable and verify the equivalent Claude Code path and fallback behavior. (completed 2026-07-16)
-- [ ] **Phase 3: Bridge & Server Round Reliability** - Harden ownership, cancellation, disconnect, stale-round, and daemon lifecycle contracts.
+- [x] **Phase 3: Bridge & Server Round Reliability** - Harden ownership, cancellation, disconnect, stale-round, and daemon lifecycle contracts. (completed 2026-07-16)
 - [ ] **Phase 4: Browser State & Recovery** - Make long-round browser state, SSE reconnects, errors, and accessibility behavior resilient.
 - [ ] **Phase 5: Tooling, Packaging & Release** - Audit CLI, installers, host detection, package boundaries, and quality gates.
 - [ ] **Phase 6: Documentation Consolidation** - Create a coherent maintained documentation set and evidence-preserving historical archive.
@@ -69,12 +69,12 @@ Plans:
   3. Stale answers, concurrent rounds, malformed bodies, and daemon startup races return deterministic safe responses.
   4. Process restart and server errors leave no silent orphan or cross-round answer path.
 
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 
-- [ ] 03-01: Refactor bridge/server lifecycle state and ownership contracts.
-- [ ] 03-02: Expand HTTP, concurrency, disconnect, and daemon regression coverage.
+- [x] 03-01: Refactor bridge/server lifecycle state and ownership contracts.
+- [x] 03-02: Expand HTTP, concurrency, disconnect, and daemon regression coverage.
 
 ### Phase 4: Browser State & Recovery
 
@@ -165,7 +165,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Timeout Diagnosis & Observability | 2/2 | Complete    | 2026-07-16 |
 | 2. Host Lifecycle Fix | 2/2 | Complete    | 2026-07-16 |
-| 3. Bridge & Server Round Reliability | 0/2 | Not started | - |
+| 3. Bridge & Server Round Reliability | 2/2 | Complete    | 2026-07-16 |
 | 4. Browser State & Recovery | 0/2 | Not started | - |
 | 5. Tooling, Packaging & Release | 0/2 | Not started | - |
 | 6. Documentation Consolidation | 0/2 | Not started | - |

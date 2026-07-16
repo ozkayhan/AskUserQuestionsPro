@@ -21,6 +21,14 @@ const ChevronRight = () => (
   </svg>
 );
 
+// Header metni HTML id'si için güvenilir değildir (boşluk/emoji/aynı normalize
+// edilen adlar). Deterministik küçük hash, her accordion paneli için stabil id üretir.
+function groupId(title, suffix = 'body') {
+  let hash = 0;
+  for (let i = 0; i < title.length; i += 1) hash = (hash * 31 + title.charCodeAt(i)) >>> 0;
+  return `qgroup-${suffix}-${hash.toString(36)}`;
+}
+
 function Waiting() {
   return (
     <main className="inspector">
@@ -62,6 +70,7 @@ function QItem({ q, i, answers, current, goTo }) {
     <button
       key={q.question}
       className="qitem"
+      type="button"
       data-active={i === current}
       data-state={state}
       aria-current={i === current ? 'step' : undefined}
@@ -140,16 +149,17 @@ function SidebarGrouped({ QUESTIONS, answers, current, goTo, filteredIndices }) 
   return (
     <React.Fragment>
       {groups.map(({ title, items }) => {
-        const doneCount = items.filter(({ q }) => answers[q.question].confirmed).length;
+        const doneCount = items.filter(({ q }) => answers[q.question]?.confirmed).length;
         const isOpen = openGroups.has(title);
         const allDone = doneCount === items.length;
         return (
           <div key={title} className="qgroup" data-open={isOpen} data-done={allDone}>
             <button
               className="qgroup__header"
+              type="button"
               onClick={() => toggle(title)}
               aria-expanded={isOpen}
-              aria-controls={`qgroup-body-${title}`}
+              aria-controls={groupId(title, 'body')}
             >
               <ChevronRight />
               <span className="qgroup__title">{title}</span>
@@ -158,7 +168,7 @@ function SidebarGrouped({ QUESTIONS, answers, current, goTo, filteredIndices }) 
               </span>
             </button>
             {isOpen && (
-              <div id={`qgroup-body-${title}`} className="qgroup__body">
+              <div id={groupId(title, 'body')} className="qgroup__body">
                 {items.map(({ q, origIdx }) => (
                   <QItem
                     key={q.question}
@@ -244,7 +254,7 @@ function Sidebar({
       const isAns =
         typeof AnswerMap !== 'undefined' && AnswerMap.isAnswered
           ? AnswerMap.isAnswered(question, a)
-          : a.sel.length > 0;
+          : (a?.sel || []).length > 0;
       if (showUnanswered && isAns) return;
       if (qStr && !question.question.toLowerCase().includes(qStr)) return;
       set.add(i);
@@ -325,8 +335,11 @@ function Sidebar({
         )}
         <button
           className="qitem"
+          type="button"
           data-active={isSummary}
           data-state={submitted ? 'done' : 'pending'}
+          aria-current={isSummary ? 'step' : undefined}
+          aria-label="Review and submit your answers"
           onClick={() => goTo(n, 'right')}
           style={{ marginTop: 4 }}
         >
@@ -500,6 +513,7 @@ function BinaryCard({ q, qIndex, ans, onActivate }) {
           <button
             key={i}
             className="binary__opt"
+            type="button"
             data-sel={sel}
             data-confirmed={confirmed}
             aria-pressed={sel}
@@ -717,6 +731,7 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
             <span className="rank-row__moves">
               <button
                 className="rank-row__move"
+                type="button"
                 tabIndex={-1}
                 disabled={rankPos === 0}
                 onClick={(e) => {
@@ -729,6 +744,7 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
               </button>
               <button
                 className="rank-row__move"
+                type="button"
                 tabIndex={-1}
                 disabled={rankPos === order.length - 1}
                 onClick={(e) => {
@@ -864,6 +880,7 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
         <div className="tree__crumbs">
           <button
             className="tree__crumb tree__back"
+            type="button"
             onClick={handleBack}
             tabIndex={-1}
             aria-label="Go back"
@@ -874,6 +891,7 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
             <button
               key={depth}
               className="tree__crumb"
+              type="button"
               tabIndex={-1}
               onClick={() => setQ({ path: path.slice(0, depth + 1), confirmed: false })}
             >
@@ -889,6 +907,7 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
             <button
               key={i}
               className="opt"
+              type="button"
               data-sel={false}
               data-confirmed={false}
               onClick={() => handleSelect(i)}
@@ -954,6 +973,7 @@ function QuestionCard({ q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm
               <button
                 key={i}
                 className={'opt' + (isCustom ? ' opt--custom' : '')}
+                type="button"
                 data-sel={sel}
                 data-confirmed={confirmed}
                 aria-pressed={sel}
@@ -1123,14 +1143,19 @@ function CustomPopup({ q, draft, selected, inputRef, onChange, onSave, onRemove,
           </span>
           <div className="popup__actions">
             {selected && (
-              <button className="btn btn--danger" onClick={onRemove}>
+              <button className="btn btn--danger" type="button" onClick={onRemove}>
                 Remove
               </button>
             )}
-            <button className="btn" onClick={onCancel}>
+            <button className="btn" type="button" onClick={onCancel}>
               Cancel
             </button>
-            <button className="btn btn--primary" onClick={onSave} disabled={!selected && !trimmed}>
+            <button
+              className="btn btn--primary"
+              type="button"
+              onClick={onSave}
+              disabled={!selected && !trimmed}
+            >
               {trimmed ? 'Save answer' : 'Remove'}
             </button>
           </div>
@@ -1142,7 +1167,7 @@ function CustomPopup({ q, draft, selected, inputRef, onChange, onSave, onRemove,
 
 /* ─────────────────── summary (q.question anahtarı) ─────────────────── */
 function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canSubmit }) {
-  const allDone = QUESTIONS.every((q) => answers[q.question].confirmed);
+  const allDone = QUESTIONS.every((q) => answers[q.question]?.confirmed);
   return (
     <div className="summary">
       <div className="summary__chip">
@@ -1154,7 +1179,7 @@ function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canS
       </p>
       <div className="summary__list">
         {QUESTIONS.map((q, i) => {
-          const a = answers[q.question];
+          const a = answers[q.question] || {};
           const summaryText =
             typeof AnswerMap !== 'undefined' && AnswerMap.summaryText
               ? AnswerMap.summaryText(q, a)
@@ -1182,7 +1207,7 @@ function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canS
                   )}
                 </div>
               </div>
-              <button className="srow__edit" onClick={() => onEdit(i)}>
+              <button className="srow__edit" type="button" onClick={() => onEdit(i)}>
                 Edit
               </button>
             </div>
@@ -1191,11 +1216,17 @@ function Summary({ answers, QUESTIONS, onEdit, onBack, onSubmit, submitted, canS
       </div>
       <div className="summary__actions">
         {/* M-24: summary kısayolları (b=geri, ↵=gönder) AT'ye bildirilir (app.js keydown). */}
-        <button className="btn btn--lg btn--ghost" onClick={onBack} aria-keyshortcuts="B">
+        <button
+          className="btn btn--lg btn--ghost"
+          type="button"
+          onClick={onBack}
+          aria-keyshortcuts="B"
+        >
           <Kbd>B</Kbd> Back{allDone ? '' : ' to unanswered'}
         </button>
         <button
           className="btn btn--lg btn--primary"
+          type="button"
           onClick={onSubmit}
           disabled={!canSubmit || submitted}
           aria-keyshortcuts="Enter"

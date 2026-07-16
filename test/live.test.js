@@ -3,7 +3,7 @@
 // timeout abort ve yeniden bağlanma backoff'u (jitter + tavan).
 const test = require('node:test');
 const assert = require('node:assert');
-const { postAnswers, reconnectDelay } = require('../web/live.js');
+const { postAnswers, cancelRound, reconnectDelay } = require('../web/live.js');
 
 // fetch'i mock'la, t.after ile geri yükle (DOM/global kirliliği bırakma — Contract T ruhu).
 function withFetch(t, impl) {
@@ -33,6 +33,41 @@ test('postAnswers HTTP !ok → err.server=true (sunucu hatası, kurtarılamaz)',
     () => postAnswers('id', {}),
     (err) => err.server === true && /500/.test(err.message)
   );
+});
+
+test('postAnswers HTTP reason/roundId alanlarını kaybetmez', async (t) => {
+  withFetch(t, async () => ({
+    ok: false,
+    status: 409,
+    json: async () => ({
+      error: 'no matching pending question set',
+      reason: 'stale_round',
+      roundId: 8,
+    }),
+  }));
+  await assert.rejects(
+    () => postAnswers(8, { Q: 'A' }),
+    (err) =>
+      err.server === true &&
+      err.status === 409 &&
+      err.reason === 'stale_round' &&
+      err.roundId === 8 &&
+      /stale_round/.test(err.message)
+  );
+});
+
+test('cancelRound Contract: id ve reason body gönderir, typed error taşır', async (t) => {
+  let seen;
+  withFetch(t, async (url, opts) => {
+    seen = { url, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ ok: true, reason: 'user_cancelled' }) };
+  });
+  assert.deepStrictEqual(await cancelRound(8, 'user cancelled'), {
+    ok: true,
+    reason: 'user_cancelled',
+  });
+  assert.strictEqual(seen.url, '/cancel');
+  assert.deepStrictEqual(seen.body, { id: 8, reason: 'user cancelled' });
 });
 
 test('postAnswers ağ hatası → err.server yok (kurtarılabilir, retry edilebilir)', async (t) => {
