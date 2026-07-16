@@ -275,3 +275,158 @@ test('MCP resume: kopan host turu browser cevabini yeni MCP processine verir', a
     fs.rmSync(xdg, { recursive: true, force: true });
   }
 });
+
+test('MCP stdin EOF aktif ask turunu detach eder ve yeni process resume edebilir', async () => {
+  const port = await unusedPort();
+  const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-mcp-eof-'));
+  const env = {
+    ...process.env,
+    ASKUSER_PORT: String(port),
+    ASKUSER_OPEN_BROWSER: '0',
+    XDG_CONFIG_HOME: xdg,
+  };
+  const server = spawn(process.execPath, [SERVER_PATH], { stdio: 'ignore', env });
+  const first = spawn(process.execPath, [MCP_PATH], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env,
+  });
+  const firstMessages = [];
+  const attachParser = (child, messages) => {
+    let output = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      output += chunk;
+      const lines = output.split('\n');
+      output = lines.pop();
+      for (const line of lines) if (line.trim()) messages.push(JSON.parse(line));
+    });
+    return () => output;
+  };
+  const getFirstOutput = attachParser(first, firstMessages);
+
+  const waitForMessage = (messages, predicate, timeoutMs = 5000) =>
+    new Promise((resolve, reject) => {
+      let poll;
+      const deadline = setTimeout(() => {
+        clearInterval(poll);
+        reject(new Error('MCP JSON-RPC yanıtı zaman aşımına uğradı'));
+      }, timeoutMs);
+      const check = () => {
+        const message = messages.find(predicate);
+        if (!message) return;
+        clearTimeout(deadline);
+        clearInterval(poll);
+        resolve(message);
+      };
+      poll = setInterval(check, 10);
+      check();
+      deadline.unref?.();
+      poll.unref?.();
+    });
+  const waitForExit = (child, timeoutMs = 5000) =>
+    child.exitCode !== null
+      ? Promise.resolve()
+      : new Promise((resolve, reject) => {
+          const timeout = setTimeout(
+            () => reject(new Error('EOF sonrası MCP process kapanmadı')),
+            timeoutMs
+          );
+          child.once('exit', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
+        });
+  const stopChild = (child) =>
+    child?.exitCode === null
+      ? new Promise((resolve) => {
+          child.once('exit', resolve);
+          child.kill();
+        })
+      : Promise.resolve();
+
+  try {
+    await waitForHealth(port);
+    first.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { protocolVersion: '2025-11-25', capabilities: {} },
+      }) + '\n'
+    );
+    await waitForMessage(firstMessages, (message) => message.id === 1);
+    first.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'ask',
+          arguments: {
+            questions: [{ question: 'EOF detach?', header: 'T-Rex', options: [{ label: 'Yes' }] }],
+          },
+        },
+      }) + '\n'
+    );
+
+    let current;
+    const currentDeadline = Date.now() + 5000;
+    while (Date.now() < currentDeadline) {
+      current = await (await fetch(`http://127.0.0.1:${port}/current`)).json();
+      if (current.id != null) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.ok(current?.id != null, 'EOF test round sunucuda pending olmalı');
+
+    first.stdin.end();
+    await waitForExit(first);
+    assert.strictEqual(getFirstOutput(), '', 'EOF sonrası ilk process geç sonuç yazmamalı');
+    assert.strictEqual(
+      (await (await fetch(`http://127.0.0.1:${port}/current`)).json()).id,
+      current.id,
+      'stdin EOF browser roundunu düşürmemeli'
+    );
+
+    const second = spawn(process.execPath, [MCP_PATH], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env,
+    });
+    const secondMessages = [];
+    attachParser(second, secondMessages);
+    try {
+      second.stdin.write(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 11,
+          method: 'initialize',
+          params: { protocolVersion: '2025-11-25', capabilities: {} },
+        }) + '\n'
+      );
+      await waitForMessage(secondMessages, (message) => message.id === 11);
+      second.stdin.write(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 12,
+          method: 'tools/call',
+          params: { name: 'resume', arguments: {} },
+        }) + '\n'
+      );
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const answer = await fetch(`http://127.0.0.1:${port}/answer`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: current.id, answers: { 'EOF detach?': 'Yes' } }),
+      });
+      assert.strictEqual(answer.status, 200);
+      const result = await waitForMessage(secondMessages, (message) => message.id === 12);
+      assert.deepStrictEqual(result.result.structuredContent, {
+        answers: { 'EOF detach?': 'Yes' },
+      });
+    } finally {
+      await stopChild(second);
+    }
+  } finally {
+    await Promise.all([stopChild(first), stopChild(server)]);
+    fs.rmSync(xdg, { recursive: true, force: true });
+  }
+});
