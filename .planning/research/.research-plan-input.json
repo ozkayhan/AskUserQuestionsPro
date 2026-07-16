@@ -1,0 +1,29 @@
+{
+  "ecosystem": "nodejs-mcp-local-bridge",
+  "config": {
+    "exa_search": false,
+    "brave_search": false,
+    "firecrawl": false,
+    "tavily_search": false
+  },
+  "questions": [
+    {
+      "text": "What current Node.js HTTP server timeout and connection lifecycle boundaries can terminate or leave hanging a long-lived POST request, including requestTimeout, headersTimeout, keepAliveTimeout, socket timeout, request close, aborted, and response close semantics?",
+      "kind": "docs",
+      "library": "node.js",
+      "version": "18"
+    },
+    {
+      "text": "What are the current browser EventSource and Server-Sent Events reconnect, error, connection-close, and keepalive expectations for a localhost long-lived question UI?",
+      "kind": "web"
+    },
+    {
+      "text": "What does the current Model Context Protocol specification require for JSON-RPC cancellation notifications over stdio, and what lifecycle or host-timeout assumptions should a long-running tool avoid?",
+      "kind": "web"
+    },
+    {
+      "text": "What reliability and observability fields are recommended for diagnosing long-lived local bridge requests across host process, HTTP request, SSE browser connection, round identity, cancellation, and process exit boundaries?",
+      "kind": "web"
+    }
+  ]
+}

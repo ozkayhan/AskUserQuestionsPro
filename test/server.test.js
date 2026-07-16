@@ -119,6 +119,31 @@ test('/current requestId ile yalnizca ilgili pending turunu gosterir', async () 
   await askPromise;
 });
 
+test('requestId li /ask host soketi kapaninca round korunur ve /resume cevap verir', async () => {
+  const requestId = 'resume-owner-a';
+  const questions = [{ question: 'RESUME?', options: [{ label: 'A' }] }];
+  const request = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  request.on('error', () => {});
+  request.write(JSON.stringify({ questions, requestId }));
+  request.end();
+
+  const current = await waitForPending();
+  request.destroy();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  const retained = await fetch(`${base}/current?requestId=${requestId}`);
+  assert.deepStrictEqual(await retained.json(), current);
+
+  const resumed = post('/resume', {});
+  await post('/answer', { id: current.id, answers: { 'RESUME?': 'A' } });
+  const resumeResponse = await resumed;
+  assert.strictEqual(resumeResponse.status, 200);
+  assert.deepStrictEqual(await resumeResponse.json(), { answers: { 'RESUME?': 'A' } });
+});
+
 // --- Contract R: /answer round-id rendezvous ---
 
 test('/answer stale id -> 409 (cross-round race korumasi)', async () => {
@@ -138,6 +163,46 @@ test('/answer pending yokken -> 409', async () => {
   await waitForClear();
   const r = await post('/answer', { id: 1, answers: { 'Q?': 'A' } });
   assert.strictEqual(r.status, 409);
+});
+
+test('/cancel correct round id ile typed user_cancelled sonucu döner', async () => {
+  const askPromise = post('/ask', {
+    questions: [{ question: 'CANCEL?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const cancel = await post('/cancel', { id: current.id, reason: 'user cancelled' });
+  assert.strictEqual(cancel.status, 200);
+  assert.deepStrictEqual(await cancel.json(), { ok: true, reason: 'user_cancelled' });
+
+  const askResponse = await askPromise;
+  assert.strictEqual(askResponse.status, 409);
+  assert.strictEqual((await askResponse.json()).reason, 'user_cancelled');
+  await waitForClear();
+});
+
+test('/cancel stale id -> 409 ve active round korunur', async () => {
+  const askPromise = post('/ask', {
+    questions: [{ question: 'KEEP?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const stale = await post('/cancel', { id: current.id + 999, reason: 'user cancelled' });
+  assert.strictEqual(stale.status, 409);
+  assert.strictEqual((await stale.json()).reason, 'stale_round');
+  assert.strictEqual((await (await fetch(`${base}/current`)).json()).id, current.id);
+  await post('/answer', { id: current.id, answers: { 'KEEP?': 'A' } });
+  await askPromise;
+});
+
+test('/cancel unknown reason -> 400 ve active round korunur', async () => {
+  const askPromise = post('/ask', {
+    questions: [{ question: 'REASON?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const bad = await post('/cancel', { id: current.id, reason: 'not-a-terminal-state' });
+  assert.strictEqual(bad.status, 400);
+  assert.match((await bad.json()).error, /cancel reason/i);
+  await post('/answer', { id: current.id, answers: { 'REASON?': 'A' } });
+  await askPromise;
 });
 
 test('/answer answers Array -> 400 (Contract R)', async () => {

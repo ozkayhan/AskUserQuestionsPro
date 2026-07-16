@@ -4,7 +4,7 @@
 const CUSTOM_LABEL = 'Other';
 const CUSTOM_DESC = 'Let me describe something else.';
 
-/* ── ikonlar (design-reference/project/app.jsx ile birebir) ── */
+/* ── shared icons kept stable with the original UI prototype ── */
 const Check = ({ c = 'currentColor', s = 14 }) => (
   // ponytail: aria-hidden — decorative checkmark; callers provide sr-only text if semantic.
   <svg width={s} height={s} viewBox="0 0 16 16" fill="none" aria-hidden="true">

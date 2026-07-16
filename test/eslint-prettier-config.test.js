@@ -56,10 +56,10 @@ describe('ESLint + Prettier kurulumu', () => {
   });
 
   it('.prettierignore eslint.config.js ile aynı ignore kapsamını taşır (L-54)', () => {
-    // eslint web/vendor, node_modules ve .context'i ignore'lar; prettier de
+    // eslint web/vendor, node_modules, .context ve workspace .codex'i ignore'lar; prettier de
     // aynı dizinleri atlamalı — yoksa tool kapsamı ayrışır (format vs lint drift).
     const ignore = readFileSync(path.join(root, '.prettierignore'), 'utf8');
-    for (const pat of ['web/vendor', 'node_modules', '.context']) {
+    for (const pat of ['web/vendor', 'node_modules', '.context', '.codex']) {
       assert.match(ignore, new RegExp(pat.replace('/', '\\/')), `${pat} .prettierignore'da yok`);
     }
   });

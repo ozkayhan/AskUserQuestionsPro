@@ -50,7 +50,30 @@ the returned category once:
 
 - `Invalid question input` → correct the payload (especially `{ "label": ... }`) and retry once.
 - `bridge unavailable`, registration timeout, or user cancellation → use the native tool that exists in the current host.
+- `host cancelled` → treat the round as incomplete and use the native tool; do not claim the user submitted answers.
+- `host timeout` or a dropped MCP connection → call `mcp__askuserquestionspro__resume` before starting a new round; the browser round is retained for up to one hour.
 - Never describe an input-validation error as a bridge outage or run local diagnostics for it.
+
+For long rounds, the MCP server may send optional progress notifications while
+the browser is waiting. This keeps the request visibly active for hosts that
+support MCP progress tokens, but it does not guarantee that a host has no hard
+deadline. If the host explicitly cancels the call, fall back to the native
+tool; if it merely disconnects, use `resume` first.
+
+## Recovering a disconnected round
+
+When the host reports a timeout or the MCP call disappears around a fixed
+wall-clock interval, do not submit the same questions again immediately. Call
+`mcp__askuserquestionspro__resume` with an optional original request id:
+
+```json
+{ "requestId": "optional-original-request-id" }
+```
+
+Omitting `requestId` selects the latest detached round. A successful result is
+the original `{ "answers": ... }` object; a `no resumable browser round` error
+means the bounded one-hour window expired or the user explicitly cancelled the
+round, so use the native fallback.
 
 ## Tool call shape
 

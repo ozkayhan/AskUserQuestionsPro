@@ -6,6 +6,8 @@
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { log } = require('../lib/log.cjs');
+const { createLifecycle } = require('../lib/round-lifecycle.cjs');
+const { createProgressHeartbeat, isProgressToken } = require('../lib/mcp-progress.cjs');
 const { validQuestions } = require('../lib/question-contract.cjs');
 
 process.on('uncaughtException', (e) => log('mcp', e));
@@ -126,6 +128,31 @@ const ASK_TOOL = {
   },
 };
 
+const RESUME_TOOL = {
+  name: 'resume',
+  description:
+    'Resume the latest detached askuserquestionspro browser round after a host timeout or MCP connection loss. ' +
+    'Use this before starting a new ask round so answers already submitted in the browser are not lost. ' +
+    'Optionally pass the original requestId when it is known.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      requestId: {
+        type: 'string',
+        description:
+          'Original round request id, if available; otherwise the latest detached round is used.',
+      },
+    },
+  },
+  outputSchema: ASK_TOOL.outputSchema,
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    openWorldHint: false,
+    idempotentHint: true,
+  },
+};
+
 // JSON-RPC yanıtı oluştur ve STDOUT'a yaz.
 // stdout broken pipe (EPIPE) atarsa logla — uncaughtException'a düşürmeyelim,
 // aksi halde tek bir yazma hatası tüm sunucuyu çökertir.
@@ -137,13 +164,26 @@ function sendResponse(obj) {
   }
 }
 
+function progressIntervalMs() {
+  const configured = Number(process.env.ASKUSER_MCP_PROGRESS_INTERVAL_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : 15_000;
+}
+
 // JSON-RPC hata yanıtı gönder.
 function sendError(id, code, message) {
   sendResponse({ jsonrpc: '2.0', id, error: { code, message } });
 }
 
+function formatAnswers(answers) {
+  const result = { answers: answers || {} };
+  return {
+    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    structuredContent: result,
+  };
+}
+
 // 'ask' aracı çağrısını işle.
-async function handleAsk(args, signal) {
+async function handleAsk(args, signal, { progressToken } = {}) {
   if (!Array.isArray(args?.questions) || args.questions.length === 0) {
     return {
       content: [{ type: 'text', text: "Invalid input: 'questions' must be a non-empty array." }],
@@ -165,7 +205,7 @@ async function handleAsk(args, signal) {
   }
 
   // ESM modülü dinamik olarak içe aktar (hem hook hem MCP paylaşır).
-  const { ensureServer, openBrowser, askBridge, waitForPending, createRequestId } =
+  const { ensureServer, openBrowser, askBridge, waitForPending, createRequestId, cancelBridge } =
     await import('../lib/bridge-client.mjs');
 
   if (!(await ensureServer())) {
@@ -179,7 +219,10 @@ async function handleAsk(args, signal) {
       isError: true,
     };
   }
+  const requestId = createRequestId();
+  const lifecycle = createLifecycle({ adapter: 'mcp', requestId });
   if (signal?.aborted) {
+    lifecycle.finish('host_cancelled');
     return {
       content: [{ type: 'text', text: 'askuserquestionspro request cancelled.' }],
       isError: true,
@@ -188,13 +231,22 @@ async function handleAsk(args, signal) {
 
   let answers;
   const roundController = new AbortController();
-  const requestId = createRequestId();
-  const cancelRound = () => roundController.abort();
+  const cancelRound = () => {
+    void cancelBridge(requestId, 'host cancelled')
+      .catch((error) => log('mcp', error))
+      .finally(() => roundController.abort());
+  };
   signal?.addEventListener('abort', cancelRound, { once: true });
   const askPromise = askBridge(args.questions, {
     timeoutMs: 60 * 60 * 1000,
     signal: roundController.signal,
     requestId,
+    lifecycle,
+  });
+  const heartbeat = createProgressHeartbeat({
+    token: progressToken,
+    send: sendResponse,
+    intervalMs: progressIntervalMs(),
   });
   try {
     // HTTP 400/500 gibi erken bridge hataları, pending poll'unun 5 saniyelik
@@ -214,19 +266,33 @@ async function handleAsk(args, signal) {
       log('mcp', 'pending round not visible within 5 seconds; continuing to wait for ask');
     }
     openBrowser();
+    lifecycle.event('browser_opened');
     answers = await askPromise;
   } catch (e) {
+    const hostCancelled = signal?.aborted === true;
+    if (!hostCancelled && e?.name === 'TimeoutError') {
+      await cancelBridge(requestId, 'timeout').catch((error) => log('mcp', error));
+    }
     roundController.abort();
     await askPromise.catch(() => undefined);
+    lifecycle.finish(
+      hostCancelled
+        ? 'host_cancelled'
+        : e?.name === 'TimeoutError'
+          ? 'application_timeout'
+          : 'bridge_error'
+    );
     log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
-    const cause =
-      e?.name === 'BridgeError' && e.status === 400
+    const cause = hostCancelled
+      ? 'the host cancelled the pending request before the user submitted answers'
+      : e?.name === 'BridgeError' && e.status === 400
         ? `invalid question input: ${e.message}`
         : e?.name === 'TimeoutError'
           ? 'timed out waiting for the user'
           : `error: ${e?.message || e}`;
-    const recovery =
-      e?.name === 'BridgeError' && e.status === 400
+    const recovery = hostCancelled
+      ? 'Retry with the host-native user-input tool or submit a shorter round.'
+      : e?.name === 'BridgeError' && e.status === 400
         ? 'Use option objects such as {"label":"Option"}; do not pass string arrays.'
         : 'Use the host-native user-input tool if it is available in the current host.';
     return {
@@ -239,6 +305,7 @@ async function handleAsk(args, signal) {
       isError: true,
     };
   } finally {
+    heartbeat.stop();
     signal?.removeEventListener('abort', cancelRound);
   }
 
@@ -256,6 +323,52 @@ async function handleAsk(args, signal) {
     content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     structuredContent: result,
   };
+}
+
+async function handleResume(args, signal, { progressToken } = {}) {
+  const { ensureServer, resumeBridge } = await import('../lib/bridge-client.mjs');
+  if (!(await ensureServer())) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'askuserquestionspro bridge unavailable — no detached round can be resumed. Use the host-native user-input tool.',
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const heartbeat = createProgressHeartbeat({
+    token: progressToken,
+    send: sendResponse,
+    intervalMs: progressIntervalMs(),
+  });
+  try {
+    const answers = await resumeBridge(args?.requestId, {
+      timeoutMs: 60 * 60 * 1000,
+      signal,
+    });
+    return formatAnswers(answers);
+  } catch (e) {
+    const cause =
+      e?.name === 'BridgeError' && e.status === 409
+        ? 'no resumable browser round is available'
+        : e?.name === 'TimeoutError'
+          ? 'timed out while waiting for the detached browser round'
+          : `error: ${e?.message || e}`;
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `askuserquestionspro resume failed: ${cause}. Use the host-native user-input tool or start a new ask round.`,
+        },
+      ],
+      isError: true,
+    };
+  } finally {
+    heartbeat.stop();
+  }
 }
 
 // Gelen JSON-RPC mesajını işle.
@@ -289,19 +402,19 @@ async function handleMessage(msg) {
         capabilities: { tools: {} },
         serverInfo: { name: 'askuserquestionspro', version: '1.1.0' },
         instructions:
-          'Prefer the ask tool for structured user questions in Codex or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. On tool failure, use the host-native user-input tool.',
+          'Prefer the ask tool for structured user questions in Codex or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. If a host timeout disconnects the call, use the resume tool before starting a new round. On tool failure, use the host-native user-input tool.',
       },
     });
     return;
   }
 
   if (method === 'tools/list') {
-    sendResponse({ jsonrpc: '2.0', id, result: { tools: [ASK_TOOL] } });
+    sendResponse({ jsonrpc: '2.0', id, result: { tools: [ASK_TOOL, RESUME_TOOL] } });
     return;
   }
 
   if (method === 'tools/call') {
-    if (params?.name !== 'ask') {
+    if (params?.name !== 'ask' && params?.name !== 'resume') {
       sendError(id, -32602, 'unknown tool');
       return;
     }
@@ -309,7 +422,14 @@ async function handleMessage(msg) {
     activeRequests.set(id, controller);
     let toolResult;
     try {
-      toolResult = await handleAsk(params?.arguments, controller.signal);
+      const progressToken = params?._meta?.progressToken;
+      const progress = {
+        progressToken: isProgressToken(progressToken) ? progressToken : undefined,
+      };
+      toolResult =
+        params.name === 'resume'
+          ? await handleResume(params?.arguments, controller.signal, progress)
+          : await handleAsk(params?.arguments, controller.signal, progress);
     } finally {
       activeRequests.delete(id);
     }

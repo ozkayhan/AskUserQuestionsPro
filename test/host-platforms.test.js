@@ -7,11 +7,13 @@ const fs = require('node:fs');
 
 const {
   candidatesFor,
+  mcpToolTimeoutSec,
   manualMcpCommand,
   mcpArgs,
   parseTarget,
   resolveExecutable,
   selectedHosts,
+  setMcpToolTimeoutSec,
   skillDestination,
 } = require('../lib/host-platforms.cjs');
 
@@ -85,6 +87,21 @@ test('MCP argv reflects each host CLI contract', () => {
   assert.deepStrictEqual(mcpArgs('claude', 'inspect', mcp), ['mcp', 'get', 'askuserquestionspro']);
   assert.match(manualMcpCommand('codex', mcp), /^codex mcp add/);
   assert.match(manualMcpCommand('codex', mcp), /"\/tmp\/Ask User\/mcp\.mjs"/);
+});
+
+test('Codex MCP config carries an explicit long-round tool deadline', () => {
+  const config =
+    '[mcp_servers.askuserquestionspro]\n' +
+    'command = "node"\n' +
+    'args = ["mcp.mjs"]\n' +
+    '\n' +
+    '[mcp_servers.askuserquestionspro.env]\n' +
+    'ASKUSER_PORT = "4517"\n';
+  const updated = setMcpToolTimeoutSec(config, 3600);
+  assert.equal(mcpToolTimeoutSec(updated), 3600);
+  assert.match(updated, /args = \["mcp\.mjs"\]\ntool_timeout_sec = 3600\n/);
+  assert.match(updated, /\[mcp_servers\.askuserquestionspro\.env\]/);
+  assert.throws(() => setMcpToolTimeoutSec('[mcp_servers.other]\n'), /section not found/);
 });
 
 test('skills deploy to host-native discovery locations', () => {

@@ -176,7 +176,7 @@ test(
       fakeCodex,
       '#!/bin/sh\nprintf "%s\\n" "$*" >> "$ASKUI_TEST_LOG"\n' +
         'if [ "$1 $2" = "mcp get" ]; then\n' +
-        '  printf \'{"transport":{"type":"stdio","command":"%s","args":["%s"]}}\\n\' "$ASKUI_TEST_NODE" "$ASKUI_TEST_MCP"\n' +
+        '  printf \'{"transport":{"type":"stdio","command":"%s","args":["%s"]},"tool_timeout_sec":3600}\\n\' "$ASKUI_TEST_NODE" "$ASKUI_TEST_MCP"\n' +
         'fi\n' +
         'if [ "$1 $2" = "mcp remove" ] && [ "${ASKUI_REMOVE_FAIL:-0}" = "1" ]; then exit 7; fi\n' +
         'exit 0\n',
@@ -191,6 +191,11 @@ test(
       ASKUI_TEST_NODE: process.execPath,
       ASKUI_TEST_MCP: path.join(__dirname, '..', 'mcp-server', 'askuserquestionspro-mcp.mjs'),
     };
+    fs.mkdirSync(path.join(home, '.codex'), { recursive: true });
+    fs.writeFileSync(
+      path.join(home, '.codex', 'config.toml'),
+      '[mcp_servers.askuserquestionspro]\ncommand = "node"\nargs = ["old.mjs"]\n'
+    );
     try {
       const install = spawnSync(process.execPath, [CLI, 'install', '--target', 'codex'], {
         encoding: 'utf8',

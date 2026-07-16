@@ -103,7 +103,10 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
   const tools = listRes.result.tools;
   assert.ok(Array.isArray(tools) && tools.length > 0, 'tools dizisi boş olmamalı');
   const askTool = tools.find((t) => t.name === 'ask');
+  const resumeTool = tools.find((t) => t.name === 'resume');
   assert.ok(askTool, '"ask" adında araç olmalı');
+  assert.ok(resumeTool, '"resume" adında araç olmalı');
+  assert.match(resumeTool.description, /detached|timeout|resume/i);
   assert.match(askTool.description, /request_user_input/);
   assert.deepStrictEqual(askTool.outputSchema.required, ['answers']);
   assert.strictEqual(askTool.annotations.readOnlyHint, true);
@@ -242,13 +245,23 @@ test('mcp-server: notifications/cancelled aktif tools/call isteğini bridge üze
   const port = probe.address().port;
   await new Promise((resolve) => probe.close(resolve));
   const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-mcp-cancel-'));
-  const env = { ...process.env, ASKUSER_PORT: String(port), XDG_CONFIG_HOME: xdg };
+  const env = {
+    ...process.env,
+    ASKUSER_PORT: String(port),
+    ASKUSER_OPEN_BROWSER: '0',
+    XDG_CONFIG_HOME: xdg,
+  };
   const server = spawn(process.execPath, [SERVER_PATH], { stdio: 'ignore', env });
   const mcp = spawn(process.execPath, [MCP_PATH], { stdio: ['pipe', 'pipe', 'pipe'], env });
   let stdout = '';
+  let stderr = '';
   mcp.stdout.setEncoding('utf8');
   mcp.stdout.on('data', (chunk) => {
     stdout += chunk;
+  });
+  mcp.stderr.setEncoding('utf8');
+  mcp.stderr.on('data', (chunk) => {
+    stderr += chunk;
   });
   try {
     const deadline = Date.now() + 3000;
@@ -286,6 +299,7 @@ test('mcp-server: notifications/cancelled aktif tools/call isteğini bridge üze
       !stdout.includes('"id":42'),
       'cancelled request için kullanılmayacak sonuç dönmemeli'
     );
+    assert.match(stderr, /"reason":"host_cancelled"/);
   } finally {
     const exits = [mcp, server].map((child) =>
       child.exitCode === null
