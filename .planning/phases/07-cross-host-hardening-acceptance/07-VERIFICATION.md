@@ -1,3 +1,7 @@
+---
+status: passed
+---
+
 # Phase 7 Verification
 
 ## Automated
