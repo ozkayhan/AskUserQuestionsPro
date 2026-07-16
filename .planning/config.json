@@ -31,7 +31,7 @@
     "api_coverage_gate": true,
     "human_verify_mode": "end-of-phase",
     "context_guard_mode": "warn",
-    "text_mode": false,
+    "text_mode": true,
     "research_before_questions": false,
     "discuss_mode": "discuss",
     "skip_discuss": false,
