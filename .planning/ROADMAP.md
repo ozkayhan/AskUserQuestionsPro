@@ -128,7 +128,13 @@ Plans:
   4. Version-pinned, authenticated Claude Code and Codex acceptance runs cover idle rounds, reconnect, restart, cancellation, recovery, and delivery.
   5. Install, doctor, upgrade, and uninstall affect only the intended host configuration and are safe to repeat.
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+
+- [ ] 12-01-PLAN.md — Define the adapter contract and Tier 1 capability cards.
+- [ ] 12-02-PLAN.md — Prove Claude and Codex lifecycle behavior with fake-host conformance.
+- [ ] 12-03-PLAN.md — Verify scoped, idempotent adapter installation and onboarding gates.
+- [ ] 12-04-PLAN.md — Assemble Tier 1 acceptance evidence and live-host verification procedures.
 **Research flags**: Mandatory live host/OS validation: run the actual installed, authenticated Claude Code and Codex versions, record host deadline and response-write semantics, and separately verify Claude hook fallback and Codex MCP behavior.
 
 ### Phase 13: Evidence-Gated Host Expansion & Launch Hardening
