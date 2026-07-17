@@ -12,7 +12,7 @@ Sprint 2 turns the existing resumable bridge into a durable, user-visible recove
 
 - [x] **Phase 8: Lifecycle Contract & Observability** - Make every round transition, deadline owner, and terminal outcome explicit and safely observable. (completed 2026-07-17)
 - [x] **Phase 9: Durable Round Store & Recovery API** - Preserve authoritative rounds and immutable results through interruption, restart, and safe recovery. (completed 2026-07-17)
-- [ ] **Phase 10: Settings v2** - Give users durable, validated controls for recovery, delivery, browser, and adapter behavior.
+- [x] **Phase 10: Settings v2** - Give users durable, validated controls for recovery, delivery, browser, and adapter behavior. (completed 2026-07-17)
 - [ ] **Phase 11: Browser Recovery & Delivery UX** - Let users recover, understand, and safely complete rounds through an accessible browser flow.
 - [ ] **Phase 12: Adapter Contract & Tier 1 Acceptance** - Prove Claude Code and Codex work through distinct, evidence-backed lifecycle adapters.
 - [ ] **Phase 13: Evidence-Gated Host Expansion & Launch Hardening** - Evaluate the broader host landscape honestly and ship verified cross-platform documentation and release evidence.
@@ -104,7 +104,12 @@ Plans:
   4. Users can choose an opening strategy and receive actionable guidance when the preferred browser or profile cannot be opened.
   5. Recovery, delivery, and settings flows retain accessible announcements, focus behavior, and keyboard navigation.
 
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+
+- [ ] 11-01-PLAN.md — Make browser recovery server-authoritative with explicit selection and draft reconciliation.
+- [ ] 11-02-PLAN.md — Make delivery states loss-aware, acknowledgement-gated, and opening-strategy failures actionable.
+- [ ] 11-03-PLAN.md — Verify accessible recovery/delivery flows and record browser evidence and documentation.
 **UI hint**: yes
 **Research flags**: Exercise recovery in private browsing, under storage failure/quota, and after localhost port/origin drift; use manual browser verification alongside existing accessibility tests.
 
@@ -149,7 +154,7 @@ Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 |-------|----------------|--------|-----------|
 | 8. Lifecycle Contract & Observability | 5/5 | Complete    | 2026-07-17 |
 | 9. Durable Round Store & Recovery API | 4/4 | Complete    | 2026-07-17 |
-| 10. Settings v2 | 3/4 | In Progress|  |
+| 10. Settings v2 | 4/4 | Complete    | 2026-07-17 |
 | 11. Browser Recovery & Delivery UX | 0/TBD | Not started | - |
 | 12. Adapter Contract & Tier 1 Acceptance | 0/TBD | Not started | - |
 | 13. Evidence-Gated Host Expansion & Launch Hardening | 0/TBD | Not started | - |
