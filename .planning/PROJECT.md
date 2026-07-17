@@ -4,6 +4,14 @@
 
 AskUserQuestionsPro is a local browser-based question interface that replaces cramped terminal prompts for Claude Code and Codex. Host adapters submit a question round to a single-user localhost bridge, the browser collects rich answers, and the result is returned to the originating host. This milestone hardens the whole system, with special focus on long-running rounds that currently close unexpectedly in Codex and may also fail in Claude Code.
 
+## Current State
+
+Milestone v1.0.0 shipped on 2026-07-16 and is archived. Codex detach/resume, bridge ownership, browser recovery, packaging, and documentation contracts are implemented and verified. The current checkout passes 397 tests, lint, and formatting checks. A full authenticated Claude model-session acceptance run remains a manual follow-up because the local CLI was unauthenticated during verification.
+
+## Next Milestone Goals
+
+Start with `$gsd-new-milestone` to define the next scope. Candidate v2 work includes durable resumable tickets, cross-process resume semantics, and any product expansion that deliberately changes the local single-user model.
+
 ## Core Value
 
 Users must be able to complete a long, multi-question round at their own pace without the bridge, browser, or host integration timing out or losing their answers.
@@ -28,7 +36,7 @@ Users must be able to complete a long, multi-question round at their own pace wi
 - ✓ Lifecycle events can correlate round boundaries and terminal reasons without logging question/answer payloads — Phase 1
 - ✓ Automated coverage protects 15-question idle rounds and delayed stale-owner close behavior — Phase 1
 
-### Active
+### Active (historical v1 scope)
 
 - [ ] Identify and eliminate the root cause of premature timeout/closure during long question rounds in Codex.
 - [ ] Determine whether the same failure exists in Claude Code and harden both host paths against equivalent lifecycle, transport, abort, and disconnect failures.
@@ -99,4 +107,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-07-16 after Phase 1_
+_Last updated: 2026-07-17 after v1.0.0 completion_
