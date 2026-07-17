@@ -36,11 +36,11 @@ Requirements for Sprint 2. Each maps to exactly one roadmap phase.
 
 ### Browser Recovery and Delivery UX
 
-- [ ] **WEB-05**: Browser-side drafts reconcile with the server-authoritative record after refresh, reconnect, or origin/session changes.
-- [ ] **WEB-06**: The UI clearly distinguishes saved, delivery-pending, delivered, delivery-uncertain, cancelled, and recovery-error states.
-- [ ] **WEB-07**: A tab closes only after durable delivery acknowledgement, and falls back safely when browser ownership prevents automatic closure.
-- [ ] **WEB-08**: Users can select the browser/opening strategy and receive actionable fallback guidance.
-- [ ] **WEB-09**: Recovery, settings, status announcements, focus management, and keyboard flows remain accessible.
+- [x] **WEB-05**: Browser-side drafts reconcile with the server-authoritative record after refresh, reconnect, or origin/session changes.
+- [x] **WEB-06**: The UI clearly distinguishes saved, delivery-pending, delivered, delivery-uncertain, cancelled, and recovery-error states.
+- [x] **WEB-07**: A tab closes only after durable delivery acknowledgement, and falls back safely when browser ownership prevents automatic closure.
+- [x] **WEB-08**: Users can select the browser/opening strategy and receive actionable fallback guidance.
+- [x] **WEB-09**: Recovery, settings, status announcements, focus management, and keyboard flows remain accessible.
 
 ### Adapter Workflow
 
@@ -110,11 +110,11 @@ Deferred beyond this milestone but retained for future planning.
 | SET-04 | Phase 10 | Complete |
 | SET-05 | Phase 10 | Complete |
 | SET-06 | Phase 10 | Complete |
-| WEB-05 | Phase 11 | Pending |
-| WEB-06 | Phase 11 | Pending |
-| WEB-07 | Phase 11 | Pending |
-| WEB-08 | Phase 11 | Pending |
-| WEB-09 | Phase 11 | Pending |
+| WEB-05 | Phase 11 | Complete |
+| WEB-06 | Phase 11 | Complete |
+| WEB-07 | Phase 11 | Complete |
+| WEB-08 | Phase 11 | Complete |
+| WEB-09 | Phase 11 | Complete |
 | ADP-01 | Phase 12 | Pending |
 | ADP-02 | Phase 12 | Pending |
 | ADP-03 | Phase 12 | Pending |

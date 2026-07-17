@@ -104,12 +104,13 @@ Plans:
   4. Users can choose an opening strategy and receive actionable guidance when the preferred browser or profile cannot be opened.
   5. Recovery, delivery, and settings flows retain accessible announcements, focus behavior, and keyboard navigation.
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans executed
 Plans:
 
-- [ ] 11-01-PLAN.md — Make browser recovery server-authoritative with explicit selection and draft reconciliation.
-- [ ] 11-02-PLAN.md — Make delivery states loss-aware, acknowledgement-gated, and opening-strategy failures actionable.
-- [ ] 11-03-PLAN.md — Verify accessible recovery/delivery flows and record browser evidence and documentation.
+- [x] 11-01-PLAN.md — Make browser recovery server-authoritative with explicit selection and draft reconciliation.
+- [x] 11-02-PLAN.md — Make delivery states loss-aware, acknowledgement-gated, and opening-strategy failures actionable.
+- [x] 11-03-PLAN.md — Verify accessible recovery/delivery flows and record browser evidence and documentation.
+
 **UI hint**: yes
 **Research flags**: Exercise recovery in private browsing, under storage failure/quota, and after localhost port/origin drift; use manual browser verification alongside existing accessibility tests.
 
@@ -155,6 +156,6 @@ Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 | 8. Lifecycle Contract & Observability | 5/5 | Complete    | 2026-07-17 |
 | 9. Durable Round Store & Recovery API | 4/4 | Complete    | 2026-07-17 |
 | 10. Settings v2 | 4/4 | Complete    | 2026-07-17 |
-| 11. Browser Recovery & Delivery UX | 0/TBD | Not started | - |
+| 11. Browser Recovery & Delivery UX | 3/3 | Complete | 2026-07-17 |
 | 12. Adapter Contract & Tier 1 Acceptance | 0/TBD | Not started | - |
 | 13. Evidence-Gated Host Expansion & Launch Hardening | 0/TBD | Not started | - |
