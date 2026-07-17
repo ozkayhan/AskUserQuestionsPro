@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
@@ -80,6 +81,15 @@ async function waitForLifecycle(state, deadlineMs = 2000) {
   throw new Error(`timed out waiting for lifecycle state ${state}`);
 }
 
+async function waitForCondition(predicate, deadlineMs = 2000) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    if (await predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error('timed out waiting for condition');
+}
+
 // /ask aç → pending'i bekle → id ile cevapla → askPromise'i çöz. answer plain object'tir
 // (Contract R). Döner: askPromise json.
 async function askAndAnswer(questions, answers) {
@@ -112,6 +122,91 @@ test('/ask soruları tutar, /answer ile resolve olur (id round-trip)', async () 
   const askResult = await (await askPromise).json();
   assert.deepStrictEqual(askResult.answers, { 'Q?': 'A' });
   assert.strictEqual(bridge.getCurrent(), null);
+});
+
+test('real server lifecycle diagnostics attribute Bridge events without question or answer payloads', async () => {
+  const probe = http.createServer();
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const port = probe.address().port;
+  await new Promise((resolve, reject) =>
+    probe.close((error) => (error ? reject(error) : resolve()))
+  );
+
+  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-lifecycle-'));
+  const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'server.js')], {
+    env: { ...process.env, ASKUSER_PORT: String(port), XDG_CONFIG_HOME: configHome },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  const diagnostics = [];
+  let stderr = '';
+  let stderrBuffer = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk;
+    stderrBuffer += chunk;
+    let newline;
+    while ((newline = stderrBuffer.indexOf('\n')) >= 0) {
+      const line = stderrBuffer.slice(0, newline);
+      stderrBuffer = stderrBuffer.slice(newline + 1);
+      const match = line.match(/^\[askuser:lifecycle\] (.+)$/);
+      if (match) diagnostics.push(JSON.parse(match[1]));
+    }
+  });
+
+  try {
+    const childBase = `http://127.0.0.1:${port}`;
+    await waitForCondition(async () => {
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
+    });
+
+    const ask = fetch(`${childBase}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: 'opaque-request',
+        questions: [{ question: 'secret question', options: [{ label: 'A' }] }],
+      }),
+    });
+    let current;
+    await waitForCondition(async () => {
+      current = await (await fetch(`${childBase}/current?requestId=opaque-request`)).json();
+      return current.id != null;
+    });
+    const answer = await fetch(`${childBase}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: current.id,
+        capability: current.capability,
+        answers: { 'secret question': 'secret answer' },
+      }),
+    });
+    assert.equal(answer.status, 200);
+    assert.equal((await ask).status, 200);
+    await waitForCondition(() => diagnostics.some((entry) => entry.event === 'round_finished'));
+
+    const operational = Object.fromEntries(
+      diagnostics
+        .filter((entry) => ['answer_received', 'round_finished'].includes(entry.event))
+        .map((entry) => [
+          entry.event,
+          { boundary: entry.boundary, deadlineOwner: entry.deadlineOwner },
+        ])
+    );
+    assert.deepEqual(operational, {
+      answer_received: { boundary: 'browser', deadlineOwner: 'browser' },
+      round_finished: { boundary: 'bridge', deadlineOwner: 'none' },
+    });
+    assert.doesNotMatch(stderr, /secret question|secret answer/);
+  } finally {
+    child.kill();
+    await new Promise((resolve) => child.once('exit', resolve));
+    fs.rmSync(configHome, { recursive: true, force: true });
+  }
 });
 
 test('GET / index.html serve eder', async () => {
@@ -157,7 +252,7 @@ test('requestId li /ask host soketi kapaninca round korunur ve /resume cevap ver
 
   const current = await waitForPending();
   request.destroy();
-  await new Promise((resolve) => setTimeout(resolve, 25));
+  await waitForLifecycle('detached');
 
   const retained = await fetch(`${base}/current?requestId=${requestId}`);
   const retainedRound = await retained.json();

@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { Bridge, terminalReason } = require('../server/bridge.js');
+const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 
 function scheduler() {
   let now = 0;
@@ -41,6 +42,137 @@ test('Bridge snapshot uses opaque capability and deterministic detached expiry',
   clock.advance(10);
   await assert.rejects(owner, (error) => error.code === 'application_timeout');
   assert.equal(b.getSnapshot().state, 'expired');
+});
+
+test('Bridge lifecycle diagnostics attribute operational paths without question or answer payloads', async () => {
+  const seen = [];
+  const lifecycle = createLifecycle({
+    adapter: 'http',
+    requestId: 'opaque-request',
+    logger: (_scope, detail) => seen.push(JSON.parse(detail)),
+  });
+  const bridge = new Bridge({ detachedTtlMs: 1000 });
+  const owner = bridge.submitQuestions(
+    [{ question: 'secret question' }],
+    'opaque-request',
+    lifecycle
+  );
+  const round = bridge.peek('opaque-request');
+  lifecycle.setRoundId(round.id);
+
+  assert.equal(bridge.detach('host disconnected', round.id, round.capability), true);
+  const resumed = bridge.waitForAnswers('opaque-request');
+  assert.equal(
+    bridge.provideAnswers(round.id, { 'secret question': 'secret answer' }, round.capability),
+    true
+  );
+  assert.deepEqual(await owner, { 'secret question': 'secret answer' });
+  assert.deepEqual(await resumed.promise, { 'secret question': 'secret answer' });
+  assert.equal(bridge.markDeliveryUncertain(round.id), true);
+  assert.equal(bridge.confirmDelivery(round.id), true);
+
+  const metadata = Object.fromEntries(
+    seen
+      .filter((entry) =>
+        [
+          'host_detached',
+          'round_resumed',
+          'answer_received',
+          'delivery_uncertain',
+          'round_finished',
+        ].includes(entry.event)
+      )
+      .map((entry) => [
+        entry.event,
+        { boundary: entry.boundary, deadlineOwner: entry.deadlineOwner },
+      ])
+  );
+  assert.deepEqual(metadata, {
+    host_detached: { boundary: 'bridge', deadlineOwner: 'host' },
+    round_resumed: { boundary: 'bridge', deadlineOwner: 'host' },
+    answer_received: { boundary: 'browser', deadlineOwner: 'browser' },
+    delivery_uncertain: { boundary: 'bridge', deadlineOwner: 'host' },
+    round_finished: { boundary: 'bridge', deadlineOwner: 'none' },
+  });
+  assert.doesNotMatch(JSON.stringify(seen), /secret question|secret answer/);
+});
+
+test('Bridge lifecycle diagnostics attribute cancellation and expiry terminal outcomes', async () => {
+  const seen = [];
+  const lifecycle = createLifecycle({
+    now: () => 0,
+    logger: (_scope, detail) => seen.push(JSON.parse(detail)),
+  });
+  const bridge = new Bridge({ detachedTtlMs: 1000 });
+  const pending = bridge.submitQuestions([{ question: 'private' }], undefined, lifecycle);
+  const round = bridge.peek();
+  lifecycle.setRoundId(round.id);
+  assert.equal(bridge.cancel('user cancelled', round.id, round.capability), true);
+  await assert.rejects(pending);
+
+  const expired = new Bridge({ detachedTtlMs: 1000 });
+  const expiryLifecycle = createLifecycle({
+    requestId: 'timeout',
+    now: () => 0,
+    logger: (_scope, detail) => seen.push(JSON.parse(detail)),
+  });
+  const expiryPending = expired.submitQuestions(
+    [{ question: 'private timeout' }],
+    'timeout',
+    expiryLifecycle
+  );
+  const expiryRound = expired.peek('timeout');
+  expiryLifecycle.setRoundId(expiryRound.id);
+  assert.equal(expired.detach('host disconnected', expiryRound.id, expiryRound.capability), true);
+  assert.equal(expired.expire(expiryRound.id, expiryRound.capability), true);
+  await assert.rejects(expiryPending);
+
+  const byEvent = seen.filter((entry) =>
+    ['bridge_cancelled', 'round_timeout', 'round_finished'].includes(entry.event)
+  );
+  assert.deepEqual(byEvent, [
+    {
+      event: 'bridge_cancelled',
+      adapter: 'unknown',
+      roundId: round.id,
+      pid: process.pid,
+      elapsedMs: 0,
+      boundary: 'browser',
+      deadlineOwner: 'none',
+    },
+    {
+      event: 'round_finished',
+      adapter: 'unknown',
+      roundId: round.id,
+      pid: process.pid,
+      elapsedMs: 0,
+      reason: 'user_cancelled',
+      boundary: 'browser',
+      deadlineOwner: 'none',
+    },
+    {
+      event: 'round_timeout',
+      adapter: 'unknown',
+      requestId: 'timeout',
+      roundId: expiryRound.id,
+      pid: process.pid,
+      elapsedMs: 0,
+      boundary: 'bridge',
+      deadlineOwner: 'application',
+    },
+    {
+      event: 'round_finished',
+      adapter: 'unknown',
+      requestId: 'timeout',
+      roundId: expiryRound.id,
+      pid: process.pid,
+      elapsedMs: 0,
+      reason: 'application_timeout',
+      boundary: 'bridge',
+      deadlineOwner: 'application',
+    },
+  ]);
+  assert.doesNotMatch(JSON.stringify(seen), /private/);
 });
 
 test('wrong id or capability cannot mutate a later round', async () => {

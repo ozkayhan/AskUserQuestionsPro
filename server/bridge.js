@@ -20,6 +20,19 @@ function terminalReason(reason) {
   return CANCEL_REASON_MAP.get(String(reason || '').toLowerCase()) || 'bridge_error';
 }
 
+function terminalLifecycleDetails(outcome) {
+  if (outcome === 'user_cancelled' || outcome === 'browser_disconnect') {
+    return { boundary: 'browser', deadlineOwner: 'none' };
+  }
+  if (outcome === 'host_cancelled' || outcome === 'host_disconnect') {
+    return { boundary: 'bridge', deadlineOwner: 'host' };
+  }
+  if (outcome === 'application_timeout') {
+    return { boundary: 'bridge', deadlineOwner: 'application' };
+  }
+  return { boundary: 'bridge', deadlineOwner: 'none' };
+}
+
 // Tek-uçuş randevu: bir soru seti kaydedilir, cevap gelene dek promise açık tutulur.
 // Her tur monoton artan bir `id` taşır (UI'ın tur başına remount kararı için).
 // Cevap/iptal yolları bu id ile sahiplenir: gec gelen bir tur, o sirada bekleyen
@@ -118,7 +131,7 @@ class Bridge {
     if (!this._transition(p, 'answerAccepted')) return false;
     this._pending = null;
     if (p.detachTimer) this._clearTimer(p.detachTimer);
-    p.lifecycle?.event('answer_received');
+    p.lifecycle?.event('answer_received', { boundary: 'browser', deadlineOwner: 'browser' });
     this._rememberDelivery(p, answers);
     this._lastSnapshot = snapshot(p.record);
     p.resolve(answers);
@@ -137,7 +150,7 @@ class Bridge {
     if (!this._transition(p, 'detach', { reason: terminalReason(reason), deadlineOwner: 'host' }))
       return false;
     p.detached = true;
-    p.lifecycle?.event('host_detached');
+    p.lifecycle?.event('host_detached', { boundary: 'bridge', deadlineOwner: 'host' });
     p.detachTimer = this._setTimer(() => {
       if (this._pending === p && p.detached) this.expire(p.id, p.record.capability);
     }, this._detachedTtlMs);
@@ -151,7 +164,7 @@ class Bridge {
     const p = this._findDetached(requestId);
     if (p) {
       this._transition(p, 'resume', { deadlineOwner: 'host' });
-      p.lifecycle?.event('round_resumed');
+      p.lifecycle?.event('round_resumed', { boundary: 'bridge', deadlineOwner: 'host' });
       let waiter;
       const promise = new Promise((resolve, reject) => {
         waiter = { resolve, reject };
@@ -214,7 +227,7 @@ class Bridge {
       !this._transition(delivery.p, 'delivered', { reason: 'completed', deadlineOwner: 'none' })
     )
       return false;
-    delivery.p.lifecycle?.finish('completed');
+    delivery.p.lifecycle?.finish('completed', { boundary: 'bridge', deadlineOwner: 'none' });
     this._lastSnapshot = snapshot(delivery.p.record);
     this._deliveries.delete(roundId);
     if (delivery.p.requestId != null) this._completed.delete(delivery.p.requestId);
@@ -225,7 +238,10 @@ class Bridge {
     const delivery = this._deliveries.get(roundId);
     if (!delivery || !this._transition(delivery.p, 'uncertain', { deadlineOwner: 'host' }))
       return false;
-    delivery.p.lifecycle?.event('delivery_uncertain');
+    delivery.p.lifecycle?.event('delivery_uncertain', {
+      boundary: 'bridge',
+      deadlineOwner: 'host',
+    });
     this._lastSnapshot = snapshot(delivery.p.record);
     return true;
   }
@@ -250,8 +266,9 @@ class Bridge {
     this._pending = null;
     if (p.detachTimer) this._clearTimer(p.detachTimer);
     const outcome = terminalReason(reason);
-    p.lifecycle?.event('bridge_cancelled');
-    p.lifecycle?.finish(outcome);
+    const details = terminalLifecycleDetails(outcome);
+    p.lifecycle?.event('bridge_cancelled', details);
+    p.lifecycle?.finish(outcome, details);
     this._lastSnapshot = snapshot(p.record);
     const error = new Error(reason || 'cancelled');
     error.code = outcome;
@@ -274,6 +291,9 @@ class Bridge {
     )
       return false;
     this._pending = null;
+    const details = { boundary: 'bridge', deadlineOwner: 'application' };
+    p.lifecycle?.event('round_timeout', details);
+    p.lifecycle?.finish('application_timeout', details);
     this._lastSnapshot = snapshot(p.record);
     const error = Object.assign(new Error('detached round expired'), {
       code: 'application_timeout',
