@@ -39,6 +39,11 @@
     roundKey,
     storage = browserStorage(),
   }) {
+    const settings = typeof window !== 'undefined' && window.__ASKUSER_SETTINGS_V2__;
+    const autosave = settings && settings.autosave;
+    if (autosave && autosave.enabled === false) {
+      return { write() {}, replay() {} };
+    }
     let inFlight = false;
     let queued = null;
 

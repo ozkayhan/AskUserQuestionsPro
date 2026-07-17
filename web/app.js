@@ -23,6 +23,7 @@ function App() {
   const { id, questions, capability, revision, draftAnswers } = useLiveQuestions();
   const roundId = id;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsFabRef = useRef(null);
 
   const screen =
     !questions || questions.length === 0 ? (
@@ -44,8 +45,8 @@ function App() {
   return (
     <React.Fragment>
       {screen}
-      <SettingsButton onOpen={() => setSettingsOpen(true)} />
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      <SettingsButton buttonRef={settingsFabRef} onOpen={() => setSettingsOpen(true)} />
+      {settingsOpen && <SettingsModal onClose={() => { setSettingsOpen(false); setTimeout(() => settingsFabRef.current?.focus(), 0); }} />}
     </React.Fragment>
   );
 }

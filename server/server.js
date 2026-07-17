@@ -12,10 +12,14 @@ const { validQuestions: validateQuestionSet } = require('../lib/question-contrac
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
+const runtimeSettings = () => Settings.inspect().effective;
 const configuredDetachedTtl = Number(process.env.ASKUSER_DETACHED_ROUND_TTL_MS);
+const configuredSettings = runtimeSettings();
 const bridge = new Bridge({
-  detachedTtlMs: Number.isFinite(configuredDetachedTtl)
-    ? configuredDetachedTtl
+  detachedTtlMs: Number.isFinite(configuredSettings.recovery?.retentionMs)
+    ? configuredSettings.recovery.retentionMs
+    : Number.isFinite(configuredDetachedTtl)
+      ? configuredDetachedTtl
     : DEFAULT_DETACHED_TTL_MS,
   store: new RoundStore(),
 });
@@ -612,11 +616,16 @@ async function handleRequest(req, res) {
     try { payload = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: 'bad json' }); }
     const status = Settings.inspect();
     if (url === '/settings/preview') {
-      const candidate = payload.payload || payload;
+      if (!payload || typeof payload !== 'object' || !payload.payload || payload.baselineRevision === undefined) {
+        return sendJson(res, 400, { error: 'payload and baselineRevision are required' });
+      }
+      const candidate = payload.payload;
       const checked = require('../web/settings-schema.js').inspectEnvelope(candidate);
+      const details = checked.valid ? [] : [{ field: '_v', error: checked.status }];
       const id = require('node:crypto').randomBytes(12).toString('hex');
-      settingsPreviews.set(id, { revision: payload.baselineRevision ?? status.revision, candidate: checked.envelope, expiresAt: Date.now() + 10 * 60 * 1000 });
-      return sendJson(res, 200, { previewId: id, baselineRevision: payload.baselineRevision ?? status.revision, status: checked.status, valid: checked.valid, migration: checked.migrated, ignored: checked.ignored || { count: 0, truncated: false }, canApply: checked.valid && checked.status !== 'unsupported-future' });
+      if (payload.baselineRevision !== status.revision) return sendJson(res, 409, { error: 'baseline changed', baselineRevision: status.revision });
+      settingsPreviews.set(id, { revision: status.revision, candidate: checked.envelope, payload: candidate, expiresAt: Date.now() + 10 * 60 * 1000 });
+      return sendJson(res, 200, { previewId: id, baselineRevision: status.revision, status: checked.status, valid: checked.valid, errors: details, migration: checked.migrated, ignored: checked.ignored || { count: 0, truncated: false }, canApply: checked.valid && checked.status !== 'unsupported-future' });
     }
     if (url === '/settings/reset') {
       const namespace = payload.namespace;
@@ -626,11 +635,15 @@ async function handleRequest(req, res) {
       if (!result.ok) return sendJson(res, 409, { error: result.code });
       invalidateSettings(result.value); return sendJson(res, 200, { ok: true, settings: result.value });
     }
+    if (!payload || typeof payload.previewId !== 'string' || !payload.payload || payload.baselineRevision === undefined) return sendJson(res, 400, { error: 'previewId, payload and baselineRevision are required' });
     const preview = settingsPreviews.get(payload.previewId);
     if (!preview || preview.expiresAt < Date.now()) return sendJson(res, 409, { error: 'preview expired' });
-    settingsPreviews.delete(payload.previewId);
-    const result = Settings.mutateCompareAndSwap(preview.revision, () => preview.candidate);
+    if (payload.baselineRevision !== preview.revision || JSON.stringify(payload.payload) !== JSON.stringify(preview.payload)) return sendJson(res, 409, { error: 'preview payload mismatch' });
+    const checked = require('../web/settings-schema.js').inspectEnvelope(payload.payload);
+    if (!checked.valid || checked.status === 'unsupported-future') return sendJson(res, 400, { error: 'invalid import', status: checked.status });
+    const result = Settings.mutateCompareAndSwap(preview.revision, () => checked.envelope);
     if (!result.ok) return sendJson(res, 409, { error: result.code });
+    settingsPreviews.delete(payload.previewId);
     invalidateSettings(result.value); return sendJson(res, 200, { ok: true, settings: result.value });
   }
 
