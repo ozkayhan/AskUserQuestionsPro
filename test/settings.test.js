@@ -446,7 +446,8 @@ test('writeFileAtomic: crash-created dead-owner lock is recovered for the next w
   try {
     const file = path.join(dir, 'test.json');
     const lock = file + '.lock';
-    fs.writeFileSync(lock, '99999999:crashed-writer', { flag: 'wx' });
+    fs.mkdirSync(lock, { mode: 0o700 });
+    fs.writeFileSync(path.join(lock, 'owner'), '99999999:crashed-writer', { flag: 'wx' });
     writeFileAtomic(file, '{"ok":true}');
     assert.strictEqual(fs.readFileSync(file, 'utf8'), '{"ok":true}');
     assert.ok(!fs.existsSync(lock), 'recovered writer releases its own replacement lock');
@@ -455,28 +456,63 @@ test('writeFileAtomic: crash-created dead-owner lock is recovered for the next w
   }
 });
 
-test('writeFileAtomic: uncertain concurrent takeover never removes a newly acquired lock', () => {
+test('writeFileAtomic: stale directory recovery cannot remove a newly acquired lease', () => {
   const { acquireLock } = require('../lib/atomic-write.cjs');
   const lock = '/virtual/round.json.lock';
+  const lease = lock + '/owner';
+  let lockExists = true;
   let contents = '99999999:dead-owner';
-  let unlinked = false;
+  let contenderSawHeldLock = false;
+  const newOwner = '{"pid":12345,"token":"new-owner"}';
+  let removedPublicLockWithUnlink = false;
   const fsImpl = {
-    writeFileSync(_path, _data, options) {
-      if (options.flag !== 'wx') throw new Error('unexpected write mode');
-      // This represents the interleaving that used to occur between token
-      // verification and unlink: a different writer now owns the pathname.
-      contents = 'new-owner';
-      const error = Object.assign(new Error('exists'), { code: 'EEXIST' });
-      throw error;
+    mkdirSync(pathname) {
+      if (lockExists) {
+        const error = Object.assign(new Error('exists'), { code: 'EEXIST' });
+        throw error;
+      }
+      assert.equal(pathname, lock);
+      lockExists = true;
     },
-    unlinkSync() {
-      unlinked = true;
+    writeFileSync(pathname, data, options) {
+      assert.equal(pathname, lease);
+      assert.equal(options.flag, 'wx');
+      contents = data;
+    },
+    lstatSync(pathname) {
+      assert.equal(pathname, lock);
+      return { isDirectory: () => true };
+    },
+    readFileSync(pathname) {
+      assert.equal(pathname, lease);
+      return contents;
+    },
+    unlinkSync(pathname) {
+      if (pathname === lock) removedPublicLockWithUnlink = true;
+      assert.equal(pathname, lease);
       contents = null;
     },
+    rmdirSync(pathname) {
+      assert.equal(pathname, lock);
+      // Deterministic interleaving: while recovery is about to retire the
+      // stale lease, another writer tries to acquire. mkdir must still see the
+      // directory as held; it can only win after this atomic rmdir completes.
+      assert.throws(() => fsImpl.mkdirSync(lock), /exists/);
+      contenderSawHeldLock = true;
+      lockExists = false;
+      // Once rmdir has atomically retired the stale directory, a different
+      // writer may acquire before the recovering writer retries. Its lease
+      // must survive that retry unchanged.
+      fsImpl.mkdirSync(lock);
+      fsImpl.writeFileSync(lease, newOwner, { flag: 'wx' });
+    },
   };
-  assert.equal(acquireLock(lock, fsImpl), null);
-  assert.equal(unlinked, false);
-  assert.equal(contents, 'new-owner');
+  const token = acquireLock(lock, fsImpl);
+  assert.equal(contenderSawHeldLock, true);
+  assert.equal(removedPublicLockWithUnlink, false);
+  assert.equal(token, null);
+  assert.equal(lockExists, true);
+  assert.equal(contents, newOwner);
 });
 
 test('writeFileAtomic: old lock owned by a live writer is never reclaimed', () => {

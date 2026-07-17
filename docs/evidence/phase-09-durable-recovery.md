@@ -26,9 +26,9 @@ stat -f '%Lp' "$EVIDENCE_XDG/askuserquestionspro/rounds/<opaque-round>.json"
 The focused suites cover normal atomic write/reload behavior, deterministic
 injection of open, write, file-sync, close, rename, and directory-creation
 failures while preserving an existing healthy snapshot and cleaning temporary
-and lock artifacts. They also cover crash-created dead-lock recovery by an
-inode-linked, PID-checked claim, fail-closed live/uncertain lock ownership, and a
-deterministic contender interleaving that leaves a newly acquired lock intact,
+and lock artifacts. They also cover crash-created dead-lock recovery with an
+atomically retired directory lease, fail-closed live/uncertain lock ownership, and a
+deterministic contender interleaving that proves a newly acquired lease remains intact,
 individual corrupt-sibling quarantine, startup expiry cleanup, existing
 directory permission tightening, exact selection, immutable result replay,
 an aborted immediate draft request followed by reload/replay (with the local

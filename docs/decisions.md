@@ -68,8 +68,9 @@ corrupt named record is quarantined individually without hiding valid siblings.
 Browser draft delivery keeps a non-authoritative local mirror keyed by round,
 capability, and expected revision until the matching server acknowledgement; it
 replays a rejected or teardown-aborted request without bypassing revision or
-capability checks. Atomic writers recover only a confirmed-dead owner after an
-inode-linked lock claim; malformed, live, or uncertain locks fail closed.
+capability checks. Atomic writers use a directory lease: recovery removes only
+a confirmed-dead owner's private lease entry, then atomically retires the empty
+directory. Malformed, legacy file, live, or uncertain locks fail closed.
 
 The initial expiry for recoverable rounds and finalized-result replay is the
 resolved detached-round TTL: a valid `ASKUSER_DETACHED_ROUND_TTL_MS`, otherwise
