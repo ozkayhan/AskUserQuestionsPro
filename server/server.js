@@ -3,6 +3,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Bridge, DEFAULT_DETACHED_TTL_MS, terminalReason } = require('./bridge.js');
+const { RoundStore } = require('../lib/round-store.cjs');
 const APP_ID = require('../lib/app-id.cjs');
 const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
@@ -16,6 +17,7 @@ const bridge = new Bridge({
   detachedTtlMs: Number.isFinite(configuredDetachedTtl)
     ? configuredDetachedTtl
     : DEFAULT_DETACHED_TTL_MS,
+  store: new RoundStore(),
 });
 const sseClients = new Set();
 const MIME = {
