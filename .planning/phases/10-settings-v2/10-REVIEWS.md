@@ -1,6 +1,6 @@
 ---
 phase: 10-settings-v2
-cycle: 2
+cycle: 3
 reviewed: 2026-07-17T00:00:00Z
 depth: deep
 source_grounding: grep-and-line-trace
@@ -33,8 +33,8 @@ files_reviewed_list:
   - test/server.test.js
 findings:
   high: 2
-  actionable_non_high: 7
-  total: 9
+  actionable_non_high: 5
+  total: 7
 status: issues_found
 ---
 
@@ -406,3 +406,83 @@ The following references are intentionally not source-verified because they are 
 _Reviewed: 2026-07-17T00:00:00Z_
 _Reviewer: Codex cross-AI plan reviewer_
 _Cycle: 2_
+
+## Cycle 3 — Final committed-plan audit
+
+### Disposition of prior findings
+
+| Finding | Cycle 3 disposition | Audit basis |
+|---|---|---|
+| H-01 | **REMAINS HIGH** | The plans now enumerate the v2 marker, namespaces, legacy key mapping, and field types/defaults, but still do not provide the literal per-field metadata and exact nested envelope needed for a normative shared contract. “Every matrix entry declares…” is an implementation instruction, not the matrix data that 10-02 and 10-03 can consume without interpretation. |
+| H-02 | **REMAINS HIGH** | Plan 10-03 names the runtime files and groups all SET-03 values, but adapter false-value behavior, diagnostics enablement/projection, delivery retry/ack semantics, and closure fallback are not exact contracts. The planned regression list does not include a Claude hook test, although the action claims both hook and MCP adapter behavior. |
+| H-03 | **RESOLVED IN PLAN** | The modal-open Flow gate, active-round shortcut cases, local dialog keys, and mounted/harness coverage are explicitly included in 10-03. |
+| H-04 | **RESOLVED IN PLAN** | 10-01 defines status-bearing inspect/load and invalid/future byte preservation; 10-02 routes HTTP/CLI operations through the shared CAS boundary and requires preservation tests. |
+| M-01 | **RESOLVED IN PLAN** | `_v:2`, exact legacy flat-key mappings, user/environment/default precedence, ignored-unknown policy, four fixtures, and idempotence tests are now named directly in 10-01. |
+| M-02 | **REMAINS ACTIONABLE** | The route/method/status/header outline is present, but the response envelopes, preview TTL, body/structural limits, apply payload-vs-preview rule, and exact stale/repeated/expired error codes are still left to implementation. |
+| M-03 | **RESOLVED IN PLAN** | 10-02 now specifies `settings import-preview <file|->`, non-mutating behavior, output/exit-code coverage, help text, and isolated spawn tests. |
+| M-04 | **REMAINS ACTIONABLE** | A browser test and evidence path are named, but the harness is conditional on an unspecified “available browser automation protocol” and otherwise falls back to manual evidence; no exact Node 18-compatible runner, browser discovery/launch, URL/fixture protocol, assertion record, or pass/fail gate is defined. |
+| M-05 | **REMAINS ACTIONABLE** | Backup ordering, reuse, collision failure, and injected operation names are improved, but retention/cleanup bounds, permission mode, directory-sync policy on unsupported platforms, and the failure-order matrix remain unspecified. |
+| M-06 | **REMAINS ACTIONABLE** | The frontmatter union is corrected, but Task 2 of 10-03 says it edits `web/app.js` for autosave while its `<files>` list omits `web/app.js`; its “hook/MCP” action has only MCP regression coverage listed. |
+| M-07 | **RESOLVED IN PLAN** | 10-02 explicitly requires revision-aware effective reads, CLI-write visibility, stale-baseline rejection, and live-server tests; 10-03 carries the same loader requirement into runtime consumers. |
+| M-08 | **REMAINS ACTIONABLE** | Bounds and redaction are repeatedly required, but no numeric body/field/depth/ignored-entry limits, truncation envelope, diagnostic path policy, or per-field sensitive/export flags are normative and testable in the plans. |
+
+### Current HIGH concerns
+
+#### H-01 — The v2 settings contract is still not a literal normative matrix
+
+**Evidence:** `10-01-PLAN.md:64-69` now gives `_v:2`, seven namespace names, legacy key destinations, and types/defaults for the new fields. However, the same task only says that “every matrix entry declares importable/exportable/sensitive, effect, and owner”; it does not enumerate those values per key or show the exact serialized nested envelope. The current source remains a flat 17-key schema and validator (`web/settings-schema.js:37-356`), while the existing persistence contract is flat `_v:1` (`lib/settings.js:16-47`).
+
+**Impact:** An executor can still choose different `importable`, `exportable`, `sensitive`, effect, owner, namespace-reset, and effective-output semantics while satisfying the prose. That leaves SET-01/SET-03, export/reset/doctor, and schema-driven UI consumers without a single byte-level contract. It also prevents a reviewer from checking that every preserved legacy field and every new field appears exactly once in the v2 envelope.
+
+**Required plan change:** Put a literal table or checked-in contract artifact in the plan scope with one row per key: exact nested JSON path, type/options/bounds, default, import/export/sensitive flags, effect, owner, namespace reset value, and redaction rule. Include a complete `_v:2` example consumed by the fixture, HTTP, CLI, and UI tasks, plus exact-key and namespace-membership assertions.
+
+#### H-02 — SET-03 runtime and adapter behavior is named but not executable end to end
+
+**Evidence:** The current consumers have no settings integration: `lib/bridge-client.mjs:99-112` reads only `ASKUSER_OPEN_BROWSER`; `server/server.js:15-27` constructs `Bridge` from `ASKUSER_DETACHED_ROUND_TTL_MS`; `server/server.js:146-155` caches settings without external revision detection; `lib/round-lifecycle.cjs:46-99` emits a fixed redacted payload; `web/live.js` has fixed transport timeouts; and the hook/MCP entry points call `openBrowser()` directly (`hooks/askuserquestionspro-bridge.mjs:96-109`, `mcp-server/askuserquestionspro-mcp.mjs:232-286`). Plan 10-03:85-89 names these files and groups the fields, but does not define what `adapters.*Enabled=false` does for each host, how diagnostics settings alter the logger while preserving redaction, what `delivery.mode` means for retry/ack states, or the exact closure fallback when acknowledgement is uncertain. Its listed tests include `test/mcp-server.test.js` but no hook adapter regression test.
+
+**Impact:** Values can still be persisted and displayed while behavior differs between the Claude hook, MCP adapter, server, and browser. In particular, an executor can implement adapter booleans as no-ops, change host fallback behavior, or close/retry on an ambiguous delivery outcome without violating the broad task wording. This is a direct failure risk for the roadmap’s configure-the-experience goal and SET-03’s supported-client promise.
+
+**Required plan change:** Add a per-field consumer matrix with exact user/environment/code precedence and false/disabled semantics. Define the delivery state/retry/ack and closure state machine, the diagnostics projection and path policy, and the Claude-hook fallback plus MCP error behavior. Add an isolated hook regression test alongside MCP coverage and assert every field’s effective value at its actual consumer seam.
+
+### Current actionable non-HIGH
+
+#### M-02 — HTTP preview/apply contract is still incomplete
+
+`10-02-PLAN.md:53-60` names routes, broad payloads, status classes, and export headers, but “documented preview envelope,” “preview lifetime,” “body limit,” and “exact methods, payloads, statuses, headers, error envelope” are references to work the executor must invent. It does not define the preview TTL, whether apply must match the original payload as well as `baselineRevision`, or stable machine-readable codes/fields for stale, repeated, expired, restarted, invalid, and future cases. Add the endpoint matrix with JSON request/response examples, numeric limits/TTL, compare-and-swap rule, and exact error codes, then test each case.
+
+#### M-04 — Browser verification remains conditional and non-reproducible
+
+`10-03-PLAN.md:77-79` asks for `node:test` plus CDP “when a browser is available,” with manual fallback, but `package.json` has no browser runner or CDP dependency and Node 18 does not supply a specified browser automation protocol. The plan gives no browser executable discovery rule, launch flags, served URL, fixture setup, event/focus assertion format, or rule determining whether a manual fallback is sufficient for the done criterion. Define the exact dependency-free harness protocol (or narrow the automated claim), deterministic fixtures and scenarios, and a committed pass/fail evidence format covering the UI-SPEC checklist.
+
+#### M-05 — Backup durability and platform policy still lack exact decisions
+
+`10-01-PLAN.md:78-85` says backups are private, source-revision-named, reusable on matching bytes, collision-safe, durably copied, and subject to bounded cleanup, but it does not specify the permission mode, cleanup trigger/count/age, collision error code, or the required behavior when directory sync is unavailable. Enumerate the order and outcome for copy, chmod, file flush, rename, and directory-sync failures on macOS/Linux/Windows-compatible paths, and add the exact backup-count, mode, collision, and original-byte assertions.
+
+#### M-06 — One task-level manifest still omits an authorized file
+
+The phase-level `files_modified` union includes `web/app.js`, but Task 2 in `10-03-PLAN.md:81-89` explicitly says it wires autosave in `web/draft-writer.js` and `web/app.js` while its `<files>` element at line 83 omits `web/app.js`. The same action promises Claude-hook behavior but lists only MCP adapter tests. Put `web/app.js` in Task 2’s manifest (or move the action to Task 1) and add the hook test/file to the task that owns adapter wiring.
+
+#### M-08 — Data bounds and redaction policy are still prose-only
+
+`10-01-PLAN.md:65-69,78-83` and `10-02-PLAN.md:58,66-70` require bounded input, ignored-data truncation, diagnostic path redaction, and non-sensitive output, but give no numeric limits or exact result fields. “Path values are never echoed” also does not state whether paths are omitted, basename-redacted, or represented by a fixed marker, and no per-field export/sensitivity values are supplied for `diagnostics.includePaths`. Define constants, truncation metadata, redaction outputs, and shared preview/export/doctor/UI assertions so a large or sensitive import cannot be reflected back through any surface.
+
+### Cycle 3 source-grounding and verification
+
+- Re-read `.planning/ROADMAP.md:69-90`, `.planning/REQUIREMENTS.md:28-35`, `10-CONTEXT.md`, and `10-UI-SPEC.md`.
+- Audited committed `10-01-PLAN.md`, `10-02-PLAN.md`, and `10-03-PLAN.md` at `8f06e14`; no implementation code or plan files were changed by this review.
+- Re-grounded current symbols against `web/settings-schema.js`, `lib/settings.js`, `lib/atomic-write.cjs`, `server/server.js`, `server/bridge.js`, `lib/round-lifecycle.cjs`, `lib/bridge-client.mjs`, `web/app.js`, `web/live.js`, `web/draft-writer.js`, both host entry points, CLI dispatch, and current tests.
+- Passed focused baseline: `node --test test/settings-schema.test.js test/settings.test.js test/settings-panel.test.js test/server.test.js test/cli.test.js` — 141 passed, 0 failed.
+- Confirmed the unrelated pre-existing `.planning/config.json` modification and untracked `.planning/MILESTONES.md` remain outside the review commit.
+
+### Verification coverage
+
+The following references are intentionally not source-verified because they are new artifacts or require a browser/runtime harness:
+
+- `.planning/phases/10-settings-v2/10-01-SUMMARY.md`, `10-02-SUMMARY.md`, and `10-03-SUMMARY.md` — declared phase outputs, not existing source.
+- `test/fixtures/settings-*.json`, `test/browser-settings.test.js`, `test/runtime-settings.test.js`, and `test/frontend-settings-evidence.md` — declared new artifacts.
+- Proposed `Settings.inspect/load`, CAS/preview/apply/reset APIs, v2 metadata, runtime loader, adapter settings gates, and delivery/closure state machine — new symbols the plans claim to create.
+- Focus containment, screen-reader announcements, browser file picker/download behavior, CDP interaction, and `window.close`/durable-ack sequencing — behavior requiring the explicitly defined browser/runtime harness.
+
+_Reviewed: 2026-07-17T00:00:00Z_
+_Reviewer: Codex cross-AI plan reviewer_
+_Cycle: 3_
