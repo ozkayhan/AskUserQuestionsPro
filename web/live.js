@@ -15,7 +15,7 @@ function reconnectDelay(attempt) {
 
 // SSE ile bekleyen turu canlı al: { id, questions } (questions null = bekliyor).
 function useLiveQuestions() {
-  const [round, setRound] = useStateLive({ id: null, questions: null });
+  const [round, setRound] = useStateLive({ id: null, questions: null, capability: null, lifecycle: null });
   const timerRef = useRefLive(null);
   useEffectLive(() => {
     let es;
@@ -40,10 +40,10 @@ function useLiveQuestions() {
           console.warn('[live] SSE parse edilemedi:', err.message);
           return;
         }
-        const next = { id: d.id ?? null, questions: d.questions ?? null };
+        const next = { id: d.id ?? null, questions: d.questions ?? null, capability: d.capability ?? null, lifecycle: d.lifecycle ?? null };
         // Round id state boundary'sidir: reconnect aynı round'u yeniden yayınlasa da
         // Flow içindeki cevaplar korunur; yeni id React key ile temiz remount eder.
-        setRound((prev) => (prev.id === next.id ? prev : next));
+        setRound((prev) => (prev.id === next.id ? { ...prev, ...next } : next));
       };
       source.onerror = () => {
         if (closed || currentGeneration !== generation) return;
@@ -82,14 +82,14 @@ async function responseError(path, response) {
 // Eşlenmiş cevapları köprüye gönder; başarısızlıkta THROW eder (UI kurtarsın).
 // Ağ hatası (TypeError/abort) ile sunucu hatası (HTTP !ok) çağıran tarafça ayrılabilsin
 // diye HTTP hatasında err.server=true işaretlenir. 10s timeout sonsuz askıyı keser.
-async function postAnswers(id, answers) {
+async function postAnswers(id, answers, capability) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
   try {
     const r = await fetch('/answer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, answers }), // Contract R: body {id,answers}
+      body: JSON.stringify({ id, answers, capability }),
       signal: ctrl.signal,
     });
     if (!r.ok) {
@@ -103,14 +103,14 @@ async function postAnswers(id, answers) {
   }
 }
 
-async function cancelRound(id, reason = 'user cancelled') {
+async function cancelRound(id, reason = 'user cancelled', capability) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
   try {
     const r = await fetch('/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, reason }),
+      body: JSON.stringify({ id, reason, capability }),
       signal: ctrl.signal,
     });
     if (!r.ok) throw await responseError('/cancel', r);

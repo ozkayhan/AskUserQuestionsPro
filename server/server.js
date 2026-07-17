@@ -73,7 +73,8 @@ function validQuestions(q) {
 }
 
 function broadcastCurrent() {
-  const payload = JSON.stringify(bridge.peek() || { id: null, questions: null });
+  const current = bridge.peek();
+  const payload = JSON.stringify(current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() });
   for (const res of sseClients) {
     // res.write() hatayı çoğu Node yolunda ASENKRON 'error' ile yayar; senkron
     // try/catch ölü soketi yakalamaz. writable kontrolü deterministik guard'dır;
@@ -172,7 +173,8 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, app: APP_ID });
   if (req.method === 'GET' && url === '/current') {
     const requestId = new URL(req.url, 'http://127.0.0.1').searchParams.get('requestId');
-    return sendJson(res, 200, bridge.peek(requestId || undefined) || { id: null, questions: null });
+    const current = bridge.peek(requestId || undefined);
+    return sendJson(res, 200, current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() });
   }
 
   if (req.method === 'GET' && url === '/events') {
@@ -184,7 +186,8 @@ async function handleRequest(req, res) {
     // Önce ekle, sonra ilk snapshot'ı yaz: add-write penceresinde araya giren bir
     // broadcast'i kaçırmamak için (eklenme-yazma sırasına kırılgan değil).
     sseClients.add(res);
-    res.write(`data: ${JSON.stringify(bridge.peek() || { id: null, questions: null })}\n\n`);
+    const current = bridge.peek();
+    res.write(`data: ${JSON.stringify(current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() })}\n\n`);
     // 25 sn'de bir yorum-ping: bağlantı/proxy timeout'una karşı keepalive.
     const ping = setInterval(() => {
       if (!res.writable) {
@@ -317,9 +320,9 @@ async function handleRequest(req, res) {
     } catch {
       return sendJson(res, 400, { error: 'read error' });
     }
-    let id, answers;
+    let id, answers, capability;
     try {
-      ({ id, answers } = JSON.parse(body));
+      ({ id, answers, capability } = JSON.parse(body));
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
@@ -327,10 +330,10 @@ async function handleRequest(req, res) {
     if (!answers || typeof answers !== 'object' || Array.isArray(answers))
       return sendJson(res, 400, { error: 'invalid answers' });
     // Contract R: id eşleşen pending turu resolve eder; eşleşmezse (stale/yok) 409.
-    if (!bridge.provideAnswers(id, answers)) {
+    if (typeof capability !== 'string' || !bridge.provideAnswers(id, answers, capability)) {
       return sendJson(res, 409, {
         error: 'no matching pending question set',
-        reason: 'stale_round',
+        reason: 'ownership_conflict',
       });
     }
     broadcastCurrent();
@@ -344,16 +347,17 @@ async function handleRequest(req, res) {
     } catch {
       return sendJson(res, 400, { error: 'read error' });
     }
-    let id;
+    let id, capability;
     let reason = 'user cancelled';
     try {
       const payload = JSON.parse(body);
       id = payload.id;
+      capability = payload.capability;
       if (payload.reason !== undefined) reason = payload.reason;
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
-    if (!Number.isInteger(id) || id < 1 || typeof reason !== 'string') {
+    if (!Number.isInteger(id) || id < 1 || typeof reason !== 'string' || typeof capability !== 'string') {
       return sendJson(res, 400, { error: 'invalid cancel request' });
     }
     const knownReason = new Set([
@@ -365,10 +369,10 @@ async function handleRequest(req, res) {
     if (!knownReason.has(reason)) {
       return sendJson(res, 400, { error: 'invalid cancel reason' });
     }
-    if (!bridge.cancel(reason, id)) {
+    if (!bridge.cancel(reason, id, capability)) {
       return sendJson(res, 409, {
         error: 'no matching pending question set',
-        reason: 'stale_round',
+        reason: 'ownership_conflict',
       });
     }
     broadcastCurrent();

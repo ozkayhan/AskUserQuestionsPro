@@ -28,6 +28,9 @@ test.after(async () => {
 // --- yardımcılar ---
 
 function post(url, obj, opts = {}) {
+  if ((url === '/answer' || url === '/cancel') && obj && typeof obj === 'object' && obj.id != null) {
+    obj = { ...obj, capability: obj.capability || bridge.peek()?.capability || 'missing-capability' };
+  }
   return fetch(`${base}${url}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -111,7 +114,7 @@ test('/current requestId ile yalnizca ilgili pending turunu gosterir', async () 
   const cur = await waitForPending();
 
   const unrelated = await fetch(`${base}/current?requestId=request-owner-b`);
-  assert.deepStrictEqual(await unrelated.json(), { id: null, questions: null });
+  assert.deepStrictEqual(await unrelated.json(), { id: null, questions: null, lifecycle: bridge.getSnapshot() });
   const owned = await fetch(`${base}/current?requestId=${requestId}`);
   assert.deepStrictEqual(await owned.json(), cur);
 
@@ -135,7 +138,9 @@ test('requestId li /ask host soketi kapaninca round korunur ve /resume cevap ver
   await new Promise((resolve) => setTimeout(resolve, 25));
 
   const retained = await fetch(`${base}/current?requestId=${requestId}`);
-  assert.deepStrictEqual(await retained.json(), current);
+  const retainedRound = await retained.json();
+  assert.equal(retainedRound.id, current.id);
+  assert.equal(retainedRound.lifecycle.state, 'detached');
 
   const resumed = post('/resume', {});
   await post('/answer', { id: current.id, answers: { 'RESUME?': 'A' } });
@@ -187,7 +192,7 @@ test('/cancel stale id -> 409 ve active round korunur', async () => {
   const current = await waitForPending();
   const stale = await post('/cancel', { id: current.id + 999, reason: 'user cancelled' });
   assert.strictEqual(stale.status, 409);
-  assert.strictEqual((await stale.json()).reason, 'stale_round');
+  assert.strictEqual((await stale.json()).reason, 'ownership_conflict');
   assert.strictEqual((await (await fetch(`${base}/current`)).json()).id, current.id);
   await post('/answer', { id: current.id, answers: { 'KEEP?': 'A' } });
   await askPromise;

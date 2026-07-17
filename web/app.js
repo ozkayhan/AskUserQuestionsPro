@@ -5,7 +5,7 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 function App() {
-  const { id, questions } = useLiveQuestions();
+  const { id, questions, capability } = useLiveQuestions();
   const roundId = id;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -16,7 +16,7 @@ function App() {
       </div>
     ) : (
       // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
-      <Flow questions={questions} roundId={roundId} key={id == null ? 'q' : 'round-' + id} />
+      <Flow questions={questions} roundId={roundId} capability={capability} key={id == null ? 'q' : 'round-' + id} />
     );
 
   return (
@@ -28,7 +28,7 @@ function App() {
   );
 }
 
-function Flow({ questions, roundId }) {
+function Flow({ questions, roundId, capability }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
 
@@ -289,7 +289,7 @@ function Flow({ questions, roundId }) {
     setSendError(null);
     setSubmitted(true);
     inflight.current = true;
-    postAnswers(roundId, mapped)
+    postAnswers(roundId, mapped, capability)
       .then(() => {
         inflight.current = false;
       })
@@ -302,7 +302,7 @@ function Flow({ questions, roundId }) {
           err && err.reason === 'stale_round' ? 'stale' : err && err.server ? 'server' : 'network'
         );
       });
-  }, [mappedAnswers, roundId]);
+  }, [capability, mappedAnswers, roundId]);
 
   useEffect(() => {
     const onKey = (e) => {
