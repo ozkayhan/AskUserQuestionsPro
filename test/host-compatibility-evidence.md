@@ -13,7 +13,7 @@ Generated from `test/host-compatibility-evidence.json`; validate with
 | kiro | Kiro | Researching | unavailable | official-doc | verify governance and scopes |
 | kilo-code | Kilo Code | Researching | unavailable | source-gap | obtain authoritative source |
 | qwen-code | Qwen Code | Researching | unavailable | official-doc | verify installed lifecycle |
-| opencode | OpenCode | Researching | 1.15.12 | installed-unverified | authenticated conformance required |
+| opencode | OpenCode | Researching | 1.15.12 | official-doc+installed-unverified | authenticated conformance required |
 | roo-code | Roo Code | Researching | unavailable | official-doc | native extension run required |
 | windsurf | Windsurf | Researching | unavailable | source-gap | obtain vendor source |
 | aider | Aider | Unsupported | unavailable | official-doc-no-safe-surface | no safe integration proven |

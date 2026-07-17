@@ -1,4 +1,7 @@
 # Aider
+- Evidence date: 2026-07-17
+- Version: unavailable
+- Evidence class: official-doc-no-safe-surface
 - Transport: No proven safe MCP host surface
 - Timeout/deadline owner: Unavailable
 - Cancellation/disconnect: Unavailable

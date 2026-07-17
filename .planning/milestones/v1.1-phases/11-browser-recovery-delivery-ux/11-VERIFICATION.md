@@ -1,6 +1,6 @@
 ---
 phase: 11-browser-recovery-delivery-ux
-verified: 2026-07-17T20:05:00+03:00
+verified: 2026-07-17T21:40:00+03:00
 status: passed
 score: 5/5 must-haves implemented; browser-only behavior documented
 behavior_unverified: 2
@@ -76,6 +76,8 @@ human_verification:
 | `DeliveryPanel` | `deliveryState` | Submit/ack transition state | Yes | ✓ FLOWING |
 
 ## Behavioral Spot-Checks
+
+Re-verification also includes the exact-round browser recovery transport regression: `selectRecoveryRound({ roundId })` posts to `/resume` with the selector in the JSON body, matching the server route contract. The focused live suite and full workspace suite pass.
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|

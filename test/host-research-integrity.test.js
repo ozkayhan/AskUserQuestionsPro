@@ -7,8 +7,10 @@ const ledger = require('./host-compatibility-evidence.json');
 test('candidate research has a record, dated source state, and next gate', () => {
   const dir = path.join(__dirname, '..', 'docs', 'host-research');
   const readme = fs.readFileSync(path.join(dir, 'README.md'), 'utf8');
+  const records = fs.readFileSync(path.join(dir, 'candidates.md'), 'utf8');
   assert.match(readme, /temporary `HOME`/); assert.match(readme, /never\ninstalls candidate hosts/);
   for (const h of ledger.hosts) {
+    assert.match(records, new RegExp('`' + h.id + '`'));
     assert.ok(h.status === 'Researching' || h.status === 'Unsupported');
     assert.ok(h.nextGate && h.nextGate.length > 10);
     if (h.evidenceClass.includes('official-doc')) assert.ok(h.sources.length, `${h.id} source missing`);

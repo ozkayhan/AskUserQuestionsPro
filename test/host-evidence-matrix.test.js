@@ -7,11 +7,12 @@ const ledger = require('./host-compatibility-evidence.json');
 const required = ['cursor','github-copilot-cli','gemini-cli','amazon-q-developer','cline','kiro','kilo-code','qwen-code','opencode','roo-code','windsurf','aider'];
 const allowed = new Set(['Supported','Experimental','Researching','Unsupported']);
 const installed = new Set(['installed','installed-unverified','official-doc+installed-unverified','authenticated','manual']);
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 test('ledger has one dated row per named host and required fields', () => {
   assert.equal(ledger.hosts.length, required.length);
   assert.deepEqual(ledger.hosts.map((h) => h.id), required);
   for (const h of ledger.hosts) {
-    assert.ok(allowed.has(h.status)); assert.match(h.evidenceDate || ledger.evidenceDate, /^2026-07-17$/);
+    assert.ok(allowed.has(h.status)); assert.match(ledger.evidenceDates?.[h.id], /^2026-07-17$/);
     for (const key of ['name','sources','transport','version','scenarios','nextGate','evidenceClass']) assert.ok(h[key] !== undefined, `${h.id}/${key}`);
     assert.ok(typeof (h.limitations || h.limitation) === 'string' && (h.limitations || h.limitation).length);
     for (const url of h.sources) assert.match(url, /^https:\/\//);
@@ -29,5 +30,39 @@ test('ledger is redacted and matrix/cards map one-to-one', () => {
   const raw = fs.readFileSync(path.join(__dirname, 'host-compatibility-evidence.json'), 'utf8');
   assert.doesNotMatch(raw, /synthetic-(question|answer)|password|secret|token\s*[:=]|\/Users\/oka|\/home\/[^/\s"']+/i);
   const matrix = fs.readFileSync(path.join(__dirname, 'host-compatibility-evidence.md'), 'utf8');
-  for (const h of ledger.hosts) { assert.equal((matrix.match(new RegExp(`\\| ${h.id} \\|`, 'g')) || []).length, 1); assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'host-capability-cards', `${h.id}.md`))); }
+  const cardsDir = path.join(__dirname, '..', 'docs', 'host-capability-cards');
+  for (const h of ledger.hosts) {
+    const row = matrix.split('\n').find((line) => line.startsWith(`| ${h.id} |`));
+    assert.ok(row, `${h.id} matrix row missing`);
+    assert.match(row, new RegExp(`\\| ${escapeRegExp(h.id)} \\| ${escapeRegExp(h.name)} \\| ${escapeRegExp(h.status)} \\| ${escapeRegExp(h.version)} \\| ${escapeRegExp(h.evidenceClass)} \\|`));
+    const cardPath = path.join(cardsDir, `${h.id}.md`);
+    assert.ok(fs.existsSync(cardPath));
+    const card = fs.readFileSync(cardPath, 'utf8');
+    assert.ok(card.includes('Evidence state: `' + h.status + '`'), `${h.id} card status drift`);
+    assert.match(card, new RegExp(`Evidence date: ${ledger.evidenceDates[h.id]}`));
+    assert.match(card, new RegExp(`Version: ${escapeRegExp(h.version)}`));
+    assert.match(card, new RegExp(`Evidence class: ${escapeRegExp(h.evidenceClass)}`));
+    assert.match(card, /Transport:/); assert.match(card, /Configuration:/); assert.match(card, /Limitations:/);
+  }
+});
+
+test('published evidence corpus is redacted', () => {
+  const roots = [
+    path.join(__dirname, '..', 'docs', 'host-capability-cards'),
+    path.join(__dirname, '..', 'docs', 'host-research'),
+    path.join(__dirname, '..', 'docs', 'evidence'),
+    path.join(__dirname, 'host-compatibility-evidence.md'),
+    path.join(__dirname, 'tier1-acceptance-evidence.md'),
+  ];
+  const files = [];
+  const visit = (entry) => {
+    if (!fs.existsSync(entry)) return;
+    if (fs.statSync(entry).isDirectory()) for (const child of fs.readdirSync(entry)) visit(path.join(entry, child));
+    else files.push(entry);
+  };
+  roots.forEach(visit);
+  for (const file of files) {
+    const raw = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(raw, /synthetic-(question|answer)|password|secret|token\s*[:=]|(?:^|[\s(])(?:\/Users\/oka|\/home\/[^\/\s]+)/i, file);
+  }
 });

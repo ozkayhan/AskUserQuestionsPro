@@ -34,9 +34,30 @@ function runProcess(entryPoint, input, env = {}, timeoutMs = 5000) {
 }
 
 function redact(value) {
+  const allowed = new Set([
+    'event', 'adapter', 'requestId', 'roundId', 'elapsedMs', 'boundary',
+    'deadlineOwner', 'reason', 'state', 'status', 'code', 'signal',
+    'permissionDecision', 'permissionDecisionReason', 'hookEventName', 'suppressOutput',
+  ]);
+  const sanitize = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    return Object.fromEntries(Object.entries(value).filter(([key]) => allowed.has(key)));
+  };
   return value
-    .replace(/synthetic-question[^\s"']*/gi, '[redacted-question]')
-    .replace(/synthetic-answer[^\s"']*/gi, '[redacted-answer]');
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const prefix = line.startsWith('[askuser:lifecycle] ') ? '[askuser:lifecycle] ' : '';
+      const json = prefix ? line.slice(prefix.length) : line;
+      try {
+        const parsed = JSON.parse(json);
+        const safe = sanitize(parsed);
+        return safe && Object.keys(safe).length ? `${prefix}${JSON.stringify(safe)}` : '[redacted-output]';
+      } catch {
+        return '[redacted-output]';
+      }
+    })
+    .join('\n');
 }
 
 module.exports = { runProcess, redact };

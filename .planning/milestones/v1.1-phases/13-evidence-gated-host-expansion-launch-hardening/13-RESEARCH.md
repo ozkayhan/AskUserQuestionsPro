@@ -238,12 +238,12 @@ Known threat patterns: malicious or misconfigured MCP commands can execute with 
 | A2 | The project can maintain one shared JSON evidence schema without adding runtime dependencies. | Standard stack / architecture | Scope or tooling may need adjustment. |
 | A3 | Candidate host CLI and IDE products may expose materially different lifecycle semantics even when both support MCP. | Candidate table | Wrong adapter boundary could produce false support claims. |
 
-## Open Questions
+## Resolved planning decisions
 
-1. **Which exact product/channel/version is in scope for each host?** Official docs often cover both CLI and IDE/extension variants. Resolve by installing one version-pinned target per candidate before promotion.
-2. **Does each host preserve a pending stdio call across browser-long idle periods and transport loss?** Only a manual authenticated long-round run can answer this.
-3. **What are the native install/uninstall and trust-policy surfaces for Kilo Code and Windsurf?** Direct authoritative documentation and installed inspection are required.
-4. **Can native Windows verification be scheduled?** The current macOS environment cannot close QLT-01/QLT-03 for Windows.
+1. Product/channel/version is a required field of every future installed-host record; no CLI and IDE/extension evidence is merged. Until a version-pinned run exists, the candidate remains `Researching`.
+2. Pending-call survival, cancellation, restart recovery, replay, and acknowledgement are manual installed-host gates; MCP discovery or official configuration examples cannot answer them.
+3. Kilo Code and Windsurf stay `Researching` until direct authoritative documentation and an installed inspection identify safe config/trust surfaces. Aider stays `Unsupported` for this phase.
+4. Native Linux and Windows verification is a required external handoff. This macOS workspace records both as `Unavailable` and cannot promote QLT-01/QLT-03 without native runs; WSL/emulation does not count.
 
 ## Sources
 

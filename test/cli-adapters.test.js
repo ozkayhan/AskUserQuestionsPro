@@ -13,7 +13,18 @@ function isolated() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-cli-'));
   const codex = path.join(home, 'codex');
   fs.mkdirSync(codex);
-  return { home, codex, env: { ...process.env, HOME: home, CODEX_HOME: codex, PATH: '/usr/bin:/bin' } };
+  return {
+    home,
+    codex,
+    env: {
+      ...process.env,
+      HOME: home,
+      CODEX_HOME: codex,
+      PATH: '/usr/bin:/bin',
+      ASKUI_CLAUDE_BIN: path.join(home, 'missing-claude'),
+      ASKUI_CODEX_BIN: path.join(home, 'missing-codex'),
+    },
+  };
 }
 
 function run(args, env) {
@@ -47,7 +58,7 @@ test('Codex-only lifecycle does not create Claude hook and reports unavailable b
       ASKUI_CODEX_BIN: path.join(ctx.home, 'missing-codex'),
     });
     assert.equal(install.status, 1, 'missing Codex binary must not report live registration');
-    assert.equal(fs.existsSync(path.join(ctx.home, '.claude', 'settings.json')), false);
+    assert.equal(fs.existsSync(path.join(ctx.home, '.claude')), false);
     assert.ok(fs.existsSync(path.join(ctx.home, '.agents', 'skills', 'askpro', 'SKILL.md')));
     assert.match(`${install.stdout}${install.stderr}`, /komutu bulunamadı|elle kaydedin|MCP/);
     const remove = run(['uninstall', '--target', 'codex'], ctx.env);
@@ -56,4 +67,47 @@ test('Codex-only lifecycle does not create Claude hook and reports unavailable b
   } finally {
     fs.rmSync(ctx.home, { recursive: true, force: true });
   }
+});
+
+test('auto/all/doctor and repeated removal remain scoped in an isolated home', () => {
+  const ctx = isolated();
+  try {
+    const auto = run(['install', '--target', 'auto'], ctx.env);
+    assert.equal(auto.status, 0, 'auto treats missing host binaries as optional');
+    assert.ok(fs.existsSync(path.join(ctx.home, '.claude', 'skills', 'askpro', 'SKILL.md')));
+    const all = run(['install', '--target', 'all'], ctx.env);
+    assert.equal(all.status, 1);
+    assert.ok(fs.existsSync(path.join(ctx.home, '.agents', 'skills', 'askpro', 'SKILL.md')));
+    const doctor = run(['doctor', '--target', 'all'], ctx.env);
+    assert.notEqual(doctor.status, 0);
+    assert.match(`${doctor.stdout}${doctor.stderr}`, /Claude|Codex/);
+    const first = run(['uninstall', '--target', 'all'], ctx.env);
+    const second = run(['uninstall', '--target', 'all'], ctx.env);
+    assert.equal(first.status, 0);
+    assert.equal(second.status, 0);
+    const claudeSettings = path.join(ctx.home, '.claude', 'settings.json');
+    assert.equal(fs.existsSync(claudeSettings), true, 'uninstall preserves the host settings file');
+    assert.doesNotMatch(fs.readFileSync(claudeSettings, 'utf8'), /askuserquestionspro/);
+    assert.equal(fs.existsSync(path.join(ctx.home, '.agents', 'skills', 'askpro')), false);
+  } finally {
+    fs.rmSync(ctx.home, { recursive: true, force: true });
+  }
+});
+
+test('reinstall exposes the same scoped target contract without contacting a host', () => {
+  const help = spawnSync('bash', ['reinstall.sh', '--help'], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, PATH: '/usr/bin:/bin' },
+    encoding: 'utf8',
+  });
+  assert.equal(help.status, 0);
+  assert.match(help.stdout, /--target auto\|all\|claude\|codex/);
+
+  const invalid = spawnSync('bash', ['reinstall.sh', '--target', 'unknown'], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, PATH: '/usr/bin:/bin' },
+    encoding: 'utf8',
+  });
+  assert.equal(invalid.status, 2);
+  assert.match(`${invalid.stdout}${invalid.stderr}`, /Geçersiz target/);
 });

@@ -1,4 +1,7 @@
 # Qwen Code
+- Evidence date: 2026-07-17
+- Version: unavailable
+- Evidence class: official-doc
 - Transport: stdio, SSE, and Streamable HTTP documented
 - Timeout/deadline owner: Unverified
 - Cancellation/disconnect: Unverified

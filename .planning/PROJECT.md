@@ -4,9 +4,9 @@
 
 AskUserQuestionsPro is a local browser-based question interface that replaces cramped terminal prompts for AI coding agents and IDEs. Host adapters submit a question round to a single-user localhost bridge, the browser collects rich answers, and the result is returned to the originating host. The product is evolving from a reliable Claude Code/Codex integration into a durable, configurable, adapter-driven question platform that can be safely extended to new AI coding hosts.
 
-## Current Milestone: v1.1 Sprint 2
+## Latest Milestone: v1.1 Sprint 2 — shipped 2026-07-17
 
-**Goal:** Make the product feel complete and production-ready for a broad Product Hunt audience: no lost work during long rounds, a substantially more capable settings system, and a rigorously researched workflow for supporting every compatible AI coding IDE/agent.
+**Outcome:** The reliability, settings, browser recovery, adapter, host-evidence, and launch-hardening work shipped locally. Public support promotion remains evidence-gated where authenticated host or native OS evidence is unavailable.
 
 **Target features:**
 
@@ -19,7 +19,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 
 ## Current State
 
-Milestone v1.0.0 shipped on 2026-07-16 and is archived. Codex detach/resume, bridge ownership, browser recovery, packaging, and documentation contracts are implemented and verified. The current checkout passes 397 tests, lint, and formatting checks. A full authenticated Claude model-session acceptance run remains a manual follow-up because the local CLI was unauthenticated during verification.
+Milestone v1.0.0 shipped on 2026-07-16 and v1.1 shipped on 2026-07-17; both are archived. The v1.1 implementation passes 500 tests with 1 expected Playwright skip and 0 failures, plus package, audit, shell, release, and local browser evidence gates. The cross-phase audit found no critical blockers. Authenticated host runs, native Linux/Windows runs, some browser/AT scenarios, and local lint/format executables remain explicitly documented release evidence gaps; unsupported hosts are not promoted.
 
 ## Core Value
 
@@ -44,18 +44,22 @@ Users must be able to complete and safely deliver a long, multi-question round a
 - ✓ The runtime supports Node.js 18+, macOS/Linux/Windows host discovery, and zero production dependencies — existing
 - ✓ Lifecycle events can correlate round boundaries and terminal reasons without logging question/answer payloads — Phase 1
 - ✓ Automated coverage protects 15-question idle rounds and delayed stale-owner close behavior — Phase 1
+- ✓ Settings v2 provides validated persistence, migration, import/export/reset, doctor output, and accessible browser controls — Phase 10
 
-### Active
+### Validated in v1.1
 
-- [ ] Preserve every answer draft through browser refresh, reconnect, accidental closure, host disconnect, process restart, and resumable recovery within the supported retention window.
-- [ ] Ensure every boundary has explicit timeout/cancellation semantics; eliminate avoidable timeouts and provide safe recovery when an unavoidable host deadline exists.
-- [ ] Verify delivery end to end before marking a round complete or closing its browser tab.
-- [ ] Rebuild settings as a validated, extensible system with broad controls, durable persistence, migrations, reset/export/import behavior, and regression coverage.
-- [ ] Define an adapter contract and IDE-support workflow covering official documentation research, capability discovery, installation/manual verification, compatibility tests, security review, and release evidence.
-- [ ] Support every AI coding IDE/agent that can integrate safely with the local product, prioritizing the most widely used hosts discovered by research and explicitly documenting non-integrable hosts.
-- [ ] Make browser-launch selection, lifecycle UX, reconnect/recovery states, and post-submit tab cleanup configurable and reliable.
-- [ ] Preserve accessible question flows, supported platforms, Node.js 18+, localhost-only safety, zero runtime dependencies, and packaging compatibility unless a documented decision changes them.
-- [ ] Publish maintained documentation for settings, recovery, adapter onboarding, compatibility status, troubleshooting, and release verification.
+- ✓ Preserve every answer draft through browser refresh, reconnect, host disconnect, process restart, and exact resumable recovery — Phases 8–11.
+- ✓ Make timeout/cancellation ownership explicit and preserve recovery at unavoidable host deadlines — Phase 8.
+- ✓ Verify delivery before completion or browser closure through durable acknowledgement — Phase 11.
+- ✓ Define the adapter contract and evidence-gated onboarding workflow — Phase 12.
+- ✓ Evaluate relevant hosts without unverified support claims and document unsupported states — Phase 13.
+- ✓ Make browser launch, lifecycle UX, reconnect/recovery, and post-submit behavior configurable — Phases 10–11.
+- ✓ Preserve accessibility, Node.js 18+, localhost-only safety, zero production dependencies, and packaging compatibility — Phases 8–13.
+- ✓ Publish maintained settings, recovery, adapter, compatibility, troubleshooting, privacy, and release documentation — Phases 10–13.
+
+### Next Milestone Goals
+
+No next milestone is defined yet. Before promoting additional hosts or claiming cross-platform support, consume the archived evidence handoff for authenticated Claude/Codex runs, native Linux/Windows runs, and the remaining browser/AT scenarios.
 
 ### Out of Scope
 
@@ -98,7 +102,7 @@ Users must be able to complete and safely deliver a long, multi-question round a
 | Retain the local single-user, zero-runtime-dependency architecture by default | These are established product constraints and should only change with explicit evidence       | — Pending |
 | Treat host integrations as capability adapters with evidence gates            | Different AI coding hosts expose different lifecycle, transport, and installation contracts  | — Pending |
 | Prefer durable local recovery over optimistic timeout removal                  | A host or OS boundary can remain outside the bridge’s control; user work must still survive   | — Pending |
-| Make settings schema/versioning a public contract                              | A larger user base makes silent reset or migration failure unacceptable                       | — Pending |
+| Make settings schema/versioning a public contract                              | A larger user base makes silent reset or migration failure unacceptable                       | ✓ Good    |
 
 ## Evolution
 
@@ -121,4 +125,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-07-17 after v1.1 Sprint 2 scope approval_
+_Last updated: 2026-07-17 after Phase 10 completion_

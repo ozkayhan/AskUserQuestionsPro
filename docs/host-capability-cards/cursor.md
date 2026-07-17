@@ -1,4 +1,7 @@
 # Cursor
+- Evidence date: 2026-07-17
+- Version: unavailable
+- Evidence class: official-doc
 - Transport: documented MCP transports; lifecycle unverified
 - Timeout/deadline owner: Unavailable
 - Cancellation/disconnect: Unavailable
