@@ -22,9 +22,9 @@ function currentSettings() {
 }
 
 /* Sol-alt sabit ayar (dişli) butonu — her ekranda görünür. */
-function SettingsButton({ onOpen }) {
+function SettingsButton({ onOpen, buttonRef }) {
   return (
-    <button className="settings-fab" onClick={onOpen} title="Settings" aria-label="Settings">
+    <button ref={buttonRef} className="settings-fab" onClick={onOpen} title="Settings" aria-label="Settings">
       <svg
         viewBox="0 0 24 24"
         width="18"
@@ -46,7 +46,11 @@ function SettingsButton({ onOpen }) {
 function SettingRow({ entry, value, onChange }) {
   return (
     <div className="setting-row">
-      <div className="setting-row__label">{entry.label}</div>
+      <div className="setting-row__copy">
+        <div className="setting-row__label">{entry.label}</div>
+        <div className="setting-row__description">Configure {entry.label.toLowerCase()} for this round.</div>
+        <div className="setting-row__effect">Current value: <strong>{String(value)}</strong> · Applies {entry.applies === 'reload' ? 'after reload' : 'now'}</div>
+      </div>
       {entry.type === 'toggle' ? (
         <button
           className="setting-toggle"
@@ -90,6 +94,8 @@ function SettingsModal({ onClose }) {
   const [isSaving, setIsSaving] = useStateSet(false);
   // AbortController ref for in-flight save fetch; aborted on unmount.
   const abortRef = useRefSet(null);
+  const dialogRef = useRefSet(null);
+  const closeRef = useRefSet(null);
 
   // Esc ile kapat (cancel = revert) — blocked while saving.
   useEffectSet(() => {
@@ -97,16 +103,23 @@ function SettingsModal({ onClose }) {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        cancel();
+        if (!isSaving) cancel();
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const items = [...dialogRef.current.querySelectorAll('button:not([disabled]), input, select, textarea')];
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     };
     window.addEventListener('keydown', onKey, true);
+    closeRef.current?.focus();
     return () => {
       window.removeEventListener('keydown', onKey, true);
-      // Abort any in-flight save fetch on unmount.
       if (abortRef.current) abortRef.current.abort();
     };
-  }, []);
+  }, [isSaving]);
 
   function change(key, value) {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -177,10 +190,10 @@ function SettingsModal({ onClose }) {
         if (e.target === e.currentTarget) cancel();
       }}
     >
-      <div className="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description">
+      <div ref={dialogRef} className="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description">
         <h2 id="settings-title" className="sr-only">Settings</h2>
         <p id="settings-description" className="sr-only">Review and save your AskUserQuestionsPro settings.</p>
-        <div className="settings__chip">Settings</div>
+        <div className="settings__head"><div className="settings__chip">Settings</div><button ref={closeRef} className="btn settings__close" onClick={cancel} disabled={isSaving} aria-label="Close settings">Close</button></div>
         {groups.map((g) => (
           <div key={g} className="settings__group">
             <div className="settings__group-title">{g}</div>
@@ -197,17 +210,17 @@ function SettingsModal({ onClose }) {
           </div>
         ))}
         {needsReload && (
-          <div className="settings__notice">Reload the page for this to fully take effect.</div>
+          <div role="status" aria-live="polite" className="settings__notice">Reload the page for this to fully take effect.</div>
         )}
-        {saveError && <div className="settings__notice">Save failed — please try again.</div>}
+        {saveError && <div role="alert" aria-live="assertive" className="settings__notice settings__notice--error">Settings could not be saved. Your previous settings are still active. Try again.</div>}
         <div className="settings__foot">
-          <span className="settings__saved">{saved ? 'Saved ✓' : ''}</span>
+          <span role="status" aria-live="polite" className="settings__saved">{saved ? 'Settings saved.' : ''}</span>
           <div className="settings__actions">
             <button className="btn" onClick={cancel} disabled={isSaving}>
               Cancel
             </button>
             <button className="btn btn--primary" onClick={save} disabled={isSaving}>
-              {isSaving ? 'Saving…' : 'Save'}
+              {isSaving ? 'Saving…' : 'Save settings'}
             </button>
           </div>
         </div>
