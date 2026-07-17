@@ -34,3 +34,5 @@ Local node:test, fake-host, and integration evidence is distinct from authentica
 ## New-host onboarding
 
 Review official documentation, install the host locally, run automated conformance, perform manual long-round verification, and record dated release evidence. Use `node --test test/fake-host-conformance.test.js` for the local gate; authenticated host procedures are maintained in `docs/hosts.md`.
+
+The scoped installer gate is exercised with `node --test test/cli-adapters.test.js test/install.test.js` and `bash -n install.sh uninstall.sh reinstall.sh`. Missing host executables produce manual guidance and do not count as live registration.
