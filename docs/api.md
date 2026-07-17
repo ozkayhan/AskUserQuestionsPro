@@ -55,6 +55,20 @@ projection; acknowledgement retries return the original `acknowledgedAt` and
 revision. Missing records are 404, expired records 410, malformed selectors
 400, and ownership/ambiguity/not-ready/recovery conflicts 409.
 
+The browser recovery surface consumes `GET /rounds` as a redacted chooser. It
+must select one exact `roundId` or `requestId`; it never infers the newest
+record. A browser draft is a replay cache only. If its revision differs from
+the server revision, the UI retains both versions until the user chooses keep
+server, review differences, or discard the local draft.
+
+Final delivery is a two-step browser operation: submit enters
+`delivery-pending`, then the immutable result is acknowledged at
+`POST /rounds/:roundId/ack`. Only a successful acknowledgement is `delivered`
+and eligible for an automatic close attempt. Network or timeout ambiguity is
+`delivery-uncertain`; it never closes the tab and preserves the result for
+retry or exact recovery. Browser-opening failures expose only the loopback URL
+and manual guidance, never executable host commands.
+
 Snapshots are retained initially for the resolved detached-round TTL
 (`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). Invalid
 individual snapshot files are quarantined; they do not suppress healthy rounds.

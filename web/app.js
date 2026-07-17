@@ -120,6 +120,8 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
   const [dir, setDir] = useState('right');
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [deliveryState, setDeliveryState] = useState('saved');
+  const [closeDenied, setCloseDenied] = useState(false);
   useEffect(() => {
     if (!Number.isInteger(draftRevision.current) || !capability || submitted) return undefined;
     // Initial hydration is already durable. Every later material edit starts a
@@ -369,16 +371,33 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
     if (Object.keys(mapped).length === 0) return; // boş submit guard (B8)
     setSendError(null);
     setSubmitted(true);
+    setDeliveryState('delivery-pending');
     inflight.current = true;
     postAnswers(roundId, mapped, capability)
       .then(() => {
         inflight.current = false;
+        if (typeof acknowledgeDelivery === 'function') {
+          return acknowledgeDelivery(roundId, capability)
+            .then(() => {
+              setDeliveryState('delivered');
+              if (currentAppSettings().closureMode === 'after-delivery' && typeof attemptClose === 'function') {
+                const result = attemptClose();
+                setCloseDenied(result.denied);
+              }
+            })
+            .catch(() => {
+              setDeliveryState('delivery-uncertain');
+              setSubmitted(false);
+            });
+        }
+        setDeliveryState('delivered');
       })
       .catch((err) => {
         // B6: hata → kilidi aç, uyar. Ağ (TypeError/abort, kurtarılabilir) ile sunucu
         // (HTTP 4xx/5xx, err.server) ayrılır; 4xx'te sonsuz retry yerine "server" mesajı.
         inflight.current = false;
         setSubmitted(false);
+        setDeliveryState(err?.server ? 'recovery-error' : 'delivery-uncertain');
         setSendError(
           err && err.reason === 'stale_round' ? 'stale' : err && err.server ? 'server' : 'network'
         );
@@ -546,6 +565,11 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
           Answers sent back to the agent.
         </div>
       )}
+      <DeliveryPanel
+        state={deliveryState}
+        closeDenied={closeDenied}
+        onRetry={() => submit()}
+      />
       {confirmArmed && (
         <div className="toast" role="status" aria-live="polite" aria-atomic="true">
           Press submit again to confirm.

@@ -59,3 +59,24 @@ step, richer input types, and larger batches. Install is
   `request_user_input` or Claude `AskUserQuestion` as appropriate.
 - **Single-flight** — exactly one question set is in play at a time.
 - **In-memory only** — no database; answers live in RAM until delivered.
+
+## Browser recovery and delivery
+
+Refresh, reconnect, and origin changes use the durable bridge record as the
+authority. When more than one recoverable round exists, the browser presents a
+redacted exact-round chooser rather than silently selecting the latest. Cached
+drafts are best-effort mirrors keyed by opaque round/capability and revision;
+conflicts are explicit and never silently merged.
+
+The browser status vocabulary is text-backed: saved, delivery-pending,
+delivered, delivery-uncertain, cancelled, and recovery-error. Delivery remains
+visible until durable acknowledgement succeeds. A denied `window.close()`
+leaves the result open with safe-to-close guidance. If the configured browser
+or profile cannot be opened, the UI gives a copyable `127.0.0.1` URL and
+manual next step.
+
+Recovery metadata and support-safe diagnostics contain opaque identifiers and
+lifecycle data only. Question and answer content is not rendered in recovery
+lists or error diagnostics. Keyboard focus belongs to the active recovery,
+delivery, or settings dialog, and global question shortcuts are suspended
+while that surface owns focus.
