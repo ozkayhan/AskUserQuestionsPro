@@ -49,6 +49,8 @@ Settings v2 schema metadata, envelope validation, migration inspection, and revi
 
 `node --test test/settings-schema.test.js test/settings.test.js` — 62 passed.
 
+## Self-Check: PASSED
+
 ## Deviations
 
 The existing flat v1 write/read contract was retained as a compatibility wrapper; v2 callers use `writeEnvelope` and CAS APIs.

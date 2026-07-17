@@ -57,3 +57,5 @@ Full `node --test` passed: 446 tests. `npm run format:check` remains environment
 ## Human-only checks
 
 Run the manual rows in `test/frontend-settings-evidence.md` with the available Playwright CLI against a running localhost server, especially active-round shortcut isolation and responsive/contrast/reduced-motion inspection.
+
+## Self-Check: PASSED
