@@ -389,6 +389,91 @@
     });
   }
 
+  // Settings v2 is an envelope around the original browser preferences.  The
+  // flat helpers above remain intentionally compatible with existing hosts.
+  var CURRENT_VERSION = 2;
+  var NAMESPACE_DEFAULTS = {
+    browser: {
+      theme: Themes.DEFAULT_ID,
+      accentColor: 'theme',
+      cornerRadius: 'default',
+      motionSpeed: 'normal',
+      fontFamily: 'system',
+      uiScale: 'md',
+      highContrast: false,
+      reduceMotion: false,
+      questionTypes: { binary: true, scale: true, ranking: true, tree: true },
+      behavior: { autoAdvance: false, confirmSubmit: false },
+      interface: { showKeyHints: true, showCounter: true, focusMode: false },
+      strategy: 'auto',
+    },
+    recovery: { retentionMs: 3600000, mode: 'auto' },
+    autosave: { enabled: true, debounceMs: 750 },
+    diagnostics: { enabled: false, includePaths: false },
+    delivery: { mode: 'auto', retryMs: 1000 },
+    closure: { mode: 'never' },
+    adapters: { claudeEnabled: true, codexEnabled: true },
+  };
+  var FIELD_META = [
+    ['browser.strategy', 'select', 'auto', ['auto', 'system', 'manual'], 'live', 'browser'],
+    ['recovery.retentionMs', 'number', 3600000, [60000, 604800000], 'runtime', 'bridge'],
+    ['recovery.mode', 'select', 'auto', ['auto', 'manual'], 'runtime', 'bridge'],
+    ['autosave.enabled', 'boolean', true, null, 'live', 'draft-writer'],
+    ['autosave.debounceMs', 'number', 750, [250, 10000], 'live', 'draft-writer'],
+    ['diagnostics.enabled', 'boolean', false, null, 'runtime', 'round-lifecycle'],
+    ['diagnostics.includePaths', 'boolean', false, null, 'runtime', 'round-lifecycle'],
+    ['delivery.mode', 'select', 'auto', ['auto', 'confirm'], 'runtime', 'live'],
+    ['delivery.retryMs', 'number', 1000, [250, 30000], 'runtime', 'live'],
+    ['closure.mode', 'select', 'never', ['never', 'after-delivery'], 'runtime', 'lifecycle'],
+    ['adapters.claudeEnabled', 'boolean', true, null, 'runtime', 'claude-hook'],
+    ['adapters.codexEnabled', 'boolean', true, null, 'runtime', 'mcp-server'],
+  ];
+  var LEGACY_MAP = {
+    theme: 'browser.theme', accentColor: 'browser.accentColor', cornerRadius: 'browser.cornerRadius',
+    motionSpeed: 'browser.motionSpeed', fontFamily: 'browser.fontFamily', uiScale: 'browser.uiScale',
+    highContrast: 'browser.highContrast', reduceMotion: 'browser.reduceMotion',
+    qtypeBinary: 'browser.questionTypes.binary', qtypeScale: 'browser.questionTypes.scale',
+    qtypeRanking: 'browser.questionTypes.ranking', qtypeTree: 'browser.questionTypes.tree',
+    autoAdvance: 'browser.behavior.autoAdvance', confirmSubmit: 'browser.behavior.confirmSubmit',
+    showKeyHints: 'browser.interface.showKeyHints', showCounter: 'browser.interface.showCounter',
+    focusMode: 'browser.interface.focusMode',
+  };
+  function clone(value) { return JSON.parse(JSON.stringify(value)); }
+  function setPath(target, path, value) {
+    var parts = path.split('.'), cursor = target;
+    parts.slice(0, -1).forEach(function (part) { cursor = cursor[part]; });
+    cursor[parts[parts.length - 1]] = value;
+  }
+  function getPath(target, path) { return path.split('.').reduce(function (v, k) { return v && v[k]; }, target); }
+  function envelopeDefaults() { return { _v: CURRENT_VERSION, browser: clone(NAMESPACE_DEFAULTS.browser), recovery: clone(NAMESPACE_DEFAULTS.recovery), autosave: clone(NAMESPACE_DEFAULTS.autosave), diagnostics: clone(NAMESPACE_DEFAULTS.diagnostics), delivery: clone(NAMESPACE_DEFAULTS.delivery), closure: clone(NAMESPACE_DEFAULTS.closure), adapters: clone(NAMESPACE_DEFAULTS.adapters) }; }
+  function matrix() {
+    return ENTRIES.map(function (e) { return { path: 'browser.' + e.key, key: e.key, type: e.type === 'toggle' ? 'boolean' : 'string', default: e.default, importable: true, exportable: true, sensitive: false, effect: e.applies === 'reload' ? 'reload' : 'live', owner: 'browser' }; }).concat(FIELD_META.map(function (f) { return { path: f[0], type: f[1], default: f[2], options: Array.isArray(f[3]) && f[1] === 'select' ? f[3] : undefined, bounds: f[1] === 'number' ? f[3] : undefined, importable: true, exportable: true, sensitive: false, effect: f[4], owner: f[5] }; }));
+  }
+  function envelopeFromLegacy(input) {
+    var out = envelopeDefaults();
+    Object.keys(input || {}).forEach(function (key) { if (LEGACY_MAP[key] !== undefined) setPath(out, LEGACY_MAP[key], input[key]); });
+    return out;
+  }
+  function validateEnvelope(input) {
+    var out = envelopeDefaults(), source = input && typeof input === 'object' ? input : {};
+    matrix().forEach(function (m) {
+      var value = getPath(source, m.path);
+      if (m.type === 'boolean' && typeof value === 'boolean') setPath(out, m.path, value);
+      else if (m.type === 'number' && Number.isInteger(value) && value >= m.bounds[0] && value <= m.bounds[1]) setPath(out, m.path, value);
+      else if (m.type === 'select' && m.options.indexOf(value) !== -1) setPath(out, m.path, value);
+      else if (m.type === 'string' && typeof value === 'string' && (m.options === undefined || m.options.indexOf(value) !== -1)) setPath(out, m.path, value);
+    });
+    return out;
+  }
+  function inspectEnvelope(input) {
+    var source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+    if (source._v !== undefined && source._v > CURRENT_VERSION) return { status: 'unsupported-future', valid: false, envelope: null };
+    var legacy = source._v === undefined || source._v === 1;
+    var envelope = legacy ? envelopeFromLegacy(source) : validateEnvelope(source);
+    var ignored = Object.keys(source).filter(function (key) { return key !== '_v' && ['browser','recovery','autosave','diagnostics','delivery','closure','adapters'].indexOf(key) === -1; });
+    return { status: legacy ? 'legacy' : 'current', valid: true, envelope: envelope, migrated: legacy, ignored: { count: Math.min(ignored.length, 100), truncated: ignored.length > 100 } };
+  }
+
   return {
     entries: entries,
     byKey: byKey,
@@ -397,5 +482,13 @@
     validate: validate,
     coerce: coerce,
     applyAll: applyAll,
+    CURRENT_VERSION: CURRENT_VERSION,
+    matrix: matrix,
+    namespaceDefaults: function () { return clone(NAMESPACE_DEFAULTS); },
+    legacyMap: function () { return clone(LEGACY_MAP); },
+    envelopeDefaults: envelopeDefaults,
+    envelopeFromLegacy: envelopeFromLegacy,
+    validateEnvelope: validateEnvelope,
+    inspectEnvelope: inspectEnvelope,
   };
 });
