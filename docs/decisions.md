@@ -56,6 +56,22 @@ the user’s answers part of logs.
 **Evidence:** `lib/round-lifecycle.cjs`, `docs/hosts.md`, and
 `docs/timeout-runbook.md`.
 
+## D-010 — Durable per-round recovery snapshots
+
+Each recoverable round has one authoritative versioned JSON snapshot below the
+local AskUserQuestionsPro configuration area. Snapshots and temporary files are
+private (0600) and store directories are private (0700). The implemented
+baseline is same-directory temp-file write, file sync, close, and rename; a
+corrupt named record is quarantined individually without hiding valid siblings.
+
+The initial expiry for recoverable rounds and finalized-result replay is the
+resolved detached-round TTL: a valid `ASKUSER_DETACHED_ROUND_TTL_MS`, otherwise
+`DEFAULT_DETACHED_TTL_MS`. Settings v2 is the sole future user-facing retention
+owner. Browser storage is only a mirror and cannot replace the Node record.
+
+This is macOS filesystem evidence, not Linux/Windows validation or a universal
+power-loss/directory-durability guarantee.
+
 ## D-005 — Host capabilities are intentionally asymmetric
 
 Claude Code can use a `PreToolUse` hook to replace the native
