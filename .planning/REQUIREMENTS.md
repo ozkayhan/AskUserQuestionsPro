@@ -18,12 +18,12 @@ Requirements for Sprint 2. Each maps to exactly one roadmap phase.
 
 ### Durable Round Storage
 
-- [ ] **DUR-01**: The server maintains the authoritative versioned round record on local disk.
-- [ ] **DUR-02**: Meaningful answer edits are incrementally persisted with revisions.
-- [ ] **DUR-03**: Round records survive bridge restart, crash recovery, partial writes, and corruption through atomic snapshots and quarantine.
-- [ ] **DUR-04**: Users can view and select an exact recoverable round without arbitrary “latest round” behavior.
-- [ ] **DUR-05**: Final answers are immutable and result retrieval/delivery acknowledgement is idempotent.
-- [ ] **DUR-06**: Existing pre-v1.1 requests can migrate safely to the durable round model.
+- [x] **DUR-01**: The server maintains the authoritative versioned round record on local disk.
+- [x] **DUR-02**: Meaningful answer edits are incrementally persisted with revisions.
+- [x] **DUR-03**: Round records survive bridge restart, crash recovery, partial writes, and corruption through atomic snapshots and quarantine.
+- [x] **DUR-04**: Users can view and select an exact recoverable round without arbitrary “latest round” behavior.
+- [x] **DUR-05**: Final answers are immutable and result retrieval/delivery acknowledgement is idempotent.
+- [x] **DUR-06**: Existing pre-v1.1 requests can migrate safely to the durable round model.
 
 ### Settings v2
 
@@ -98,12 +98,12 @@ Deferred beyond this milestone but retained for future planning.
 | LIFE-03 | Phase 8 | Complete |
 | LIFE-04 | Phase 8 | Complete |
 | LIFE-05 | Phase 8 | Complete |
-| DUR-01 | Phase 9 | Pending |
-| DUR-02 | Phase 9 | Pending |
-| DUR-03 | Phase 9 | Pending |
-| DUR-04 | Phase 9 | Pending |
-| DUR-05 | Phase 9 | Pending |
-| DUR-06 | Phase 9 | Pending |
+| DUR-01 | Phase 9 | Complete |
+| DUR-02 | Phase 9 | Complete |
+| DUR-03 | Phase 9 | Complete |
+| DUR-04 | Phase 9 | Complete |
+| DUR-05 | Phase 9 | Complete |
+| DUR-06 | Phase 9 | Complete |
 | SET-01 | Phase 10 | Pending |
 | SET-02 | Phase 10 | Pending |
 | SET-03 | Phase 10 | Pending |

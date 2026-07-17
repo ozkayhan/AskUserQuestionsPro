@@ -56,13 +56,14 @@ Plans:
   4. A submitted answer cannot be changed by a retry, and result retrieval or delivery acknowledgement can be safely repeated.
   5. Existing pre-v1.1 requests continue into the durable recovery model without cross-round loss.
 
-**Plans**: 4 plans
+**Plans**: 4/4 plans executed
 Plans:
 
-- [ ] 09-01-PLAN.md — Create versioned private round snapshots, atomic storage, quarantine, and TTL-derived retention.
-- [ ] 09-02-PLAN.md — Make Bridge transitions durable and migrate legacy registrations without result loss.
-- [ ] 09-03-PLAN.md — Expose explicit redacted recovery, result replay, and acknowledgement HTTP contracts.
-- [ ] 09-04-PLAN.md — Document recovery semantics and capture bounded macOS durable-store evidence.
+- [x] 09-01-PLAN.md — Create versioned private round snapshots, atomic storage, quarantine, and TTL-derived retention.
+- [x] 09-02-PLAN.md — Make Bridge transitions durable and migrate legacy registrations without result loss.
+- [x] 09-03-PLAN.md — Expose explicit redacted recovery, result replay, and acknowledgement HTTP contracts.
+- [x] 09-04-PLAN.md — Document recovery semantics and capture bounded macOS durable-store evidence.
+
 **Research flags**: Validate crash recovery, restrictive file permissions, and retention/expiry behavior on macOS, Linux, and Windows; define and test the legacy request-ID to durable-round migration.
 
 ### Phase 10: Settings v2
@@ -139,7 +140,7 @@ Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. Lifecycle Contract & Observability | 5/5 | Complete    | 2026-07-17 |
-| 9. Durable Round Store & Recovery API | 0/TBD | Not started | - |
+| 9. Durable Round Store & Recovery API | 4/4 | Complete | 2026-07-17 |
 | 10. Settings v2 | 0/TBD | Not started | - |
 | 11. Browser Recovery & Delivery UX | 0/TBD | Not started | - |
 | 12. Adapter Contract & Tier 1 Acceptance | 0/TBD | Not started | - |
