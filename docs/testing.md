@@ -64,6 +64,15 @@ hosts discover and consume the tool.
 
 ## Release gate
 
+Phase 13 evidence is fail-closed: unavailable optional tools are recorded as
+environment gaps, never installed by the gate and never reported as passes.
+Run the clean-checkout sequence below, then review the [cross-platform
+evidence](evidence/phase-13-cross-platform.md), [host matrix](../test/host-compatibility-evidence.md),
+and [candidate gates](host-research/README.md). The package retains zero
+production dependencies and its existing `package.json` file allowlist.
+The changeset and release workflow are checked alongside the package-boundary
+tests; this sequence does not add dependencies or broaden the published scope.
+
 Run the same local gates used by CI before shipping a release:
 
 ```bash
