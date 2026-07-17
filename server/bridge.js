@@ -25,7 +25,12 @@ function terminalReason(reason) {
 // Cevap/iptal yolları bu id ile sahiplenir: gec gelen bir tur, o sirada bekleyen
 // baska bir turu sessizce çözemez/iptal edemez (cross-round race koruması — Contract R).
 class Bridge {
-  constructor({ detachedTtlMs = DEFAULT_DETACHED_TTL_MS, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  constructor({
+    detachedTtlMs = DEFAULT_DETACHED_TTL_MS,
+    now = Date.now,
+    setTimer = setTimeout,
+    clearTimer = clearTimeout,
+  } = {}) {
     this._pending = null; // { id, questions, resolve, reject, waiters, detached }
     this._seq = 0;
     this._now = now;
@@ -36,6 +41,7 @@ class Bridge {
       ? Math.max(1, detachedTtlMs)
       : DEFAULT_DETACHED_TTL_MS;
     this._completed = new Map();
+    this._deliveries = new Map();
   }
 
   // Hook tarafı: soru setini kaydet, cevap promise'i al.
@@ -57,7 +63,11 @@ class Bridge {
         waiters: [],
         detached: false,
         detachTimer: null,
-        record: createRecord({ id, capability: randomBytes(32).toString('base64url'), now: this._now() }),
+        record: createRecord({
+          id,
+          capability: randomBytes(32).toString('base64url'),
+          now: this._now(),
+        }),
       };
     });
   }
@@ -74,10 +84,17 @@ class Bridge {
     if (!this._pending || (requestId !== undefined && this._pending.requestId !== requestId)) {
       return null;
     }
-    return { id: this._pending.id, questions: this._pending.questions, capability: this._pending.record.capability, lifecycle: snapshot(this._pending.record) };
+    return {
+      id: this._pending.id,
+      questions: this._pending.questions,
+      capability: this._pending.record.capability,
+      lifecycle: snapshot(this._pending.record),
+    };
   }
 
-  getSnapshot() { return snapshot(this._pending?.record) || this._lastSnapshot; }
+  getSnapshot() {
+    return snapshot(this._pending?.record) || this._lastSnapshot;
+  }
 
   _transition(p, event, options) {
     const result = transition(p.record, event, { now: this._now(), ...options });
@@ -86,7 +103,11 @@ class Bridge {
   }
 
   _owns(p, expectedId, capability) {
-    return !!p && (expectedId == null || p.id === expectedId) && (capability == null || p.record.capability === capability);
+    return (
+      !!p &&
+      (expectedId == null || p.id === expectedId) &&
+      (capability == null || p.record.capability === capability)
+    );
   }
 
   // UI tarafı: cevapları ver, bekleyen submitQuestions promise'ini resolve et.
@@ -95,12 +116,10 @@ class Bridge {
     if (!this._owns(this._pending, id, capability)) return false;
     const p = this._pending;
     if (!this._transition(p, 'answerAccepted')) return false;
-    this._transition(p, 'delivered', { reason: 'completed', deadlineOwner: 'none' });
     this._pending = null;
     if (p.detachTimer) this._clearTimer(p.detachTimer);
     p.lifecycle?.event('answer_received');
-    p.lifecycle?.finish('completed');
-    this._rememberCompleted(p, answers);
+    this._rememberDelivery(p, answers);
     this._lastSnapshot = snapshot(p.record);
     p.resolve(answers);
     for (const waiter of p.waiters) waiter.resolve(answers);
@@ -115,7 +134,8 @@ class Bridge {
     }
     const p = this._pending;
     if (p.detached) return false;
-    if (!this._transition(p, 'detach', { reason: terminalReason(reason), deadlineOwner: 'host' })) return false;
+    if (!this._transition(p, 'detach', { reason: terminalReason(reason), deadlineOwner: 'host' }))
+      return false;
     p.detached = true;
     p.lifecycle?.event('host_detached');
     p.detachTimer = this._setTimer(() => {
@@ -171,9 +191,43 @@ class Bridge {
     });
     const timer = this._setTimer(() => {
       const item = this._completed.get(p.requestId);
-      if (item && item.roundId === p.id) this._completed.delete(p.requestId);
+      if (item && item.roundId === p.id) {
+        this._completed.delete(p.requestId);
+        this._deliveries.delete(p.id);
+      }
     }, this._detachedTtlMs);
     timer.unref?.();
+  }
+
+  _rememberDelivery(p, answers) {
+    this._deliveries.set(p.id, { p, answers });
+    this._rememberCompleted(p, answers);
+  }
+
+  // The browser accepting answers and a host receiving them are distinct events.
+  // Retain request-id results until a response has finished so a closed host stream
+  // can be recovered by /resume instead of being reported as a false delivery.
+  confirmDelivery(roundId) {
+    const delivery = this._deliveries.get(roundId);
+    if (
+      !delivery ||
+      !this._transition(delivery.p, 'delivered', { reason: 'completed', deadlineOwner: 'none' })
+    )
+      return false;
+    delivery.p.lifecycle?.finish('completed');
+    this._lastSnapshot = snapshot(delivery.p.record);
+    this._deliveries.delete(roundId);
+    if (delivery.p.requestId != null) this._completed.delete(delivery.p.requestId);
+    return true;
+  }
+
+  markDeliveryUncertain(roundId) {
+    const delivery = this._deliveries.get(roundId);
+    if (!delivery || !this._transition(delivery.p, 'uncertain', { deadlineOwner: 'host' }))
+      return false;
+    delivery.p.lifecycle?.event('delivery_uncertain');
+    this._lastSnapshot = snapshot(delivery.p.record);
+    return true;
   }
 
   _findCompleted(requestId) {
@@ -191,7 +245,8 @@ class Bridge {
   cancel(reason, expectedId, capability) {
     if (!this._owns(this._pending, expectedId, capability)) return false;
     const p = this._pending;
-    if (!this._transition(p, 'cancel', { reason: terminalReason(reason), deadlineOwner: 'host' })) return false;
+    if (!this._transition(p, 'cancel', { reason: terminalReason(reason), deadlineOwner: 'host' }))
+      return false;
     this._pending = null;
     if (p.detachTimer) this._clearTimer(p.detachTimer);
     const outcome = terminalReason(reason);
@@ -211,10 +266,19 @@ class Bridge {
   expire(expectedId, capability) {
     if (!this._owns(this._pending, expectedId, capability)) return false;
     const p = this._pending;
-    if (!this._transition(p, 'expire', { reason: 'application_timeout', deadlineOwner: 'application' })) return false;
+    if (
+      !this._transition(p, 'expire', {
+        reason: 'application_timeout',
+        deadlineOwner: 'application',
+      })
+    )
+      return false;
     this._pending = null;
     this._lastSnapshot = snapshot(p.record);
-    const error = Object.assign(new Error('detached round expired'), { code: 'application_timeout', roundId: p.id });
+    const error = Object.assign(new Error('detached round expired'), {
+      code: 'application_timeout',
+      roundId: p.id,
+    });
     p.reject(error);
     for (const waiter of p.waiters) waiter.reject(error);
     return true;

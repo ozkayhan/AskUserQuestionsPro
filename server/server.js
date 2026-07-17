@@ -33,6 +33,36 @@ function sendJson(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+// A host result is delivered only after Node reports that its response stream
+// completed. A closed or unwritable stream is an uncertain delivery and must
+// leave request-id results available to /resume.
+function sendJsonAndObserve(res, code, obj) {
+  return new Promise((resolve) => {
+    let done = false;
+    const settle = (delivered) => {
+      if (done) return;
+      done = true;
+      res.off('finish', onFinish);
+      res.off('close', onClose);
+      res.off('error', onError);
+      resolve(delivered);
+    };
+    const onFinish = () => settle(true);
+    const onClose = () => settle(false);
+    const onError = () => settle(false);
+    if (res.destroyed || !res.writable) return settle(false);
+    res.once('finish', onFinish);
+    res.once('close', onClose);
+    res.once('error', onError);
+    try {
+      res.writeHead(code, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(obj));
+    } catch {
+      settle(false);
+    }
+  });
+}
+
 const MAX_BODY = 8e6; // 8 MB sert tavan.
 
 function readBody(req) {
@@ -74,7 +104,11 @@ function validQuestions(q) {
 
 function broadcastCurrent() {
   const current = bridge.peek();
-  const payload = JSON.stringify(current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() });
+  const payload = JSON.stringify(
+    current
+      ? { ...current, lifecycle: bridge.getSnapshot() }
+      : { id: null, questions: null, lifecycle: bridge.getSnapshot() }
+  );
   for (const res of sseClients) {
     // res.write() hatayı çoğu Node yolunda ASENKRON 'error' ile yayar; senkron
     // try/catch ölü soketi yakalamaz. writable kontrolü deterministik guard'dır;
@@ -174,7 +208,13 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && url === '/current') {
     const requestId = new URL(req.url, 'http://127.0.0.1').searchParams.get('requestId');
     const current = bridge.peek(requestId || undefined);
-    return sendJson(res, 200, current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() });
+    return sendJson(
+      res,
+      200,
+      current
+        ? { ...current, lifecycle: bridge.getSnapshot() }
+        : { id: null, questions: null, lifecycle: bridge.getSnapshot() }
+    );
   }
 
   if (req.method === 'GET' && url === '/events') {
@@ -187,7 +227,9 @@ async function handleRequest(req, res) {
     // broadcast'i kaçırmamak için (eklenme-yazma sırasına kırılgan değil).
     sseClients.add(res);
     const current = bridge.peek();
-    res.write(`data: ${JSON.stringify(current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify(current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() })}\n\n`
+    );
     // 25 sn'de bir yorum-ping: bağlantı/proxy timeout'una karşı keepalive.
     const ping = setInterval(() => {
       if (!res.writable) {
@@ -256,8 +298,10 @@ async function handleRequest(req, res) {
     try {
       const answers = await answersPromise;
       settled = true;
-      if (res.destroyed || !res.writable) return;
-      return sendJson(res, 200, { answers });
+      const delivered = await sendJsonAndObserve(res, 200, { answers });
+      if (delivered) bridge.confirmDelivery(myId);
+      else bridge.markDeliveryUncertain(myId);
+      return;
     } catch (e) {
       settled = true;
       lifecycle.finish('bridge_error');
@@ -299,8 +343,10 @@ async function handleRequest(req, res) {
     try {
       const answers = await waiter.promise;
       settled = true;
-      if (res.destroyed || !res.writable) return;
-      return sendJson(res, 200, { answers });
+      const delivered = await sendJsonAndObserve(res, 200, { answers });
+      if (delivered) bridge.confirmDelivery(bridge.getSnapshot()?.id);
+      else bridge.markDeliveryUncertain(bridge.getSnapshot()?.id);
+      return;
     } catch (e) {
       settled = true;
       return sendJson(res, 409, {
@@ -357,7 +403,12 @@ async function handleRequest(req, res) {
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
-    if (!Number.isInteger(id) || id < 1 || typeof reason !== 'string' || typeof capability !== 'string') {
+    if (
+      !Number.isInteger(id) ||
+      id < 1 ||
+      typeof reason !== 'string' ||
+      typeof capability !== 'string'
+    ) {
       return sendJson(res, 400, { error: 'invalid cancel request' });
     }
     const knownReason = new Set([

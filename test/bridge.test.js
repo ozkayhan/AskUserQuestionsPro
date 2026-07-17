@@ -178,6 +178,22 @@ test('detach host baglantisi kopsa da pending roundu korur ve resume cevabi alir
   assert.equal(b.peek('owner-a'), null);
 });
 
+test('detached round correct capability ile resume öncesi cevap kabul eder ve sonuç saklanır', async () => {
+  const b = new Bridge({ detachedTtlMs: 1000 });
+  const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
+  const round = b.peek('owner-a');
+  assert.equal(b.detach('host disconnected', round.id, round.capability), true);
+  assert.equal(b.provideAnswers(round.id, { 'Q?': 'A' }, round.capability), true);
+  assert.equal(b.getSnapshot().state, 'delivery-pending');
+  assert.deepEqual(await owner, { 'Q?': 'A' });
+  assert.equal(b.markDeliveryUncertain(round.id), true);
+  assert.equal(b.getSnapshot().state, 'delivery-uncertain');
+  const resumed = b.waitForAnswers('owner-a');
+  assert.deepEqual(await resumed.promise, { 'Q?': 'A' });
+  assert.equal(b.confirmDelivery(round.id), true);
+  assert.equal(b.getSnapshot().state, 'delivered');
+});
+
 test('resume round requestId olmadan en son detached cevabi bulur', async () => {
   const b = new Bridge({ detachedTtlMs: 1000 });
   const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');

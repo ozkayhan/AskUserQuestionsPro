@@ -78,3 +78,11 @@ test('lifecycle diagnostics allowlist boundary and deadline owner without payloa
   });
   assert.equal(JSON.stringify(seen).includes('secret'), false);
 });
+
+test('lifecycle records delivery uncertainty without answer payloads', () => {
+  const seen = [];
+  const lifecycle = createLifecycle({ logger: (_scope, detail) => seen.push(JSON.parse(detail)) });
+  lifecycle.event('delivery_uncertain', { answers: { secret: 'value' } });
+  assert.equal(seen[1].event, 'delivery_uncertain');
+  assert.equal(JSON.stringify(seen).includes('secret'), false);
+});

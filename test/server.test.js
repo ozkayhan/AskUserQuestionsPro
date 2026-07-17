@@ -28,8 +28,16 @@ test.after(async () => {
 // --- yardımcılar ---
 
 function post(url, obj, opts = {}) {
-  if ((url === '/answer' || url === '/cancel') && obj && typeof obj === 'object' && obj.id != null) {
-    obj = { ...obj, capability: obj.capability || bridge.peek()?.capability || 'missing-capability' };
+  if (
+    (url === '/answer' || url === '/cancel') &&
+    obj &&
+    typeof obj === 'object' &&
+    obj.id != null
+  ) {
+    obj = {
+      ...obj,
+      capability: obj.capability || bridge.peek()?.capability || 'missing-capability',
+    };
   }
   return fetch(`${base}${url}`, {
     method: 'POST',
@@ -60,6 +68,16 @@ async function waitForClear(deadlineMs = 2000) {
     await new Promise((r) => setTimeout(r, 5));
   }
   throw new Error('timed out waiting for pending to clear');
+}
+
+async function waitForLifecycle(state, deadlineMs = 2000) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    const current = await (await fetch(`${base}/current`)).json();
+    if (current.lifecycle?.state === state) return current;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error(`timed out waiting for lifecycle state ${state}`);
 }
 
 // /ask aç → pending'i bekle → id ile cevapla → askPromise'i çöz. answer plain object'tir
@@ -114,7 +132,11 @@ test('/current requestId ile yalnizca ilgili pending turunu gosterir', async () 
   const cur = await waitForPending();
 
   const unrelated = await fetch(`${base}/current?requestId=request-owner-b`);
-  assert.deepStrictEqual(await unrelated.json(), { id: null, questions: null, lifecycle: bridge.getSnapshot() });
+  assert.deepStrictEqual(await unrelated.json(), {
+    id: null,
+    questions: null,
+    lifecycle: bridge.getSnapshot(),
+  });
   const owned = await fetch(`${base}/current?requestId=${requestId}`);
   assert.deepStrictEqual(await owned.json(), cur);
 
@@ -149,6 +171,70 @@ test('requestId li /ask host soketi kapaninca round korunur ve /resume cevap ver
   assert.deepStrictEqual(await resumeResponse.json(), { answers: { 'RESUME?': 'A' } });
 });
 
+test('detached round correct capability ile resume öncesi cevap kabul eder ve sonra recover edilir', async () => {
+  const requestId = 'answer-before-resume';
+  const request = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  request.on('error', () => {});
+  request.end(
+    JSON.stringify({ requestId, questions: [{ question: 'DETACHED?', options: [{ label: 'A' }] }] })
+  );
+  const current = await waitForPending();
+  request.destroy();
+  await waitForLifecycle('detached');
+
+  const answer = await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'DETACHED?': 'A' },
+  });
+  assert.equal(answer.status, 200);
+  await waitForLifecycle('delivery-uncertain');
+
+  const resumed = await post('/resume', { requestId });
+  assert.equal(resumed.status, 200);
+  assert.deepEqual(await resumed.json(), { answers: { 'DETACHED?': 'A' } });
+  await waitForClear();
+});
+
+test('closed /resume response remains delivery-uncertain and later resume recovers answers', async () => {
+  const requestId = 'closed-resume-response';
+  const ask = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  ask.on('error', () => {});
+  ask.end(
+    JSON.stringify({ requestId, questions: [{ question: 'RECOVER?', options: [{ label: 'A' }] }] })
+  );
+  const current = await waitForPending();
+  ask.destroy();
+  await waitForLifecycle('detached');
+
+  const resume = http.request(`${base}/resume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  resume.on('error', () => {});
+  resume.end(JSON.stringify({ requestId }));
+  await waitForLifecycle('reconnecting');
+  resume.destroy();
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'RECOVER?': 'A' },
+  });
+  const uncertain = await waitForLifecycle('delivery-uncertain');
+  assert.equal(uncertain.lifecycle.state, 'delivery-uncertain');
+
+  const recovered = await post('/resume', { requestId });
+  assert.equal(recovered.status, 200);
+  assert.deepEqual(await recovered.json(), { answers: { 'RECOVER?': 'A' } });
+  await waitForClear();
+});
+
 // --- Contract R: /answer round-id rendezvous ---
 
 test('/answer stale id -> 409 (cross-round race korumasi)', async () => {
@@ -161,6 +247,32 @@ test('/answer stale id -> 409 (cross-round race korumasi)', async () => {
   // pending hâlâ açık; doğru id ile çöz, sızıntı bırakma.
   const ok = await post('/answer', { id: cur.id, answers: { 'ST?': 'A' } });
   assert.strictEqual(ok.status, 200);
+  await askPromise;
+});
+
+test('/answer missing or wrong capability -> 409 ownership_conflict and round remains pending', async () => {
+  const askPromise = post('/ask', { questions: [{ question: 'CAP?', options: [{ label: 'A' }] }] });
+  const current = await waitForPending();
+  const missing = await fetch(`${base}/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: current.id, answers: { 'CAP?': 'A' } }),
+  });
+  assert.equal(missing.status, 409);
+  assert.equal((await missing.json()).reason, 'ownership_conflict');
+  const wrong = await post('/answer', {
+    id: current.id,
+    capability: 'wrong-capability',
+    answers: { 'CAP?': 'A' },
+  });
+  assert.equal(wrong.status, 409);
+  assert.equal((await wrong.json()).reason, 'ownership_conflict');
+  assert.equal((await waitForPending()).id, current.id);
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'CAP?': 'A' },
+  });
   await askPromise;
 });
 

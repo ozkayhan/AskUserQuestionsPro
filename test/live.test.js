@@ -14,15 +14,19 @@ function withFetch(t, impl) {
   });
 }
 
-test('postAnswers Contract R: body {id,answers} gönderir ve JSON döner', async (t) => {
+test('postAnswers Contract R: body {id,answers,capability} gönderir ve JSON döner', async (t) => {
   let seen;
   withFetch(t, async (url, opts) => {
     seen = { url, body: JSON.parse(opts.body), hasSignal: !!opts.signal };
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   });
-  const res = await postAnswers('round-7', { Q: 'A' });
+  const res = await postAnswers('round-7', { Q: 'A' }, 'cap-round-7');
   assert.strictEqual(seen.url, '/answer');
-  assert.deepStrictEqual(seen.body, { id: 'round-7', answers: { Q: 'A' } });
+  assert.deepStrictEqual(seen.body, {
+    id: 'round-7',
+    answers: { Q: 'A' },
+    capability: 'cap-round-7',
+  });
   assert.strictEqual(seen.hasSignal, true); // AbortController bağlı
   assert.deepStrictEqual(res, { ok: true });
 });
@@ -30,7 +34,7 @@ test('postAnswers Contract R: body {id,answers} gönderir ve JSON döner', async
 test('postAnswers HTTP !ok → err.server=true (sunucu hatası, kurtarılamaz)', async (t) => {
   withFetch(t, async () => ({ ok: false, status: 500, json: async () => ({}) }));
   await assert.rejects(
-    () => postAnswers('id', {}),
+    () => postAnswers('id', {}, 'cap'),
     (err) => err.server === true && /500/.test(err.message)
   );
 });
@@ -41,33 +45,33 @@ test('postAnswers HTTP reason/roundId alanlarını kaybetmez', async (t) => {
     status: 409,
     json: async () => ({
       error: 'no matching pending question set',
-      reason: 'stale_round',
+      reason: 'ownership_conflict',
       roundId: 8,
     }),
   }));
   await assert.rejects(
-    () => postAnswers(8, { Q: 'A' }),
+    () => postAnswers(8, { Q: 'A' }, 'cap-8'),
     (err) =>
       err.server === true &&
       err.status === 409 &&
-      err.reason === 'stale_round' &&
+      err.reason === 'ownership_conflict' &&
       err.roundId === 8 &&
-      /stale_round/.test(err.message)
+      /ownership_conflict/.test(err.message)
   );
 });
 
-test('cancelRound Contract: id ve reason body gönderir, typed error taşır', async (t) => {
+test('cancelRound Contract: id, reason ve capability body gönderir, typed error taşır', async (t) => {
   let seen;
   withFetch(t, async (url, opts) => {
     seen = { url, body: JSON.parse(opts.body) };
     return { ok: true, status: 200, json: async () => ({ ok: true, reason: 'user_cancelled' }) };
   });
-  assert.deepStrictEqual(await cancelRound(8, 'user cancelled'), {
+  assert.deepStrictEqual(await cancelRound(8, 'user cancelled', 'cap-8'), {
     ok: true,
     reason: 'user_cancelled',
   });
   assert.strictEqual(seen.url, '/cancel');
-  assert.deepStrictEqual(seen.body, { id: 8, reason: 'user cancelled' });
+  assert.deepStrictEqual(seen.body, { id: 8, reason: 'user cancelled', capability: 'cap-8' });
 });
 
 test('postAnswers ağ hatası → err.server yok (kurtarılabilir, retry edilebilir)', async (t) => {
@@ -75,7 +79,7 @@ test('postAnswers ağ hatası → err.server yok (kurtarılabilir, retry edilebi
     throw new TypeError('Failed to fetch');
   });
   await assert.rejects(
-    () => postAnswers('id', {}),
+    () => postAnswers('id', {}, 'cap'),
     (err) => err instanceof TypeError && !err.server
   );
 });
@@ -97,7 +101,7 @@ test('postAnswers 10s timeout: hung fetch abort sinyaliyle reddedilir', async (t
   } else {
     t.mock.timers.enable(['setTimeout']);
   }
-  const p = postAnswers('id', {});
+  const p = postAnswers('id', {}, 'cap');
   t.mock.timers.tick(10000);
   await assert.rejects(p, (err) => err.name === 'AbortError');
 });
