@@ -1,6 +1,6 @@
 ---
 phase: 10-settings-v2
-cycle: 1
+cycle: 2
 reviewed: 2026-07-17T00:00:00Z
 depth: deep
 source_grounding: grep-and-line-trace
@@ -32,8 +32,8 @@ files_reviewed_list:
   - test/settings-panel.test.js
   - test/server.test.js
 findings:
-  high: 4
-  actionable_non_high: 5
+  high: 2
+  actionable_non_high: 7
   total: 9
 status: issues_found
 ---
@@ -321,3 +321,88 @@ directly verifiable:
 _Reviewed: 2026-07-17T00:00:00Z_
 _Reviewer: Codex cross-AI plan reviewer_
 _Cycle: 1_
+
+## Cycle 2 — Revised-plan audit
+
+### Disposition of cycle 1 findings
+
+| Finding | Cycle 2 disposition | Audit basis |
+|---|---|---|
+| H-01 | **REMAINS HIGH** | The new contract is materially better, but it still omits types/defaults for several declared fields and does not map the preserved existing settings into the named v2 namespaces. |
+| H-02 | **REMAINS HIGH** | Runtime wiring is now named, but adapter booleans, diagnostics, delivery retry, and post-submit closure still have no concrete existing consumer/file/test seam; the task-level file list also omits most of the runtime work. |
+| H-03 | **RESOLVED IN PLAN** | `10-03-PLAN.md:72` explicitly adds a modal-open Flow gate and mounted tests for Enter, arrows, numbers, `B`, and `U`, plus local dialog Escape/Enter behavior. The task file manifest needs correction below, but the concern itself is incorporated. |
+| H-04 | **RESOLVED IN PLAN** | `10-01-PLAN.md:102` requires one status-bearing `inspect/load` path for every mutation/inspection caller, and `10-02-PLAN.md:64,78` routes HTTP/CLI operations through it with future/invalid preservation. |
+| M-01 | **REMAINS ACTIONABLE** | Version marker, precedence order, and unknown-key disposition are now stated, but exact legacy flat-key-to-namespace mappings, fixture contents, and migration status/output examples are still not executable contract data. |
+| M-02 | **REMAINS ACTIONABLE** | The endpoint matrix is present, but persistence-level CAS locking/re-read semantics, preview lifetime/restart behavior, and complete wire headers/examples are not specified. |
+| M-03 | **RESOLVED IN PLAN** | `10-02-PLAN.md:78` defines `import-preview <file|->`, non-mutating behavior, input sources, output, exit codes, help coverage, and isolated spawn tests. |
+| M-04 | **REMAINS ACTIONABLE** | A browser test and manual checklist are named, but no browser runner, dependency/tooling decision, URL/fixture setup, or named evidence artifact is defined. |
+| M-05 | **REMAINS ACTIONABLE** | The revised protocol names private/collision-safe backup and durable ordering, but does not define retention/collision outcomes or enumerate injected copy/chmod/rename/directory-sync tests and cross-platform behavior. |
+
+### Current HIGH concerns
+
+#### H-01 — The v2 contract is still not a complete normative matrix
+
+**Evidence:** `10-01-PLAN.md:20` names seven namespaces, while `10-01-PLAN.md:75` lists `autosave.enabled`, `diagnostics.enabled`, `diagnostics.includePaths`, `delivery.mode`, `delivery.retryMs`, `closure.mode`, and the adapter booleans without types or defaults for those fields. The same line promises per-field effect/consumer metadata, but supplies no owners or values. The action at `10-01-PLAN.md:88` says to preserve the existing appearance/question/behavior keys by placing them in their “documented v2 namespace,” yet no such namespace membership or key mapping is documented. This is materially different from the current flat source-of-truth at `web/settings-schema.js:37-305`, whose validator currently emits a flat object at `web/settings-schema.js:341-356`.
+
+**Impact:** An executor can produce multiple incompatible v2 schemas while satisfying the broad task wording. In particular, SET-03 cannot be checked for completeness, and the UI/HTTP/runtime waves can disagree about where the existing 17 settings live. Missing defaults/types also prevent deterministic reset, export, effective-settings output, and precedence tests.
+
+**Required plan change:** Make the contract a literal matrix or committed contract artifact: every existing and new key must have namespace, type, default, bounds/options, importable/exportable/sensitive flags, effect, and concrete consumer. Include exact v1/unversioned mapping and complete-key fixtures consumed by 10-02 and 10-03.
+
+#### H-02 — Several SET-03 values remain unowned or inert in the executable plan
+
+**Evidence:** The actual consumers are split across `lib/bridge-client.mjs:96-112` (`ASKUSER_OPEN_BROWSER`), `server/server.js:15-20` (Bridge construction from `ASKUSER_DETACHED_ROUND_TTL_MS`), `server/bridge.js:42-61,162-168,270-283` (retention captured into timers/records), `web/live.js:96-155` (answer/draft delivery and fixed 10-second transport timeout), and the host entry points `hooks/askuserquestionspro-bridge.mjs:97-109` and `mcp-server/askuserquestionspro-mcp.mjs:218-286` (adapter-owned browser launch and lifecycle). There is no current consumer for `adapters.claudeEnabled`/`codexEnabled`, `diagnostics.enabled`/`includePaths`, `delivery.retryMs`, or `closure.mode`; `rg` finds no tab-close implementation in `web/`, and lifecycle diagnostics are emitted by the existing logger path. `10-03-PLAN.md:80` names broad wiring in `web/app.js`/`web/draft-writer.js`, but Task 2’s executable `<files>` list at `10-03-PLAN.md:77-80` contains only CSS, HTML, and docs and does not include `web/live.js`, either host adapter, or `lib/round-lifecycle.cjs`.
+
+**Impact:** Values may be saved and shown while changing no supported-client behavior. That fails the roadmap’s browser launch, delivery, post-submit closure, lifecycle diagnostics, and adapter-preference criteria even if the schema and UI pass. It also leaves the fixed delivery timeout and host adapter behavior as hidden precedence owners.
+
+**Required plan change:** For every SET-03 field, name the exact existing consumer, integration point, precedence rule, and regression test. Add the missing runtime files (at minimum `web/live.js` and the relevant hook/MCP/shared adapter seam) to the task file lists, specify the durable-delivery acknowledgement that gates closure, and state how diagnostics are enabled/redacted without leaking paths or question/answer content.
+
+### Current actionable non-HIGH concerns
+
+#### M-01 — Legacy mapping and migration fixtures are still not executable
+
+`10-01-PLAN.md:75,88` says legacy shapes map “deterministically” and asks for four fixtures, but does not state where each current flat key (`theme`, `uiScale`, question-type toggles, behavior, interface) lands in the seven namespaces, how conflicts are resolved, or what the v1/unversioned/v2 status and output objects contain. The executor still has to invent the migration contract. Add fixture JSON contents or a checked-in contract table, including exact effective values, ignored keys, status, and idempotent backup expectations.
+
+#### M-02 — Preview/CAS wire semantics do not yet define the persistence race or full response contract
+
+`10-02-PLAN.md:64` gives routes and a `baselineRevision`, but `10-01-PLAN.md:102` only names `revision/hash`; it does not require the compare-and-swap check and write to share one lock-held re-read, so a CLI write can race a server preview/apply. The plans also do not define preview ID lifetime, one-time/repeated apply storage, behavior after server restart, or whether a preview backup field means “would create” (preview must not write). The requested API examples do not specify `Content-Type`/download disposition for `GET /settings/export`. Add those semantics and tests for external-writer races, expired/restarted previews, deterministic bytes, and browser download headers.
+
+#### M-04 — Browser-level verification has no executable harness or evidence artifact
+
+`10-03-PLAN.md:72-81` introduces `test/browser-settings.test.js` and a “repeatable manual evidence checklist,” but `package.json` has no browser runner and the plan does not add one, define a zero-dependency protocol, or name a verification artifact. Existing tests are source-level (`test/settings-panel.test.js:1-5,22-109`; `test/views-a11y.test.js:1-23`). Specify the runner/tool and package scope, served URL and deterministic fixtures, event/focus assertions, and a committed artifact path for the manual pass/fail record. Keep the checklist’s active-round, failed save/import, future version, focus, live-region, narrow viewport, high-contrast, reduced-motion, reload, and migration cases.
+
+#### M-05 — Backup failure, collision, retention, and platform behavior need testable decisions
+
+`10-01-PLAN.md:102` says “private collision-safe `.bak`” and durable copy/flush, but does not say whether an existing backup is reused/rejected/rotated, when stale backups are removed, or how restrictive permissions and directory sync are handled on Windows. The task’s verify line at `10-01-PLAN.md:103` does not enumerate injected copy, chmod, rename, directory-sync, or backup-collision failures. Define the protocol and add tests proving the original bytes remain intact and repeated reads create exactly one backup on macOS/Linux/Windows-compatible paths.
+
+#### M-06 — Task-level file manifests do not match the actions they authorize
+
+`10-03-PLAN.md:64-73` asks Task 1 to edit `web/app.js` and add `test/browser-settings.test.js`, but its `<files>` element lists neither. Task 2’s `<files>` at `10-03-PLAN.md:78-81` lists only `web/styles.css`, `web/index.html`, and `docs/frontend.md`, while its action edits `lib/bridge-client.mjs`, `server/server.js`, `server/bridge.js`, `web/app.js`, and `web/draft-writer.js` and adds `test/runtime-settings.test.js`. Align frontmatter, task file lists, context, and verification commands so a plan executor cannot omit the runtime work.
+
+#### M-07 — External CLI writes can leave the running server’s settings cache stale
+
+The current server caches `Settings.read()` in `server/server.js:146-155` and only invalidates it on the legacy HTTP write at `server/server.js:563-586`. The revised plan adds CLI `set/reset/import-preview` and explicitly preserves supported-client behavior, but never specifies cache invalidation or revision detection when the CLI edits the file. Require every effective-settings read to observe an external file revision/hash (or remove the long-lived cache), and test CLI-write → running-server/browser reload plus stale-baseline rejection.
+
+#### M-08 — Bounds and redaction are incomplete for ignored/imported diagnostic data
+
+`10-01-PLAN.md:75` says unknown values are returned in `ignored`, and `10-02-PLAN.md:64` only says to bound the HTTP body. A malicious 8 MB payload can contain a very large unknown-key tree that is retained in preview output and rendered by the UI; `diagnostics.includePaths` is also not typed or explicitly classified as safe to show/export. Add field-count/depth/ignored-entry limits, truncation rules that do not echo secrets, and an explicit path-redaction policy shared by preview, export, doctor, and UI tests.
+
+### Cycle 2 source-grounding and verification
+
+- Re-read `.planning/ROADMAP.md:69-90`, `.planning/REQUIREMENTS.md:28-35`, `10-CONTEXT.md`, and `10-UI-SPEC.md:102-120`.
+- Re-grounded the revised plan symbols against `web/settings-schema.js`, `lib/settings.js`, `server/server.js`, `server/bridge.js`, `lib/bridge-client.mjs`, `web/app.js`, `web/live.js`, `web/draft-writer.js`, the hook/MCP entry points, CLI dispatch, and current settings tests.
+- Confirmed the current repository has no `test/browser-settings.test.js`, `test/runtime-settings.test.js`, `10-01-SUMMARY.md`, or `10-02-SUMMARY.md`; these are planned outputs, not missing existing symbols.
+- Passed focused baseline: `node --test test/settings-schema.test.js test/settings.test.js test/settings-panel.test.js test/server.test.js test/cli.test.js` — 141 passed, 0 failed.
+- No implementation code or plan files were changed by this review. The pre-existing `.planning/config.json` modification and untracked `.planning/MILESTONES.md` remain outside the review scope.
+
+### Verification coverage
+
+The following references are intentionally not source-verified because they are new artifacts or require a browser/runtime harness:
+
+- `.planning/phases/10-settings-v2/10-01-SUMMARY.md`, `10-02-SUMMARY.md`, and `10-03-SUMMARY.md` — declared phase outputs, not existing source.
+- `test/fixtures/settings-*.json`, `test/browser-settings.test.js`, and `test/runtime-settings.test.js` — declared new test artifacts.
+- Proposed `Settings.inspect/load`, preview/apply/reset operations, v2 namespace metadata, and runtime loader — new symbols the plans claim to create; no current declaration exists to verify.
+- Focus containment, screen-reader announcements, browser file picker/download behavior, and `window.close`/durable-ack sequencing — signature/behavior checks are uncheckable with the current grep/source-only harness and require the explicitly defined browser verification path.
+
+_Reviewed: 2026-07-17T00:00:00Z_
+_Reviewer: Codex cross-AI plan reviewer_
+_Cycle: 2_
