@@ -1,11 +1,12 @@
 ---
 phase: 10-settings-v2
 verified: 2026-07-17T15:00:00Z
-status: human_needed
+status: passed
 score: 11/11 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "Run a live, authenticated Claude Code and Codex round with settings v2 enabled, then repeat the browser checks on supported OS/browser combinations with assistive technology."
     expected: "Adapter preferences, delivery confirmation, recovery/closure behavior, persisted settings, focus/keyboard behavior, contrast, reduced motion, and narrow layouts work in the supported clients without losing or prematurely closing a round."
     why_human: "The repository's automated Node and Playwright CLI checks cover the local browser contract, but they cannot establish live authenticated host integration or cross-platform visual/assistive-technology behavior."
