@@ -35,6 +35,19 @@ function sendJson(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+function recoveryError(res, code) {
+  const status = {
+    invalid_selector: 400,
+    ownership_conflict: 409,
+    ambiguous_selection: 409,
+    result_not_ready: 409,
+    expired: 410,
+    not_found: 404,
+    recovery_error: 409,
+  }[code] || 409;
+  return sendJson(res, status, { error: 'round recovery unavailable', reason: code });
+}
+
 // A host result is delivered only after Node reports that its response stream
 // completed. A closed or unwritable stream is an uncertain delivery and must
 // leave request-id results available to /resume.
@@ -219,6 +232,38 @@ async function handleRequest(req, res) {
     );
   }
 
+  if (req.method === 'GET' && url === '/rounds') {
+    return sendJson(res, 200, { rounds: bridge.listRecoverable() });
+  }
+
+  const roundMatch = /^\/rounds\/(round_[A-Za-z0-9_-]+)(?:\/(result|ack))?$/.exec(url);
+  if (roundMatch && req.method === 'GET' && !roundMatch[2]) {
+    const found = bridge.getDurable(roundMatch[1]);
+    if (!found.ok) return recoveryError(res, found.code);
+    const { roundId, requestId, lifecycle, revision, createdAt, updatedAt, expiresAt, questions } = found.record;
+    return sendJson(res, 200, { roundId, requestId, state: lifecycle.state, revision, createdAt, updatedAt, expiresAt, questionCount: questions.length });
+  }
+
+  if (roundMatch && req.method === 'POST' && (roundMatch[2] === 'result' || roundMatch[2] === 'ack')) {
+    let body;
+    try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
+    let capability;
+    try { ({ capability } = JSON.parse(body)); } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    if (typeof capability !== 'string') return recoveryError(res, 'invalid_selector');
+    if (roundMatch[2] === 'result') {
+      const result = bridge.getResult(roundMatch[1], capability);
+      if (!result.ok) return recoveryError(res, result.code);
+      return sendJson(res, 200, { answers: result.result, revision: result.record.revision });
+    }
+    const record = bridge.getDurable(roundMatch[1]);
+    if (!record.ok) return recoveryError(res, record.code);
+    if (record.record.capability !== capability) return recoveryError(res, 'ownership_conflict');
+    if (!record.record.answers) return recoveryError(res, 'result_not_ready');
+    if (!bridge.confirmDelivery(roundMatch[1])) return recoveryError(res, 'recovery_error');
+    const acknowledged = bridge.getDurable(roundMatch[1]);
+    return sendJson(res, 200, { acknowledgedAt: acknowledged.record.delivery.acknowledgedAt, revision: acknowledged.record.revision });
+  }
+
   if (req.method === 'GET' && url === '/events') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -256,7 +301,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 400, { error: 'read error' });
     }
     let questions;
-    let requestId;
+    let requestId, roundId;
     try {
       const payload = JSON.parse(body);
       questions = payload.questions;
@@ -301,8 +346,9 @@ async function handleRequest(req, res) {
       const answers = await answersPromise;
       settled = true;
       const delivered = await sendJsonAndObserve(res, 200, { answers });
-      if (delivered) bridge.confirmDelivery(myId);
-      else bridge.markDeliveryUncertain(myId);
+      const deliveryId = bridge.durableRoundId(myId) || myId;
+      if (delivered) bridge.confirmDelivery(deliveryId);
+      else bridge.markDeliveryUncertain(deliveryId);
       return;
     } catch (e) {
       settled = true;
@@ -325,17 +371,28 @@ async function handleRequest(req, res) {
     } catch {
       return sendJson(res, 400, { error: 'read error' });
     }
-    let requestId;
+    let requestId, roundId;
     try {
       const payload = body ? JSON.parse(body) : {};
       if (payload.requestId !== undefined && typeof payload.requestId !== 'string') {
         return sendJson(res, 400, { error: 'invalid requestId' });
       }
+      if (payload.roundId !== undefined && (typeof payload.roundId !== 'string' || !/^round_[A-Za-z0-9_-]+$/.test(payload.roundId))) {
+        return sendJson(res, 400, { error: 'invalid roundId' });
+      }
       requestId = payload.requestId;
+      roundId = payload.roundId;
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
 
+    if (!roundId && !requestId) return recoveryError(res, 'invalid_selector');
+    if (roundId) {
+      const found = bridge.getDurable(roundId);
+      if (!found.ok) return recoveryError(res, found.code);
+      if (requestId && found.record.requestId !== requestId) return recoveryError(res, 'ownership_conflict');
+      requestId = found.record.requestId;
+    }
     const waiter = bridge.waitForAnswers(requestId);
     let settled = false;
     const onClose = () => {
@@ -346,8 +403,9 @@ async function handleRequest(req, res) {
       const answers = await waiter.promise;
       settled = true;
       const delivered = await sendJsonAndObserve(res, 200, { answers });
-      if (delivered) bridge.confirmDelivery(bridge.getSnapshot()?.id);
-      else bridge.markDeliveryUncertain(bridge.getSnapshot()?.id);
+      const deliveryId = bridge.durableRoundId(bridge.getSnapshot()?.id) || bridge.getSnapshot()?.id;
+      if (delivered) bridge.confirmDelivery(deliveryId);
+      else bridge.markDeliveryUncertain(deliveryId);
       return;
     } catch (e) {
       settled = true;

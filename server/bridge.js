@@ -260,6 +260,13 @@ class Bridge {
   confirmDelivery(roundId) {
     if (this._store && typeof roundId === 'string') {
       const confirmed = this._store.mutate(roundId, (record, now) => Record.acknowledge(record, now));
+      const delivery = [...this._deliveries.values()].find((item) => item.p.durable?.roundId === roundId);
+      if (confirmed.ok && delivery) {
+        const transitioned = transition(delivery.p.record, 'delivered', { now: this._now(), reason: 'completed', deadlineOwner: 'none' });
+        if (transitioned.ok) delivery.p.record = transitioned.record;
+        delivery.p.lifecycle?.finish('completed', { boundary: 'bridge', deadlineOwner: 'none' });
+        this._lastSnapshot = snapshot(delivery.p.record);
+      }
       return confirmed.ok;
     }
     const delivery = this._deliveries.get(roundId);
@@ -280,6 +287,13 @@ class Bridge {
       const uncertain = this._store.mutate(roundId, (record, now) =>
         Record.transition(record, 'uncertain', record.revision, now, { deadlineOwner: 'host' })
       );
+      const delivery = [...this._deliveries.values()].find((item) => item.p.durable?.roundId === roundId);
+      if (uncertain.ok && delivery) {
+        const transitioned = transition(delivery.p.record, 'uncertain', { now: this._now(), deadlineOwner: 'host' });
+        if (transitioned.ok) delivery.p.record = transitioned.record;
+        delivery.p.lifecycle?.event('delivery_uncertain', { boundary: 'bridge', deadlineOwner: 'host' });
+        this._lastSnapshot = snapshot(delivery.p.record);
+      }
       return uncertain.ok;
     }
     const delivery = this._deliveries.get(roundId);
@@ -313,6 +327,10 @@ class Bridge {
 
   listRecoverable() {
     return this._store ? this._store.list() : [];
+  }
+
+  durableRoundId(id) {
+    return this._deliveries.get(id)?.p.durable?.roundId || null;
   }
 
   getDurable(roundId) {

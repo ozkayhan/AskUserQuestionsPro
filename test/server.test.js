@@ -104,6 +104,24 @@ test('requestTimeout devre dışı (uzun /ask beklemesi Node 5dk tavanına takı
   assert.strictEqual(server.requestTimeout, 0);
 });
 
+test('durable discovery is redacted and result acknowledgement is idempotent', async () => {
+  const ask = post('/ask', { questions: [{ question: 'DURABLE?', options: [{ label: 'A' }] }], requestId: 'durable-http' });
+  const current = await waitForPending();
+  const listed = await (await fetch(`${base}/rounds`)).json();
+  const item = listed.rounds.find((round) => round.roundId === current.roundId);
+  assert.ok(item);
+  assert.equal(JSON.stringify(item).includes('DURABLE?'), false);
+  const before = await post(`/rounds/${current.roundId}/result`, { capability: current.capability });
+  assert.equal(before.status, 409);
+  await post('/answer', { id: current.id, capability: current.capability, answers: { 'DURABLE?': 'A' } });
+  await ask;
+  const result = await post(`/rounds/${current.roundId}/result`, { capability: current.capability });
+  assert.deepEqual((await result.json()).answers, { 'DURABLE?': 'A' });
+  const first = await (await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })).json();
+  const replay = await (await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })).json();
+  assert.deepEqual(replay, first);
+});
+
 test('/health ok döndürür', async () => {
   const r = await fetch(`${base}/health`);
   assert.deepStrictEqual(await r.json(), { ok: true, app: APP_ID });
@@ -268,7 +286,7 @@ test('requestId li /ask host soketi kapaninca round korunur ve /resume cevap ver
   assert.equal(retainedRound.id, current.id);
   assert.equal(retainedRound.lifecycle.state, 'detached');
 
-  const resumed = post('/resume', {});
+  const resumed = post('/resume', { requestId });
   await post('/answer', { id: current.id, answers: { 'RESUME?': 'A' } });
   const resumeResponse = await resumed;
   assert.strictEqual(resumeResponse.status, 200);
