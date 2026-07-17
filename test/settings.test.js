@@ -340,6 +340,21 @@ test('getPath: XDG_CONFIG_HOME altında settings.json', () => {
   });
 });
 
+test('doctor projection is read-only for legacy settings', () => {
+  withTmpConfig((Settings, dir) => {
+    const cfg = path.join(dir, 'askuserquestionspro');
+    fs.mkdirSync(cfg, { recursive: true });
+    const file = path.join(cfg, 'settings.json');
+    const legacy = JSON.stringify({ theme: 'paper' });
+    fs.writeFileSync(file, legacy);
+    const before = fs.readFileSync(file);
+    const projection = Settings.doctorProjection(Settings.inspectReadOnly());
+    assert.equal(projection.migration.needed, true);
+    assert.deepStrictEqual(fs.readFileSync(file), before);
+    assert.equal(fs.existsSync(Settings.BACKUP), false);
+  });
+});
+
 test('v2 browser patch preserves non-browser namespaces with CAS', () => {
   withTmpConfig((Settings) => {
     const original = Schema.envelopeDefaults();
