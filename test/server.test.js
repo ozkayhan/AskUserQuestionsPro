@@ -107,6 +107,52 @@ test('requestTimeout devre dışı (uzun /ask beklemesi Node 5dk tavanına takı
   assert.strictEqual(server.requestTimeout, 0);
 });
 
+test('delivery.mode confirm retires a successfully delivered host response', async () => {
+  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-confirm-'));
+  const settingsDir = path.join(configHome, 'askuserquestionspro');
+  fs.mkdirSync(settingsDir, { recursive: true });
+  const settings = require('../web/settings-schema.js').envelopeDefaults();
+  settings.delivery.mode = 'confirm';
+  fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify(settings));
+  const port = 4600 + (process.pid % 1000);
+  const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'server.js')], {
+    env: { ...process.env, ASKUSER_PORT: String(port), XDG_CONFIG_HOME: configHome },
+    stdio: 'ignore',
+  });
+  const childBase = `http://127.0.0.1:${port}`;
+  try {
+    await waitForCondition(async () => {
+      try { return (await fetch(`${childBase}/health`)).ok; } catch { return false; }
+    });
+    const ask = fetch(`${childBase}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: 'confirm-delivery', questions: [{ question: 'CONFIRM?', options: [{ label: 'A' }] }] }),
+    });
+    let current;
+    await waitForCondition(async () => {
+      try {
+        current = await (await fetch(`${childBase}/current`)).json();
+        return !!current.questions;
+      } catch { return false; }
+    });
+    await fetch(`${childBase}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: current.id, capability: current.capability, answers: { 'CONFIRM?': 'A' } }),
+    });
+    assert.deepEqual((await (await ask).json()).answers, { 'CONFIRM?': 'A' });
+    await waitForCondition(async () => {
+      const rounds = (await (await fetch(`${childBase}/rounds`)).json()).rounds;
+      return rounds.length === 1 && rounds[0].state === 'delivered';
+    });
+    assert.equal((await (await fetch(`${childBase}/current`)).json()).questions, null);
+  } finally {
+    child.kill();
+    fs.rmSync(configHome, { recursive: true, force: true });
+  }
+});
+
 test('durable discovery is redacted and result acknowledgement is idempotent', async () => {
   const ask = post('/ask', {
     questions: [{ question: 'DURABLE?', options: [{ label: 'A' }] }],

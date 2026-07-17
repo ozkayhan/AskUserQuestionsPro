@@ -397,7 +397,7 @@ async function handleRequest(req, res) {
       settled = true;
       const delivered = await sendJsonAndObserve(res, 200, { answers });
       const deliveryId = bridge.durableRoundId(myId) || myId;
-      if (delivered && !delivery.requiresAcknowledgement && (closure.mode === 'never' || closure.mode === 'after-delivery')) bridge.confirmDelivery(deliveryId);
+      if (delivered) bridge.confirmDelivery(deliveryId);
       else bridge.markDeliveryUncertain(deliveryId);
       return;
     } catch (e) {
@@ -458,7 +458,7 @@ async function handleRequest(req, res) {
       settled = true;
       const delivered = await sendJsonAndObserve(res, 200, { answers });
       const deliveryId = waiter.roundId;
-      if (delivered && !delivery.requiresAcknowledgement && (closure.mode === 'never' || closure.mode === 'after-delivery')) bridge.confirmDelivery(deliveryId);
+      if (delivered) bridge.confirmDelivery(deliveryId);
       else bridge.markDeliveryUncertain(deliveryId);
       return;
     } catch (e) {

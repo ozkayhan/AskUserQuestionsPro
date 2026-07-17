@@ -390,6 +390,8 @@ class Bridge {
         if (transitioned.ok) delivery.p.record = transitioned.record;
         delivery.p.lifecycle?.finish('completed', { boundary: 'bridge', deadlineOwner: 'none' });
         this._lastSnapshot = snapshot(delivery.p.record);
+        this._deliveries.delete(delivery.p.id);
+        if (delivery.p.requestId != null) this._completed.delete(delivery.p.requestId);
       }
       return confirmed.ok;
     }

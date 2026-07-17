@@ -20,7 +20,7 @@ test('runtime matrix owner hooks change behavior for every runtime field', () =>
   settings.adapters.codexEnabled = false;
   settings.diagnostics.enabled = true;
   settings.diagnostics.includePaths = false;
-  assert.deepStrictEqual(deliveryPolicy(settings), { mode: 'confirm', retryMs: 2500, requiresAcknowledgement: true });
+  assert.deepStrictEqual(deliveryPolicy(settings), { mode: 'confirm', retryMs: 2500, acknowledgement: 'explicit-recovery' });
   assert.deepStrictEqual(closurePolicy(settings), { mode: 'after-delivery' });
   assert.equal(adapterEnabled('claude', settings), false);
   assert.equal(adapterEnabled('codex', settings), false);
