@@ -32,7 +32,7 @@ test('contract preserves Claude fallback and Codex disconnect semantics', () => 
 
 test('capability cards expose evidence fields and unavailable live status', () => {
   for (const card of cards) {
-    for (const field of ['Transport', 'Timeout/deadline', 'Cancellation/disconnect', 'Approval/trust', 'Configuration', 'Installation/upgrade/uninstall', 'Evidence state', 'Limitations']) {
+    for (const field of ['Transport', 'Timeout/deadline owner', 'Cancellation/disconnect', 'Approval/trust', 'Configuration', 'Installation/upgrade/uninstall', 'Evidence state', 'Limitations']) {
       assert.match(card, new RegExp(`^- ${field}:`, 'm'));
     }
     assert.match(card, /live authenticated acceptance `Unavailable`/);
