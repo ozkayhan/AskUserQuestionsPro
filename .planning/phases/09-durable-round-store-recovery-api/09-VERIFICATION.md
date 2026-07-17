@@ -1,58 +1,46 @@
 ---
 phase: 09-durable-round-store-recovery-api
-verified: 2026-07-17T10:31:00Z
+verified: 2026-07-17T11:11:07Z
 status: gaps_found
-score: 3/5 must-haves verified
-behavior_unverified: 0
+score: 13/15 must-haves verified
+behavior_unverified: 1
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/5
+  gaps_closed:
+    - "Fresh Bridge hydration of an unfinished detached durable round"
+    - "Selector-less latest-result recovery fallback"
+    - "Legacy active-round recovery across a bridge restart"
+    - "Overstated macOS evidence and stale durable-persistence documentation"
+  gaps_remaining:
+    - "A browser edit can be discarded on refresh or closure before its delayed draft save starts."
+  regressions: []
 gaps:
   - truth: "Meaningful answer edits survive browser refresh, reconnect, closure, host detach, and bridge restart as revisions of the same round."
     status: failed
-    reason: "Draft persistence is not wired and a fresh Bridge does not hydrate an unfinished durable round."
+    reason: "The browser waits 250 ms before POST /draft, then cancels that timer on Flow unmount. Refreshing or closing immediately after an edit sends no draft request; failed draft requests are swallowed without retry."
     artifacts:
-      - path: "lib/round-record.cjs"
-        issue: "saveDraft exists but has no production caller."
-      - path: "server/bridge.js"
-        issue: "Constructor always starts with _pending = null and has no store-hydration path."
+      - path: "web/app.js"
+        issue: "Lines 66-78 debounce draft persistence and cleanup cancels pending work on unmount."
+      - path: "web/live.js"
+        issue: "postDraft has no timeout/retry contract; the caller suppresses every rejection."
     missing:
-      - "Persist browser draft edits through RoundStore with revision checking."
-      - "Hydrate a selected recoverable unfinished round into Bridge/browser ownership after restart."
-  - truth: "Users can view and select an exact recoverable round without arbitrary latest-round behavior."
-    status: failed
-    reason: "The internal recovery API still accepts an absent selector and chooses the last completed result by Map iteration order."
-    artifacts:
-      - path: "server/bridge.js"
-        issue: "waitForAnswers() calls _findCompleted(undefined), whose fallback returns the last Map value."
-      - path: "test/bridge.test.js"
-        issue: "The test 'resume round requestId olmadan en son detached cevabi bulur' codifies latest-round selection."
-    missing:
-      - "Require an exact durable round ID or unique request ID in every Bridge recovery path; remove the latest fallback and its test."
-  - truth: "Existing pre-v1.1 requests continue into the durable recovery model without cross-round loss."
-    status: failed
-    reason: "Registration writes migration metadata, but an active legacy request cannot be resumed after a Bridge restart because unfinished records are never hydrated."
-    artifacts:
-      - path: "server/bridge.js"
-        issue: "Only finalized records are retrievable from a fresh Bridge; selected unfinished records become stale_round."
-    missing:
-      - "Add restart integration coverage for a legacy registration and implement selected unfinished-round recovery."
-  - truth: "The macOS evidence accurately records the durability checks that were run."
-    status: failed
-    reason: "The evidence claims injected write/sync/close/rename/lock/mkdir fault coverage, but the focused durable tests contain no injected filesystem implementation or fault-seam tests."
-    artifacts:
-      - path: "test/round-store.test.js"
-        issue: "Contains only normal reload, corrupt JSON quarantine, and expiry cleanup tests."
-      - path: "docs/evidence/phase-09-durable-recovery.md"
-        issue: "Overstates automated coverage despite correctly limiting platform claims to macOS."
-    missing:
-      - "Add deterministic filesystem failure tests and correct/re-run the evidence record with only observed coverage."
+      - "Durably flush or preserve the latest changed draft before refresh/closure, with a tested recovery path."
+      - "Expose and retry failed draft persistence rather than silently discarding it."
+behavior_unverified_items:
+  - truth: "A crash or partial write leaves the prior named snapshot usable while the affected record has a safe recovery outcome."
+    test: "Inject write, fsync, close, rename, lock, and directory-creation failures against RoundStore/atomic-write, then reload the store."
+    expected: "The previous named valid snapshot remains available; temporary artifacts are ignored/cleaned; the failing record yields a typed persistence or recovery error without hiding healthy records."
+    why_human: "Current tests prove normal atomic reload, unwritable-target cleanup, and corruption quarantine, but do not exercise the individual filesystem failure paths. The macOS evidence explicitly states this limitation."
 ---
 
 # Phase 9: Durable Round Store & Recovery API Verification Report
 
-**Phase Goal:** Users can reopen an exact saved round and safely retrieve its final answer after browser, host, or bridge interruption.  
-**Verified:** 2026-07-17T10:31:00Z  
-**Status:** gaps_found  
-**Re-verification:** No — initial verification
+**Phase Goal:** Users can reopen an exact saved round and safely retrieve its final answer after browser, host, or bridge interruption.
+**Verified:** 2026-07-17T11:11:07Z
+**Status:** gaps_found
+**Re-verification:** Yes — after `b71b920`
 
 ## Goal Achievement
 
@@ -60,76 +48,101 @@ gaps:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Meaningful edits survive interruption/restart as revisions of the same round. | ✗ FAILED | `saveDraft` has no caller. A restart probe persisted and detached a round, then produced `{ "afterRestart": null, "resume": "stale_round" }` from a fresh `Bridge`. |
-| 2 | A user can select an exact recoverable round without latest guessing. | ✗ FAILED | HTTP `/resume` validates selectors, but `Bridge.waitForAnswers()` still permits no selector and `_findCompleted()` returns the last result. The test suite codifies this behavior. |
-| 3 | Partial/corrupt persisted records do not hide healthy records. | ✓ VERIFIED | `RoundStore._load()` validates each `.json` independently, quarantines invalid files, and continues; focused test confirms a valid sibling remains listable. Atomic writes sync, close, then rename. |
-| 4 | Final answers are immutable and result/acknowledgement retries are safe. | ✓ VERIFIED | `Record.finalize()` returns the original matching result or `immutable_result`; `acknowledge()` preserves timestamp/revision. Focused server and bridge tests pass, including fresh-store result replay. |
-| 5 | Pre-v1.1 requests enter the durable model safely. | ✗ FAILED | Registration writes `migration.legacyRegistration`, but the fresh-Bridge unfinished-round probe fails, so legacy active rounds cannot recover across the interruption the phase promises. |
+| 1 | Meaningful edits survive interruption/restart as revisions of the same round. | ✗ FAILED | Server draft/restart tests pass, but `web/app.js:66-78` defers save 250 ms and cancels it on unmount. An immediate refresh/closure loses the latest edit. |
+| 2 | A user selects an exact recoverable round; no latest-round guess occurs. | ✓ VERIFIED | `Bridge.waitForAnswers()` rejects absent selectors; `/resume`, `resumeBridge()`, and MCP `resume` require `requestId` or `roundId`. Focused exact-selector test passes. |
+| 3 | Crash/partial-write/corrupt-record handling preserves healthy recoverable records and safely handles the bad record. | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | Per-record corruption quarantine and healthy-sibling survival pass. Atomic code uses temp → fsync → close → rename and ignores `*.tmp.*`, but no test injects write/sync/close/rename/mkdir failure. |
+| 4 | A submitted answer is immutable and result/acknowledgement retries are safe. | ✓ VERIFIED | Record transitions reject changed final retries, replay identical results, and preserve the first acknowledgement fact. Focused tests and restarted-store result replay pass. |
+| 5 | Existing pre-v1.1 requests enter the durable model without cross-round loss. | ✓ VERIFIED | A no-`requestId` probe created an opaque durable record with `migration.legacyRegistration: true` and returned the unchanged `{ answers }` envelope; ID/capability guards remain in the answer path. |
+| 6 | Registration creates a versioned private snapshot before visibility. | ✓ VERIFIED | `Bridge.submitQuestions()` calls `RoundStore.create()` before resolving `peek`; record tests cover version, opaque ID, revision, lifecycle, and expiry. |
+| 7 | Each accepted persisted mutation advances revision once; idempotent/conflicting retries do not overwrite it. | ✓ VERIFIED | `Record.saveDraft`, `finalize`, and `acknowledge` implement monotonic revision/replay behavior; draft/revision focused tests pass. |
+| 8 | Initial durable retention follows the resolved detached-round TTL. | ✓ VERIFIED | Bridge passes its resolved TTL to `RoundStore.create`; `Record.create()` derives `expiresAt` from it. |
+| 9 | Lifecycle transitions persist before success is reported. | ✓ VERIFIED | Bridge delegates draft, detach/resume, answer, uncertain delivery, acknowledgement, cancellation, and expiry mutations through `RoundStore.mutate()`. |
+| 10 | Legacy and established successful envelopes remain compatible while unsafe recovery is typed. | ✓ VERIFIED | `/ask`, `/answer`, `/cancel`, and successful `/resume` retain their response shapes; absent selectors return `invalid_selector`. |
+| 11 | Invalid/expired/missing/ambiguous/unauthorized recovery requests are redacted typed errors. | ✓ VERIFIED | `recoveryError()` maps selector and ownership failures without exposing persisted payloads; server coverage passes. |
+| 12 | Maintained docs describe exact selection, results, acknowledgement, retention, quarantine, and Node authority. | ✓ VERIFIED | `docs/api.md` and D-010 match routes and retention; browser storage is explicitly non-authoritative. |
+| 13 | macOS evidence is bounded and does not claim Linux/Windows/power-loss validation. | ✓ VERIFIED | `docs/evidence/phase-09-durable-recovery.md` explicitly limits scope to macOS and calls out untested fault injection. |
+| 14 | Support docs keep discovery and recovery outcomes redacted. | ✓ VERIFIED | Discovery documentation limits output to metadata and excludes questions, answers, capabilities, and paths. |
+| 15 | Existing store directories and snapshots use restrictive permissions. | ✓ VERIFIED | Direct macOS probe observed `rounds=700`, `quarantine=700`, `snapshot=600`; store also tightens pre-existing directories. |
 
-**Score:** 3/5 truths verified (0 present, behavior-unverified)
+**Score:** 13/15 truths verified (1 present, behavior-unverified)
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `lib/round-record.cjs` | Versioned records, revisions, immutable results/acks | ✓ VERIFIED | Substantive pure transition module; used by store and bridge. `saveDraft` is orphaned from production flows. |
-| `lib/round-store.cjs` | Private atomic snapshots, scan, quarantine, TTL cleanup | ✓ VERIFIED | Used by server startup and Bridge; fresh probe observed `700` rounds/quarantine dirs and `600` snapshot. |
-| `server/bridge.js` | Store-backed recovery and lifecycle transitions | ⚠️ HOLLOW | Store mutations are wired, but no constructor hydration reconstructs an unfinished recoverable round. |
-| `server/server.js` | Exact recovery/result/ack HTTP contracts | ✓ VERIFIED | Routes delegate to Bridge and require selector/capability at the HTTP boundary. |
-| `test/round-record.test.js`, `test/round-store.test.js` | Durable regression/fault coverage | ✗ STUB FOR REQUIRED FAULT COVERAGE | Tests cover normal record semantics, reload, corrupt JSON, and expiry only; no injected filesystem failure seam is exercised. |
-| `docs/evidence/phase-09-durable-recovery.md` | Accurate bounded macOS evidence | ✗ STUB FOR CLAIMED COVERAGE | Correctly says macOS-only/no power-loss guarantee, but claims fault tests that do not exist. |
+| `lib/round-record.cjs` | Versioned records, revision guards, immutable result/ack facts | ✓ VERIFIED | Substantive validated transition module, used by store and bridge. |
+| `lib/round-store.cjs` | Private atomic snapshots, scan, quarantine, TTL cleanup | ✓ VERIFIED | Store startup loads/validates each record, quarantines only invalid records, tightens directories, and deletes expired files. |
+| `lib/atomic-write.cjs` | Same-directory sync/close/rename and ownership-safe locking | ✓ VERIFIED | Owner-token lock requires both stale age and dead owner; release verifies ownership. Focused stale/dead and stale/live tests pass. |
+| `server/bridge.js` | Store-backed draft/restart/recovery/result lifecycle | ✓ VERIFIED | Hydrates a unique recoverable record at construction and can hydrate an explicitly selected record on demand. |
+| `server/server.js` | Exact recovery, draft, result, acknowledgement HTTP contracts | ✓ VERIFIED | Routes validate selectors/capabilities and delegate to Bridge. |
+| `web/live.js`, `web/app.js` | Browser draft persistence | ✗ HOLLOW | `/draft` is wired, but debouncing plus unmount cancellation leaves a last-edit loss window and hides failure. |
+| `test/round-record.test.js`, `test/round-store.test.js`, `test/bridge.test.js`, `test/server.test.js`, `test/settings.test.js` | Focused durable regression coverage | ✓ VERIFIED | 128 focused tests pass, covering all requested deterministic server/store paths except injected filesystem failure cases. |
+| `docs/evidence/phase-09-durable-recovery.md` | Honest bounded platform evidence | ✓ VERIFIED | Accurately documents macOS-only result and omitted fault-injection coverage. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `RoundStore` | `writeFileAtomic` | `_write()` | ✓ WIRED | Serializes complete record before `RoundStore` reports success. |
-| `Bridge` | `RoundStore` | registration, transition, finalization, acknowledgement | ✓ WIRED | Durable mutations precede successful active-path transitions. |
-| Fresh `RoundStore` | fresh `Bridge` | startup recovery | ✗ NOT_WIRED | Store loads records, but Bridge never consumes unfinished records into `_pending`. |
-| HTTP routes | exact selectors / Bridge | `/rounds`, `/resume`, result, ack | ⚠️ PARTIAL | HTTP guards selectors, but Bridge retains an unqualified latest-result fallback. |
-| Host adapters | explicit recovery selector | `resumeBridge()` and MCP `resume` | ✓ WIRED | Adapters forward request or durable round selectors to HTTP. |
+| `RoundStore` | `writeFileAtomic` | `_write()` | ✓ WIRED | Record enters `_records` only after atomic writer success. |
+| `Bridge` | `RoundStore` | registration, draft, transition, finalization, acknowledgement | ✓ WIRED | Durable mutations precede the relevant bridge success path. |
+| Fresh store | fresh `Bridge` | constructor hydration and `_recover()` | ✓ WIRED | Child-server restart test hydrates a detached draft for `/current` and exact `/resume`. |
+| Browser Flow | `/draft` | `postDraft()` | ⚠️ PARTIAL | Request/response contract is wired, but scheduled work is cancelled on refresh/close and errors are swallowed. |
+| Host adapters | explicit selector | `resumeBridge()` and MCP `resume` | ✓ WIRED | Both pass exact request/round selector material; no selector-less fallback remains. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 | --- | --- | --- | --- | --- |
-| `RoundStore` | `_records` | individual `rounds/*.json` scan | Yes | ✓ FLOWING |
-| `Bridge` | `_pending` | only `submitQuestions()` | No after restart | ✗ DISCONNECTED |
-| `server/server.js` | recovery response | `Bridge.getDurable/getResult/waitForAnswers` | Final results only after restart | ⚠️ PARTIAL |
+| `RoundStore` | `_records` | `rounds/*.json` validated scan | Yes | ✓ FLOWING |
+| `Bridge` | `_pending` | created record or durable hydration | Yes | ✓ FLOWING |
+| Browser `Flow` | `answers` / `draftRevision` | React state → debounced `/draft` | Not before unmount; failed save has no retry | ✗ HOLLOW |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Focused durable/recovery suite | `node --test test/round-record.test.js test/round-store.test.js test/bridge.test.js test/server.test.js` | 77 passed, 0 failed | ✓ PASS |
-| Workspace suite | `npm test` | 421 passed, 0 failed | ✓ PASS |
-| Unfinished detached round after restart | isolated `Bridge`/`RoundStore` Node probe | `afterRestart: null`; `resume: stale_round` | ✗ FAIL |
-| Restrictive macOS permissions | isolated `RoundStore` Node probe | rounds `700`, quarantine `700`, snapshot `600` | ✓ PASS |
+| Focused durable/recovery suite | `node --test test/round-record.test.js test/round-store.test.js test/bridge.test.js test/server.test.js test/settings.test.js` | 128 passed, 0 failed | ✓ PASS |
+| Full workspace suite | `npm test` | 427 passed, 0 failed | ✓ PASS |
+| Restart detached recovery, draft, revision, exact selection, corruption/expiry, lock, immutable replay | targeted `node --test --test-name-pattern=...` | 8 passed, 0 failed | ✓ PASS |
+| Private modes | isolated `RoundStore` probe | `rounds=700`, `quarantine=700`, `snapshot=600` | ✓ PASS (macOS) |
+| Legacy migration envelope | isolated `Bridge`/`RoundStore` probe | durable opaque ID, `legacyRegistration=true`, `requestId=null`, original answer envelope | ✓ PASS |
+| Browser immediate refresh/closure after edit | source-path inspection of `Flow` effect | timer is cancelled on cleanup before `/draft` starts | ✗ FAIL |
+| Lint / formatting | `npm run lint`; `npm run format:check` | `eslint` and `prettier` executables absent from this checkout | ? ENVIRONMENT LIMITATION |
+
+### Probe Execution
+
+No Phase 9 `scripts/**/tests/probe-*.sh` probes are declared or present.
 
 ### Requirements Coverage
 
-| Requirement | Source Plan | Description | Status | Evidence |
-| --- | --- | --- | --- | --- |
-| DUR-01 | 09-01, 09-02 | Authoritative versioned local-disk record | ✓ SATISFIED | V1 snapshots, opaque IDs, and private files are created before registration is exposed. |
-| DUR-02 | 09-01, 09-02 | Meaningful edits persist incrementally with revisions | ✗ BLOCKED | Revision primitive exists, but no browser/server path invokes `saveDraft`. |
-| DUR-03 | 09-01, 09-02, 09-04 | Restart/crash/partial/corruption survival | ✗ BLOCKED | Per-record corruption isolation works, but fresh Bridge recovery of unfinished state fails and claimed fault coverage is absent. |
-| DUR-04 | 09-03 | Exact selection; no arbitrary latest round | ✗ BLOCKED | HTTP is exact, but Bridge retains and tests unqualified latest selection. |
-| DUR-05 | 09-02, 09-03, 09-04 | Immutable final answers; idempotent result/ack | ✓ SATISFIED | Matching final retries and repeated acknowledgements return stable persisted facts. |
-| DUR-06 | 09-02, 09-03 | Safe pre-v1.1 migration | ✗ BLOCKED | Legacy marker/compatibility registration exists but does not survive active-round restart recovery. |
+| Requirement | Source Plan | Status | Evidence |
+| --- | --- | --- | --- |
+| DUR-01 | 09-01, 09-02 | ✓ SATISFIED | Authoritative versioned local snapshots are created before registration becomes visible. |
+| DUR-02 | 09-01, 09-02 | ✗ BLOCKED | Server revisions work, but browser closure/refresh can cancel an unsent meaningful edit. |
+| DUR-03 | 09-01, 09-02, 09-04 | ? NEEDS HUMAN / MORE TESTS | Corruption/quarantine and normal atomic reload are proven; individual crash/partial-write failure paths have no injected behavioral evidence. |
+| DUR-04 | 09-03 | ✓ SATISFIED | Exact selectors are required across Bridge, HTTP client, and MCP. |
+| DUR-05 | 09-02, 09-03, 09-04 | ✓ SATISFIED | Final answer immutability and duplicate result/ack replay are persisted and tested. |
+| DUR-06 | 09-02, 09-03 | ✓ SATISFIED | Legacy no-request-ID registration remains compatible while persisting a durable record. |
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `server/bridge.js` | 200–219, 310–319 | Selector-less latest-result fallback | 🛑 Blocker | Violates the exact-selection contract beneath the HTTP layer. |
-| `docs/evidence/phase-09-durable-recovery.md` | 26–30 | Evidence claims unimplemented fault coverage | 🛑 Blocker | Makes the recorded durability evidence unreliable. |
-| `test/round-store.test.js` | 15–42 | Missing required fault-injection tests | 🛑 Blocker | Atomic failure assertions are unproven despite being claimed. |
+| `web/app.js` | 66–78 | Delayed draft write is cancelled on unmount | 🛑 Blocker | Violates DUR-02 for immediate refresh/tab closure. |
+| `web/app.js` | 75 | Empty rejection handler for draft persistence | ⚠️ Warning | A failed save is neither surfaced nor retried. |
+| `docs/evidence/phase-09-durable-recovery.md` | 25–26 | Explicitly omits injected filesystem-failure tests | ⚠️ Warning | Honest evidence, but DUR-03's crash-path behavior remains unexercised. |
+
+### Human Verification Required
+
+No separate UAT item is emitted because the failure above is directly observable from the browser draft-save control flow. The DUR-03 behavior-unverified item in the frontmatter requires deterministic failure tests (preferred) or an explicit developer decision; macOS-only evidence does not establish Linux/Windows or power-loss behavior.
 
 ### Gaps Summary
 
-The persistence primitives and finalized-result replay are real, and the local permission probe confirms the intended new-file modes. The phase goal is nevertheless not achieved: an unfinished detached round cannot be reopened after bridge restart, meaningful draft edits never reach the durable store, and the core Bridge still has a selector-less latest-result path. The macOS-only boundary is stated honestly, but the evidence overclaims test coverage. No later roadmap phase explicitly defers these durable-store/Bridge semantics, so these are actionable Phase 9 blockers.
+`b71b920` closes the prior restart hydration, exact-selector, legacy-restart, private-directory, stale-lock, and documentation-evidence findings. The phase still cannot pass: the only browser draft path intentionally delays persistence and then cancels it when the browser refreshes or closes. That conflicts with the Phase 9 success criterion that meaningful edits survive refresh and closure.
+
+No later phase explicitly defers this durability guarantee. Phase 11 owns recovery presentation and delivery UX, not the Phase 9 requirement to persist a meaningful edit before it can be lost. The filesystem evidence remains correctly limited to macOS; Claude host acceptance was unavailable in this Codex-only workspace and is not claimed.
 
 ---
 
-_Verified: 2026-07-17T10:31:00Z_  
+_Verified: 2026-07-17T11:11:07Z_
 _Verifier: the agent (gsd-verifier)_
