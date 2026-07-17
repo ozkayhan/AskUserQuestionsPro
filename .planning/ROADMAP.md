@@ -79,12 +79,12 @@ Plans:
   4. Users can export settings, reset an individual settings namespace, and inspect effective non-sensitive settings in doctor output.
   5. Settings controls remain keyboard-accessible and retain their persisted values after reload and upgrade.
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans executed
 Plans:
 
-- [ ] 10-01-PLAN.md — Establish the shared versioned settings schema and backed-up migration persistence.
-- [ ] 10-02-PLAN.md — Add transactional HTTP/CLI import, export, reset, and redacted doctor operations.
-- [ ] 10-03-PLAN.md — Deliver the accessible schema-driven Settings v2 browser experience.
+- [x] 10-01-PLAN.md — Establish the shared versioned settings schema and backed-up migration persistence.
+- [x] 10-02-PLAN.md — Add transactional HTTP/CLI import, export, reset, and redacted doctor operations.
+- [x] 10-03-PLAN.md — Deliver the accessible schema-driven Settings v2 browser experience.
 
 **UI hint**: yes
 **Research flags**: Decide the v2 version boundary, precedence, and unknown-future-version policy against current settings fixtures before implementation; keep executable host commands and loopback binding outside user-importable settings.
@@ -147,7 +147,7 @@ Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 |-------|----------------|--------|-----------|
 | 8. Lifecycle Contract & Observability | 5/5 | Complete    | 2026-07-17 |
 | 9. Durable Round Store & Recovery API | 4/4 | Complete    | 2026-07-17 |
-| 10. Settings v2 | 0/TBD | Not started | - |
+| 10. Settings v2 | 3/3 | In Progress|  |
 | 11. Browser Recovery & Delivery UX | 0/TBD | Not started | - |
 | 12. Adapter Contract & Tier 1 Acceptance | 0/TBD | Not started | - |
 | 13. Evidence-Gated Host Expansion & Launch Hardening | 0/TBD | Not started | - |

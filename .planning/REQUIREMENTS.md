@@ -27,12 +27,12 @@ Requirements for Sprint 2. Each maps to exactly one roadmap phase.
 
 ### Settings v2
 
-- [ ] **SET-01**: Browser and Node share one versioned settings schema and validation contract.
-- [ ] **SET-02**: Settings migrations are idempotent, backed up, and safely reject unsupported future versions.
-- [ ] **SET-03**: Users can configure browser launch, retention, autosave, recovery, lifecycle diagnostics, delivery behavior, post-submit closure, and adapter preferences.
-- [ ] **SET-04**: Settings import provides preview, validation errors, partial-import prevention, and safe rollback.
-- [ ] **SET-05**: Users can export settings, reset individual namespaces, and inspect effective non-sensitive settings through doctor output.
-- [ ] **SET-06**: Settings UI preserves accessibility, keyboard behavior, and persisted values across reloads and upgrades.
+- [x] **SET-01**: Browser and Node share one versioned settings schema and validation contract.
+- [x] **SET-02**: Settings migrations are idempotent, backed up, and safely reject unsupported future versions.
+- [x] **SET-03**: Users can configure browser launch, retention, autosave, recovery, lifecycle diagnostics, delivery behavior, post-submit closure, and adapter preferences.
+- [x] **SET-04**: Settings import provides preview, validation errors, partial-import prevention, and safe rollback.
+- [x] **SET-05**: Users can export settings, reset individual namespaces, and inspect effective non-sensitive settings through doctor output.
+- [x] **SET-06**: Settings UI preserves accessibility, keyboard behavior, and persisted values across reloads and upgrades.
 
 ### Browser Recovery and Delivery UX
 
@@ -104,12 +104,12 @@ Deferred beyond this milestone but retained for future planning.
 | DUR-04 | Phase 9 | Complete |
 | DUR-05 | Phase 9 | Complete |
 | DUR-06 | Phase 9 | Complete |
-| SET-01 | Phase 10 | Pending |
-| SET-02 | Phase 10 | Pending |
-| SET-03 | Phase 10 | Pending |
-| SET-04 | Phase 10 | Pending |
-| SET-05 | Phase 10 | Pending |
-| SET-06 | Phase 10 | Pending |
+| SET-01 | Phase 10 | Complete |
+| SET-02 | Phase 10 | Complete |
+| SET-03 | Phase 10 | Complete |
+| SET-04 | Phase 10 | Complete |
+| SET-05 | Phase 10 | Complete |
+| SET-06 | Phase 10 | Complete |
 | WEB-05 | Phase 11 | Pending |
 | WEB-06 | Phase 11 | Pending |
 | WEB-07 | Phase 11 | Pending |
