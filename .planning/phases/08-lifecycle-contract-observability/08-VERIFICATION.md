@@ -1,42 +1,25 @@
 ---
 phase: 08-lifecycle-contract-observability
-verified: 2026-07-17T10:14:14Z
-status: gaps_found
-score: 4/5 must-haves verified
+verified: 2026-07-17T10:23:39Z
+status: passed
+score: 5/5 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 re_verification:
   previous_status: gaps_found
   previous_score: 4/5
   gaps_closed:
-    - "Bridge answer, detach, resume, delivery-uncertain, completion, cancellation, and expiry paths now emit allowlisted boundary and deadlineOwner metadata."
-  gaps_remaining:
-    - "Several real non-Bridge lifecycle records still omit boundary and deadlineOwner metadata."
+    - "Support diagnostics identify the responsible lifecycle boundary and terminal reason with opaque identifiers, without exposing question or answer content."
+  gaps_remaining: []
   regressions: []
-gaps:
-  - truth: "Support diagnostics identify the responsible lifecycle boundary and terminal reason with opaque identifiers, without exposing question or answer content."
-    status: partial
-    reason: "Commit 85d308d fixes the required Bridge transition paths, but the lifecycle contract and Plan 08-02 require every diagnostic event to identify its boundary and deadline owner. Actual focused-suite stderr proves round_started, ask_received, round_registered, and ask_response_closed omit both fields; adapter-client paths also emit/finish events without them."
-    artifacts:
-      - path: "server/server.js"
-        issue: "Operational lifecycle.event()/finish() calls at lines 278, 284, 289, and 307 provide no boundary or deadlineOwner."
-      - path: "lib/bridge-client.mjs"
-        issue: "ask_received, normal answer/completion, and bridge-error diagnostics at lines 157, 178-179, and 193 lack ownership metadata."
-      - path: "hooks/askuserquestionspro-bridge.mjs"
-        issue: "Normal browser-opened/completed events at lines 109-111 lack ownership metadata."
-      - path: "mcp-server/askuserquestionspro-mcp.mjs"
-        issue: "The early-abort host_cancelled finish at line 231 lacks ownership metadata."
-    missing:
-      - "Supply allowlisted boundary and deadlineOwner values on every remaining operational lifecycle event and finish call, or centralize safe defaults in createLifecycle."
-      - "Add an integration assertion that every emitted operational record has boundary and deadlineOwner while preserving the existing question/answer-redaction assertion."
 ---
 
 # Phase 8: Lifecycle Contract & Observability Verification Report
 
 **Phase Goal:** Users can keep a long-running round recoverable because its state, timeout owner, and terminal outcome are explicit rather than silently lost.
-**Verified:** 2026-07-17T10:14:14Z
-**Status:** gaps_found
-**Re-verification:** Yes — after `80a64e4` and `85d308d`.
+**Verified:** 2026-07-17T10:23:39Z
+**Status:** passed
+**Re-verification:** Yes — after `84b460a`.
 
 ## Goal Achievement
 
@@ -44,80 +27,93 @@ gaps:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | A user who loses a host attachment sees the round enter a distinct recoverable state instead of it appearing completed or disappearing. | ✓ VERIFIED | `server/server.js:288-294` detaches request-id rounds on host close; `lib/round-state.cjs:32-38` permits detached recovery; focused MCP EOF and answer-before-resume tests pass. |
-| 2 | Support diagnostics identify the responsible lifecycle boundary and terminal reason with opaque identifiers, without exposing question or answer content. | ✗ FAILED | Bridge transition events are fixed, but operational output from the 100-test focused run still shows `round_started`, `ask_received`, `round_registered`, and `ask_response_closed` without `boundary` or `deadlineOwner`. This violates LIFE-02 / the Plan 08-02 every-diagnostic-event contract. |
-| 3 | A stale, duplicate, delayed, or unauthorized operation cannot change another user's active or recovered round. | ✓ VERIFIED | `server/bridge.js:118-123` guards id + opaque capability; `test/bridge.test.js` and `test/server.test.js` cover stale IDs, wrong/missing capability, and retained valid rounds. |
-| 4 | An unavoidable host deadline detaches a round with recovery guidance, while ordinary idle time does not end it. | ✓ VERIFIED | Detached answer transitions to `delivery-pending`, response close becomes `delivery-uncertain`, and later `/resume` returns the retained result. The acceptance record scopes Codex to v0.144.5 and marks Claude unavailable without a support claim. |
-| 5 | Maintainers can repeat lifecycle races and deadline paths deterministically and observe the expected state for each. | ✓ VERIFIED | The Phase 8 suite observes `detached`/`reconnecting` states instead of fixed pre-answer sleeps; command below passed 100/100. |
+| 1 | A user who loses a host attachment sees the round enter a distinct recoverable state instead of it appearing completed or disappearing. | ✓ VERIFIED | `server/server.js:289-303` detaches request-id rounds on host-close and retains a delivery-uncertain result; `test/server.test.js` and `test/mcp-long-round.test.js` exercise answer-before-resume, a closed resume response, and stdin EOF recovery. |
+| 2 | Support diagnostics identify the responsible lifecycle boundary and terminal reason with opaque identifiers, without exposing question or answer content. | ✓ VERIFIED | `lib/round-lifecycle.cjs:54-97` now assigns allowlisted defaults to every record and only serializes its fixed schema. The focused suite's live server output shows every record has `boundary`/`deadlineOwner`; its real-server test proves no secret question or answer leaks. |
+| 3 | A stale, duplicate, delayed, or unauthorized operation cannot change another user's active or recovered round. | ✓ VERIFIED | `server/bridge.js:118-139,261-280` and capability-required HTTP mutation tests reject wrong/missing credentials while preserving the pending round; direct race and route tests pass. |
+| 4 | An unavoidable host deadline detaches a round with recovery guidance, while ordinary idle time does not end it. | ✓ VERIFIED | The MCP EOF test detaches and later resumes the original round; `docs/evidence/phase-08-lifecycle-acceptance.md:16-21` records an authenticated Codex 0.144.5 3-second host deadline followed by one successful resume, while the server leaves `requestTimeout = 0`. |
+| 5 | Maintainers can repeat lifecycle races and deadline paths deterministically and observe the expected state for each. | ✓ VERIFIED | The 102-test Phase 8 command passes state-observing recovery and injected-timer tests; no Phase 8 race test uses a fixed pre-answer sleep. |
 
-**Score:** 4/5 truths verified (0 present, behavior-unverified)
+**Score:** 5/5 truths verified (0 present, behavior-unverified)
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `lib/round-state.cjs` | Explicit vocabulary, legal transitions, redacted snapshot | ✓ VERIFIED | Contains all nine LIFE-01 states and legal detached/recovery/delivery transitions. |
-| `server/bridge.js` | Coordinator, ownership guard, attributed transition diagnostics | ✓ VERIFIED | `85d308d` supplies metadata for answer, detach, resume, uncertainty, completion, cancellation, and expiry; direct Bridge tests cover every path. |
-| `lib/round-lifecycle.cjs` | Redacted typed event schema | ⚠️ PARTIAL | Schema safely allowlists metadata and excludes payloads, but it does not provide defaults; callers can and do emit incomplete records. |
-| `server/server.js` / `web/live.js` | Capability-protected HTTP/SSE transport | ✓ VERIFIED | `/current`, `/events`, `/answer`, and `/cancel` propagate lifecycle/capability; focused route tests pass. |
-| `lib/bridge-client.mjs` / adapters | Deadline-owner seams and resumable host loss | ⚠️ PARTIAL | Recovery behavior is tested, but several emitted lifecycle records lack boundary/owner attributes. |
-| `docs/evidence/phase-08-lifecycle-acceptance.md` | Redacted real-host or explicit-unavailable evidence | ✓ VERIFIED | No literal question/answer data; Codex evidence is version-scoped; Claude is explicitly unavailable with no compatibility claim. |
+| `lib/round-state.cjs` | Explicit lifecycle vocabulary, legal transitions, redacted snapshot | ✓ VERIFIED | Nine LIFE-01 states, including detached/reconnecting and delivery-uncertain, plus legal transitions and payload-free snapshots. |
+| `server/bridge.js` | State-machine coordinator and ownership guard | ✓ VERIFIED | Uses the shared transitions for answer, detach, resume, delivery, cancellation, and expiry; emits explicit transition metadata. |
+| `lib/round-lifecycle.cjs` | Redacted typed lifecycle event schema | ✓ VERIFIED | The post-`84b460a` default boundary and `deadlineOwner: none` close the prior incomplete-caller gap; unknown adapter falls back safely to `bridge`. |
+| `server/server.js` / `web/live.js` | Capability-protected HTTP/SSE lifecycle transport | ✓ VERIFIED | `/current` and SSE project a separate lifecycle snapshot; browser mutations carry `id` and capability and server tests reject invalid ownership. |
+| `lib/bridge-client.mjs` / hook / MCP | Deadline-owner seam and host-loss recovery | ✓ VERIFIED | Client paths use the supplied lifecycle recorder, hook creates `adapter: hook`, MCP creates `adapter: mcp`; all unannotated events receive centralized safe defaults and terminal paths retain explicit overrides. |
+| `docs/evidence/phase-08-lifecycle-acceptance.md` | Redacted authenticated-host or explicit-unavailable evidence | ✓ VERIFIED | Claude is conspicuously unavailable with no support claim; Codex evidence is authentication-, version-, configuration-, and deadline-scoped. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
-| --- | --- | --- | --- | --- |
-| `server/bridge.js` | `lib/round-state.cjs` | `createRecord`, `transition`, `snapshot` | ✓ WIRED | Used for submit, detach, resume, answer, delivery, cancel, and expiry. |
-| Bridge snapshot | `/current` and `/events` | `bridge.peek()` / `bridge.getSnapshot()` | ✓ WIRED | `server/server.js:208-217,229-232` serialize the active snapshot. |
-| Browser mutation | Bridge ownership guard | id + capability in `/answer` and `/cancel` | ✓ WIRED | Wrong/missing credentials return `ownership_conflict` and leave the active round intact. |
-| Host close | retained browser result | detach → answer → delivery-uncertain → resume | ✓ WIRED | Focused server tests exercise both answer-before-resume and closed-resume response recovery. |
-| Operational lifecycle callers | attributed redacted diagnostics | `createLifecycle.event()` / `.finish()` | ✗ PARTIAL | Bridge transition calls are wired; several server/client/adapter event calls omit required details. |
+| --- | --- | --- | --- |
+| `server/bridge.js` | `lib/round-state.cjs` | `createRecord`, `transition`, `snapshot` | ✓ WIRED | The Bridge delegates lifecycle legality and public projection to the shared contract. |
+| Bridge snapshot | `/current` and `/events` | `bridge.peek()` / `bridge.getSnapshot()` | ✓ WIRED | `server/server.js:208-246` serializes the authoritative lifecycle state in both HTTP and SSE paths. |
+| Browser mutation | Bridge ownership guard | `id` + capability in `/answer` and `/cancel` | ✓ WIRED | Browser transport serializes capability and server tests prove missing/wrong credentials cannot mutate the round. |
+| Host close | retained browser result | detach → answer → delivery-uncertain → resume | ✓ WIRED | Direct Bridge, real-server, and spawned-MCP tests cover this complete recovery chain. |
+| Server, Bridge, client, hook, MCP | redacted lifecycle output | shared `createLifecycle()` recorder | ✓ WIRED | There are no bypass lifecycle log emitters. Factory defaults cover `http`, `hook`, `mcp`, `stdio`, and safe unknown-adapter fallback; Bridge overrides ownership on state-changing paths. |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 | --- | --- | --- | --- | --- |
-| `web/live.js` | id, capability, lifecycle snapshot | `/current` and SSE | Bridge-generated state | ✓ FLOWING |
-| `server/server.js` | delivery outcome | `sendJsonAndObserve()` after Bridge answer | Real HTTP finish/close signal | ✓ FLOWING |
-| `lib/round-lifecycle.cjs` | boundary / deadline owner | operational callers | Incomplete for non-Bridge calls | ✗ DISCONNECTED |
+| `web/live.js` / `server/server.js` | lifecycle snapshot | Bridge `getSnapshot()` through `/current` and SSE | State-machine record | ✓ FLOWING |
+| `lib/round-lifecycle.cjs` | diagnostic metadata | Operational callers through `createLifecycle()` | Fixed allowlisted payload with opaque IDs and elapsed time | ✓ FLOWING |
+| `docs/evidence/phase-08-lifecycle-acceptance.md` | live host outcome | Authenticated Codex execution; explicit Claude unavailability | Version-scoped observed result, not inferred compatibility | ✓ FLOWING |
+
+### Operational Lifecycle Output Audit
+
+| Source | Construction / output path | Attribution result |
+| --- | --- | --- |
+| Central factory | `lib/round-lifecycle.cjs:54-97` | ✓ Every record has an allowlisted boundary and deadline owner; arbitrary payload fields are discarded. |
+| HTTP server | `server/server.js:274-307` | ✓ HTTP default is applied to start/registration/close/error records; Bridge contributes explicit browser/bridge outcomes. |
+| Bridge | `server/bridge.js:128-296` | ✓ Answer, detach, resume, uncertainty, completion, cancellation, and expiry provide explicit boundary/owner values. |
+| Bridge client | `lib/bridge-client.mjs:147-194` | ✓ Normal and bridge-error records inherit adapter defaults; caller abort and application timeout override ownership. |
+| Claude hook | `hooks/askuserquestionspro-bridge.mjs:96-119` | ✓ Hook-created records inherit `hook`/`none`; error outcomes provide explicit owner values. |
+| Codex MCP | `mcp-server/askuserquestionspro-mcp.mjs:228-301` | ✓ Early cancellation inherits `mcp`/`none`; browser-open, stdio EOF, host cancellation, and application timeout are explicitly attributed. |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Phase 8 lifecycle, recovery, transport, MCP, and docs suite | `node --test test/round-state.test.js test/round-lifecycle.test.js test/bridge.test.js test/server.test.js test/live.test.js test/bridge-client.test.js test/mcp-server.test.js test/mcp-long-round.test.js test/docs-integrity.test.js` | 100 passed, 0 failed (5.76s) | ✓ PASS |
-| Full workspace suite | `npm test` | 410 passed, 0 failed (3.48s) | ✓ PASS |
-| Operational Bridge diagnostics | Focused test output + `test/bridge.test.js` and child-server stderr assertion | Answer/detach/resume/uncertainty/completion/cancellation/expiry are attributed and redacted; non-Bridge events are not all attributed. | ✗ FAIL |
+| Phase 8 lifecycle, recovery, transport, adapter, and docs coverage | `node --test test/round-state.test.js test/round-lifecycle.test.js test/bridge.test.js test/server.test.js test/live.test.js test/bridge-client.test.js test/mcp-server.test.js test/mcp-long-round.test.js test/docs-integrity.test.js` | 102 passed, 0 failed (3.46s) | ✓ PASS |
+| Full workspace regression suite | `npm test` | 412 passed, 0 failed (5.72s) | ✓ PASS |
+| All emitted real-server lifecycle records are attributed and redacted | Included in the focused suite: `real server lifecycle diagnostics attribute Bridge events without question or answer payloads` | Child-server stderr records all had `boundary` and `deadlineOwner`; secret question/answer fixtures were absent. | ✓ PASS |
 
 ### Requirements Coverage
 
-| Requirement | Source Plan | Description | Status | Evidence |
+| Requirement | Source Plans | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| LIFE-01 | 08-01, 08-02, 08-04 | Explicit lifecycle states | ✓ SATISFIED | All nine states and transitions are in `lib/round-state.cjs`; snapshots reach HTTP/SSE. |
-| LIFE-02 | 08-02, 08-03, 08-05 | Redacted responsible-boundary diagnostics | ✗ BLOCKED | Redaction and Bridge path attribution work, but emitted server/client/adapter records still lack required owner metadata. |
-| LIFE-03 | 08-01, 08-02 | Cross-round isolation | ✓ SATISFIED | Capability-plus-id guards and focused regressions protect active/recovered rounds. |
-| LIFE-04 | 08-03, 08-05 | No avoidable idle expiry; host deadline preserves recovery | ✓ SATISFIED | Request-id host loss detaches and retained results recover after uncertain delivery. |
-| LIFE-05 | 08-01, 08-02, 08-03 | Deterministic lifecycle/deadline coverage | ✓ SATISFIED | State-observing MCP tests and injected lifecycle timing pass. |
+| LIFE-01 | 08-01, 08-02, 08-04 | Explicit lifecycle states | ✓ SATISFIED | Shared state contract contains all nine required states and is visible through HTTP/SSE snapshots. |
+| LIFE-02 | 08-02, 08-03, 08-05 | Redacted responsible-boundary diagnostics | ✓ SATISFIED | Central defaults cover every operational caller; allowlist/redaction tests and real-server stderr assertion pass. |
+| LIFE-03 | 08-01, 08-02 | Cross-round isolation | ✓ SATISFIED | Id-plus-capability guards and direct/HTTP stale-operation regressions pass. |
+| LIFE-04 | 08-03, 08-05 | No avoidable idle expiry; host deadline preserves recovery | ✓ SATISFIED | Request-id loss detaches, results remain recoverable, and the Codex evidence records the tested host deadline. |
+| LIFE-05 | 08-01, 08-02, 08-03 | Deterministic lifecycle/deadline coverage | ✓ SATISFIED | Focused tests use explicit state observation and injected timer seams for the lifecycle paths. |
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `server/server.js` | 278, 284, 289, 307 | Lifecycle emission omits boundary/owner | 🛑 Blocker | Lifecycle records cannot all be assigned to a responsible boundary. |
-| `lib/bridge-client.mjs` | 157, 178-179, 193 | Lifecycle emission omits boundary/owner | 🛑 Blocker | Host-facing diagnostics are incomplete on normal/error paths. |
-| `hooks/askuserquestionspro-bridge.mjs` | 109-111 | Lifecycle emission omits boundary/owner | 🛑 Blocker | Claude adapter evidence cannot consistently identify its boundary. |
-| `mcp-server/askuserquestionspro-mcp.mjs` | 231 | Early host cancellation lacks ownership metadata | 🛑 Blocker | An actual terminal event lacks the required attribution. |
-| Phase implementation files | — | No unreferenced `TBD`, `FIXME`, or `XXX` markers | ℹ️ Info | No debt-marker blocker. |
+| Phase 8 implementation and test files | — | No unreferenced `TBD`, `FIXME`, or `XXX` markers; no lifecycle logging bypass | ℹ️ Info | No completion-audit blocker found. |
 
 ### Live Host Evidence
 
-The current acceptance artifact is redacted: it contains no literal question text, answer values, credentials, or local paths. It scopes the Codex result to CLI 0.144.5 and a configured 3-second deadline run; it does not claim untested versions or default durations. Claude Code is explicitly unavailable and the artifact makes no Claude support or timeout claim.
+The accepted evidence is appropriately asymmetric. Claude Code is explicitly unavailable and makes no compatibility or timeout claim. Codex CLI 0.144.5 is backed by an authenticated, locally scoped MCP run: normal completion, a configured three-second host tool deadline, retained browser round, one fresh-process resume, and exactly the original 15 result keys. It does not extrapolate to other versions, configurations, or default deadline durations. The evidence and the live-server redaction test contain no literal question text, answer values, credentials, or local paths.
+
+### Disconfirmation Pass
+
+- **Former partial requirement:** the previous verifier found non-Bridge records missing attribution. `84b460a` changes the common serializer rather than relying on missed call sites, and the central-default plus real-server tests now prove the closure.
+- **Misleading-test check:** the focused test was not accepted merely because it passed; the child-server stderr assertion inspects the actual serialized records and rejects question/answer leakage.
+- **Error-path coverage:** host cancellation, stdin EOF, application timeout, response-close delivery uncertainty, and stale/missing/wrong capability paths are all exercised by named Phase 8 tests.
 
 ## Gaps Summary
 
-`85d308d` closes the prior Bridge-path wiring defect: the seven requested operational transitions now provide allowlisted boundary and deadline-owner metadata, and direct Bridge plus child-server tests prove no question or answer leakage. The phase still cannot pass because its own LIFE-02/Plan 08-02 contract applies to lifecycle diagnostics generally, while real emitted server, client, and adapter records continue to omit those fields. Add details at every call site (or safe centralized defaults) and a complete-emission integration assertion, then re-verify.
+No blocking gaps remain. The former LIFE-02 blocker is closed by safe central defaults in `createLifecycle()`, verified against all operational adapter values and a real HTTP server lifecycle stream. No later-phase work is needed to defer an unmet Phase 8 truth.
 
 ---
 
-_Verified: 2026-07-17T10:14:14Z_
+_Verified: 2026-07-17T10:23:39Z_
 _Verifier: the agent (gsd-verifier)_

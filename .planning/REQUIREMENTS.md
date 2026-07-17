@@ -10,11 +10,11 @@ Requirements for Sprint 2. Each maps to exactly one roadmap phase.
 
 ### Lifecycle and Timeout
 
-- [ ] **LIFE-01**: Round lifecycle states are explicit: drafting, detached, reconnecting, delivery-pending, delivered, delivery-uncertain, cancelled, recovery-error, and expired.
-- [ ] **LIFE-02**: Lifecycle events identify the responsible boundary without logging question or answer content.
-- [ ] **LIFE-03**: Stale, duplicate, delayed, or unauthorized lifecycle operations cannot affect another round.
-- [ ] **LIFE-04**: The app introduces no avoidable idle timeout; unavoidable host deadlines detach the round while preserving recovery.
-- [ ] **LIFE-05**: Lifecycle races and deadline behavior have deterministic automated coverage.
+- [x] **LIFE-01**: Round lifecycle states are explicit: drafting, detached, reconnecting, delivery-pending, delivered, delivery-uncertain, cancelled, recovery-error, and expired.
+- [x] **LIFE-02**: Lifecycle events identify the responsible boundary without logging question or answer content.
+- [x] **LIFE-03**: Stale, duplicate, delayed, or unauthorized lifecycle operations cannot affect another round.
+- [x] **LIFE-04**: The app introduces no avoidable idle timeout; unavoidable host deadlines detach the round while preserving recovery.
+- [x] **LIFE-05**: Lifecycle races and deadline behavior have deterministic automated coverage.
 
 ### Durable Round Storage
 
@@ -91,25 +91,55 @@ Deferred beyond this milestone but retained for future planning.
 
 ## Traceability
 
-Populated during roadmap creation. Every v1 requirement must map to exactly one phase.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LIFE-01 through LIFE-05 | Pending | Pending |
-| DUR-01 through DUR-06 | Pending | Pending |
-| SET-01 through SET-06 | Pending | Pending |
-| WEB-05 through WEB-09 | Pending | Pending |
-| ADP-01 through ADP-06 | Pending | Pending |
-| HST-01 through HST-06 | Pending | Pending |
-| QLT-01 through QLT-03 | Pending | Pending |
-| DOC-06 through DOC-08 | Pending | Pending |
+| LIFE-01 | Phase 8 | Complete |
+| LIFE-02 | Phase 8 | Complete |
+| LIFE-03 | Phase 8 | Complete |
+| LIFE-04 | Phase 8 | Complete |
+| LIFE-05 | Phase 8 | Complete |
+| DUR-01 | Phase 9 | Pending |
+| DUR-02 | Phase 9 | Pending |
+| DUR-03 | Phase 9 | Pending |
+| DUR-04 | Phase 9 | Pending |
+| DUR-05 | Phase 9 | Pending |
+| DUR-06 | Phase 9 | Pending |
+| SET-01 | Phase 10 | Pending |
+| SET-02 | Phase 10 | Pending |
+| SET-03 | Phase 10 | Pending |
+| SET-04 | Phase 10 | Pending |
+| SET-05 | Phase 10 | Pending |
+| SET-06 | Phase 10 | Pending |
+| WEB-05 | Phase 11 | Pending |
+| WEB-06 | Phase 11 | Pending |
+| WEB-07 | Phase 11 | Pending |
+| WEB-08 | Phase 11 | Pending |
+| WEB-09 | Phase 11 | Pending |
+| ADP-01 | Phase 12 | Pending |
+| ADP-02 | Phase 12 | Pending |
+| ADP-03 | Phase 12 | Pending |
+| ADP-04 | Phase 12 | Pending |
+| ADP-05 | Phase 12 | Pending |
+| ADP-06 | Phase 12 | Pending |
+| HST-01 | Phase 12 | Pending |
+| HST-02 | Phase 13 | Pending |
+| HST-03 | Phase 13 | Pending |
+| HST-04 | Phase 13 | Pending |
+| HST-05 | Phase 13 | Pending |
+| HST-06 | Phase 13 | Pending |
+| QLT-01 | Phase 13 | Pending |
+| QLT-02 | Phase 13 | Pending |
+| QLT-03 | Phase 13 | Pending |
+| DOC-06 | Phase 13 | Pending |
+| DOC-07 | Phase 13 | Pending |
+| DOC-08 | Phase 13 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 41 total
-- Mapped to phases: 0
-- Unmapped: 41 — roadmap creation pending
+- v1 requirements: 40 total (the prior planning label said 41, but 40 unique active requirement IDs are listed above)
+- Mapped to phases: 40
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-17*
-*Last updated: 2026-07-17 after v1.1 Sprint 2 scope approval*
+*Last updated: 2026-07-17 — Sprint 2 roadmap created*
