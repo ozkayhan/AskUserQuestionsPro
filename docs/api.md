@@ -16,7 +16,7 @@ All on `127.0.0.1`. No auth (localhost-only, single user).
 | `GET /current`   | —                                    | `{ id, questions }` or `{ id: null, questions: null }`         | Peek at the pending set.                                                                                                                                                                                                                                                                            |
 | `GET /events`    | —                                    | `text/event-stream`                                            | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                                                                                                                                                         |
 | `POST /ask`      | `{ questions: [...] }`               | `{ answers: {...} }` (blocks until answered) or error          | Submit a question set; request stays open until answered or the caller's deadline. Returns HTTP 400 on validation failure, 409 if a set is already pending.                                                                                                                                         |
-| `POST /resume`   | `{ requestId? }`                     | `{ answers: {...} }` (blocks until answered) or 409            | Resume the latest detached host round, or the detached round for a specific request id.                                                                                                                                                                                                             |
+| `POST /resume`   | `{ roundId?, requestId? }` (one required) | `{ answers: {...} }` (blocks until answered) or typed error | Resume only an exact durable round or a uniquely matching request id; no recency selection. |
 | `POST /answer`   | `{ id, capability, answers: {...} }` | `{ ok: true }` (200) or error                                  | The browser submits the user's answers. Both `id` and the opaque server-issued `capability` must match the current pending round; missing, stale, or wrong ownership credentials → 409 with `reason: "ownership_conflict"`. `answers` must be a plain object (not null/array/primitive) → else 400. |
 | `POST /cancel`   | `{ id, capability, reason? }`        | `{ ok: true, reason }` (200) or error                          | Cancel exactly the matching round. Both `id` and opaque `capability` are required. Allowlisted reasons are `user cancelled`, `host cancelled`, `browser disconnected`, and `timeout`; missing, stale, or wrong ownership credentials → 409 with `reason: "ownership_conflict"`.                     |
 | `POST /settings` | `{ <key>: <value>, ... }`            | `{ ok: true, settings: {...} }` (200) or `{ error }` (400/500) | Persist a UI-settings patch. Returns 400 on bad JSON/non-object, 500 if the disk write fails (Contract W). `_v` is stripped from the response.                                                                                                                                                      |
@@ -30,6 +30,27 @@ can call `/resume` to receive them. Detached rounds are bounded by
 unbounded orphans. Requests without a requestId preserve the original
 cancel-on-disconnect behavior. The explicit `/cancel` route uses the same id
 ownership check and is safe to repeat after the first terminal transition.
+
+### Durable recovery API
+
+The Node bridge owns a versioned local snapshot for each recoverable round.
+Browser storage is a mirror only. `GET /rounds` returns redacted metadata
+(`roundId`, optional request id, lifecycle state, revision, timestamps, expiry,
+and question count); it never returns question text, answers, capabilities,
+paths, or recovery diagnostics. `GET /rounds/:roundId` selects one exact record
+and returns the same redacted metadata.
+
+`POST /resume` now requires `roundId`, `requestId`, or both. A supplied pair
+must match; absent selectors are rejected rather than selecting by recency.
+`POST /rounds/:roundId/result` and `POST /rounds/:roundId/ack` require the
+round capability in their JSON body. Result retries return the original answer
+projection; acknowledgement retries return the original `acknowledgedAt` and
+revision. Missing records are 404, expired records 410, malformed selectors
+400, and ownership/ambiguity/not-ready/recovery conflicts 409.
+
+Snapshots are retained initially for the resolved detached-round TTL
+(`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). Invalid
+individual snapshot files are quarantined; they do not suppress healthy rounds.
 
 ### Question shape
 
@@ -182,9 +203,9 @@ cancels the associated round before aborting the in-flight `tools/call` without
 returning its unused result. If a host drops the connection without that
 notification, the detached round remains recoverable through `resume`.
 
-The `resume` tool accepts an optional original `requestId`; with no argument it
-selects the latest detached round for this single-user bridge. It waits for the
-browser answer and returns the same `{ answers }` result shape as `ask`.
+The `resume` tool requires an original `requestId` or an exact durable
+`roundId`; it never selects the latest detached round. It waits for the browser
+answer and returns the same `{ answers }` result shape as `ask`.
 
 ### Shared validation (`lib/question-contract.cjs`)
 

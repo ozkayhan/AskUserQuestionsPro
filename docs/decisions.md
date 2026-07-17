@@ -72,6 +72,10 @@ owner. Browser storage is only a mirror and cannot replace the Node record.
 This is macOS filesystem evidence, not Linux/Windows validation or a universal
 power-loss/directory-durability guarantee.
 
+**Evidence:** `test/round-record.test.js`, `test/round-store.test.js`,
+`test/bridge.test.js`, `test/server.test.js`, and
+`docs/evidence/phase-09-durable-recovery.md`.
+
 ## D-005 — Host capabilities are intentionally asymmetric
 
 Claude Code can use a `PreToolUse` hook to replace the native
