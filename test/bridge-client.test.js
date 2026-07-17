@@ -158,7 +158,7 @@ test('resumeBridge() host kopmasindan sonra ayni round cevaplarini alir', async 
   await assert.rejects(pending, /cancelled by caller/);
   await bridgeClient.waitForPending({ timeoutMs: 2000, requestId });
 
-  const resumed = bridgeClient.resumeBridge(undefined, { timeoutMs: 2000 });
+  const resumed = bridgeClient.resumeBridge(requestId, { timeoutMs: 2000 });
   await fetch(`${base}/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

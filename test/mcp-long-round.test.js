@@ -256,7 +256,7 @@ test('MCP resume: kopan host turu browser cevabini yeni MCP processine verir', a
         jsonrpc: '2.0',
         id: 9,
         method: 'tools/call',
-        params: { name: 'resume', arguments: {} },
+        params: { name: 'resume', arguments: { requestId: 'lost-host' } },
       }) + '\n'
     );
     current = await waitForLifecycleState(port, 'reconnecting');
@@ -417,7 +417,7 @@ test('MCP stdin EOF aktif ask turunu detach eder ve yeni process resume edebilir
           jsonrpc: '2.0',
           id: 12,
           method: 'tools/call',
-          params: { name: 'resume', arguments: {} },
+          params: { name: 'resume', arguments: { roundId: current.roundId } },
         }) + '\n'
       );
       await waitForLifecycleState(port, 'reconnecting');

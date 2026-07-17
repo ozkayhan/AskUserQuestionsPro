@@ -148,6 +148,10 @@ const RESUME_TOOL = {
         description:
           'Original round request id, if available; otherwise the latest detached round is used.',
       },
+      roundId: {
+        type: 'string',
+        description: 'Exact durable round id from redacted recovery discovery.',
+      },
     },
   },
   outputSchema: ASK_TOOL.outputSchema,
@@ -362,7 +366,7 @@ async function handleResume(args, signal, { progressToken } = {}) {
     intervalMs: progressIntervalMs(),
   });
   try {
-    const answers = await resumeBridge(args?.requestId, {
+    const answers = await resumeBridge(args?.roundId ? { roundId: args.roundId, requestId: args?.requestId } : args?.requestId, {
       timeoutMs: 60 * 60 * 1000,
       signal,
     });
