@@ -334,6 +334,13 @@ function SettingsModal({ onClose }) {
       .then((r) => r.json())
       .then((res) => {
         if (!res || !res.ok) throw new Error('save failed');
+        // Keep both settings representations aligned. The v2 envelope is the
+        // source used when the modal opens; leaving it stale makes a later
+        // unsaved change revert to the pre-save value instead of the last
+        // persisted setting.
+        const nextEnvelope = currentEnvelope();
+        nextEnvelope.browser = Settings_Schema.mergeBrowserLegacy(nextEnvelope.browser, res.settings);
+        window.__ASKUSER_SETTINGS_V2__ = nextEnvelope;
         window.__ASKUSER_SETTINGS__ = res.settings;
         // ponytail: compare against sessionBaseline so needsReload stays sticky across
         // multiple saves (e.g. save reduceMotion, then save theme — reload notice persists).
