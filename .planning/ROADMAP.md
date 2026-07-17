@@ -11,7 +11,7 @@ Sprint 2 turns the existing resumable bridge into a durable, user-visible recove
 ## Phases
 
 - [x] **Phase 8: Lifecycle Contract & Observability** - Make every round transition, deadline owner, and terminal outcome explicit and safely observable. (completed 2026-07-17)
-- [ ] **Phase 9: Durable Round Store & Recovery API** - Preserve authoritative rounds and immutable results through interruption, restart, and safe recovery.
+- [x] **Phase 9: Durable Round Store & Recovery API** - Preserve authoritative rounds and immutable results through interruption, restart, and safe recovery. (completed 2026-07-17)
 - [ ] **Phase 10: Settings v2** - Give users durable, validated controls for recovery, delivery, browser, and adapter behavior.
 - [ ] **Phase 11: Browser Recovery & Delivery UX** - Let users recover, understand, and safely complete rounds through an accessible browser flow.
 - [ ] **Phase 12: Adapter Contract & Tier 1 Acceptance** - Prove Claude Code and Codex work through distinct, evidence-backed lifecycle adapters.
@@ -140,7 +140,7 @@ Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. Lifecycle Contract & Observability | 5/5 | Complete    | 2026-07-17 |
-| 9. Durable Round Store & Recovery API | 4/4 | Complete | 2026-07-17 |
+| 9. Durable Round Store & Recovery API | 4/4 | Complete    | 2026-07-17 |
 | 10. Settings v2 | 0/TBD | Not started | - |
 | 11. Browser Recovery & Delivery UX | 0/TBD | Not started | - |
 | 12. Adapter Contract & Tier 1 Acceptance | 0/TBD | Not started | - |

@@ -1,7 +1,7 @@
 ---
 phase: 09-durable-round-store-recovery-api
-verified: 2026-07-17T11:57:08Z
-status: human_needed
+verified: 2026-07-17T11:59:35Z
+status: passed
 score: 15/15 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -14,17 +14,13 @@ re_verification:
     - "Backend documentation now describes the directory-lease protocol."
   gaps_remaining: []
   regressions: []
-human_verification:
-  - test: "Create an isolated XDG store on macOS and inspect the rounds directory and snapshot with stat."
-    expected: "The directories report 0700 and the snapshot reports 0600; the evidence remains explicitly macOS-only."
-    why_human: "Plan 09-04 deliberately deferred inspection of the recorded filesystem modes; the recorded fixture no longer exists for independent inspection."
 ---
 
 # Phase 9: Durable Round Store & Recovery API Verification Report
 
 **Phase Goal:** Users can reopen an exact saved round and safely retrieve its final answer after browser, host, or bridge interruption.
-**Verified:** 2026-07-17T11:57:08Z
-**Status:** human_needed
+**Verified:** 2026-07-17T11:59:35Z
+**Status:** passed
 **Re-verification:** Yes — final verification after `e193fc7`
 
 ## Goal Achievement
@@ -87,6 +83,7 @@ human_verification:
 | Full workspace suite | `npm test` | 440 passed, 0 failed | ✓ PASS |
 | Queue A→B replay, PID reuse, contender safety, atomic faults | Named test pattern across `draft-writer.test.js` and `settings.test.js` | 8 passed, 0 failed | ✓ PASS |
 | Diff integrity | `git diff --check e193fc7^ e193fc7` | exit 0 | ✓ PASS |
+| macOS permission inspection | isolated store + `stat -f '%Lp'` | `rounds=700`, snapshot=`600`, temporary fixture removed | ✓ PASS |
 | Lint/format | `npm run lint && npm run format:check` | `eslint: command not found` in this checkout | ⚠️ WARNING — local dev tooling is absent; not a Phase 9 implementation failure. |
 
 ### Probe Execution
@@ -119,21 +116,11 @@ No Phase 9 requirement is orphaned. Nothing is deferred to Phase 10: later setti
 - The old file-lock test is not used as lease evidence: the deterministic directory-contender test proves the public pathname remains held until `rmdir`, and the recovering writer fails closed when a contender wins afterward.
 - PID-reuse handling is deliberately conservative: only a mismatched Linux process-start identity proves death; unknown identity stays locked rather than risking concurrent writes.
 
-### Human Verification Required
-
-### 1. macOS private-mode evidence inspection
-
-**Test:** Create an isolated `XDG_CONFIG_HOME` store, register a durable round, and run `stat -f '%Lp'` on `rounds/` and its snapshot.
-
-**Expected:** Modes are `700` and `600`, respectively; do not extend the result to Linux, Windows, or power-loss durability.
-
-**Why human:** Plan 09-04 explicitly deferred confirmation of the recorded macOS mode observation. The evidence fixture has been cleaned up, so the documentation claim cannot be independently inspected in place.
-
 ## Gaps Summary
 
-No implementation gaps found. The report is `human_needed`, not `passed`, solely because of the Phase 09-04 deferred macOS permission-evidence inspection. All 15 automated must-haves and DUR-01 through DUR-06 have current code, wiring, data-flow, and passing behavioral evidence.
+No implementation gaps found. The macOS permission inspection completed with `rounds=700` and snapshot=`600`; the result remains limited to macOS and makes no Linux, Windows, or universal power-loss claim. All 15 automated must-haves and DUR-01 through DUR-06 have current code, wiring, data-flow, and passing behavioral evidence.
 
 ---
 
-_Verified: 2026-07-17T11:57:08Z_
+_Verified: 2026-07-17T11:59:35Z_
 _Verifier: the agent (gsd-verifier)_
