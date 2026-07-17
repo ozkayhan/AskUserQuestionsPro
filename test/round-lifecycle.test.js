@@ -29,6 +29,8 @@ test('lifecycle events carry correlation data but never question or answer paylo
     roundId: 7,
     pid: 123,
     elapsedMs: 0,
+    boundary: 'mcp',
+    deadlineOwner: 'none',
   });
   assert.equal(seen[1].event, 'answer_received');
   assert.equal(seen[1].elapsedMs, 450);
@@ -38,6 +40,49 @@ test('lifecycle events carry correlation data but never question or answer paylo
   assert.equal(seen[2].elapsedMs, 450);
   assert.doesNotMatch(JSON.stringify(seen), /secret/);
   assert.doesNotMatch(JSON.stringify(seen), /value/);
+});
+
+test('lifecycle defaults every record to an adapter boundary or safe bridge fallback', () => {
+  const adapters = ['bridge', 'http', 'sse', 'hook', 'mcp', 'stdio', 'browser', 'unknown'];
+
+  for (const adapter of adapters) {
+    const seen = [];
+    const lifecycle = createLifecycle({
+      adapter,
+      logger: (_scope, detail) => seen.push(JSON.parse(detail)),
+    });
+    lifecycle.event('ask_received');
+    lifecycle.finish('completed');
+
+    assert.deepEqual(
+      seen.map(({ boundary, deadlineOwner }) => ({ boundary, deadlineOwner })),
+      Array.from({ length: 3 }, () => ({
+        boundary: adapter === 'unknown' ? 'bridge' : adapter,
+        deadlineOwner: 'none',
+      })),
+      `adapter ${adapter} should attribute every lifecycle record`
+    );
+  }
+});
+
+test('explicit lifecycle metadata overrides centralized defaults without admitting payloads', () => {
+  const seen = [];
+  const lifecycle = createLifecycle({
+    adapter: 'http',
+    logger: (_scope, detail) => seen.push(JSON.parse(detail)),
+  });
+  lifecycle.event('host_detached', {
+    boundary: 'stdio',
+    deadlineOwner: 'transport',
+    question: 'secret question',
+    answers: { secret: 'secret answer' },
+  });
+
+  assert.deepEqual(
+    { boundary: seen[1].boundary, deadlineOwner: seen[1].deadlineOwner },
+    { boundary: 'stdio', deadlineOwner: 'transport' }
+  );
+  assert.doesNotMatch(JSON.stringify(seen), /secret question|secret answer/);
 });
 
 test('lifecycle normalizes unknown terminal reasons and never throws when logging fails', () => {

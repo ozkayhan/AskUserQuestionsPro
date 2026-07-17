@@ -189,6 +189,15 @@ test('real server lifecycle diagnostics attribute Bridge events without question
     assert.equal((await ask).status, 200);
     await waitForCondition(() => diagnostics.some((entry) => entry.event === 'round_finished'));
 
+    assert.ok(diagnostics.length > 0, 'real server should emit lifecycle diagnostics');
+    assert.ok(
+      diagnostics.every(
+        (entry) =>
+          typeof entry.boundary === 'string' && typeof entry.deadlineOwner === 'string'
+      ),
+      'every emitted operational lifecycle record must identify its boundary and deadline owner'
+    );
+
     const operational = Object.fromEntries(
       diagnostics
         .filter((entry) => ['answer_received', 'round_finished'].includes(entry.event))
