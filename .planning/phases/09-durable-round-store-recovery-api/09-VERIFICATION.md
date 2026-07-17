@@ -1,44 +1,39 @@
 ---
 phase: 09-durable-round-store-recovery-api
-verified: 2026-07-17T11:23:37Z
+verified: 2026-07-17T11:36:39Z
 status: gaps_found
-score: 13/15 must-haves verified
-behavior_unverified: 1
+score: 14/15 must-haves verified
+behavior_unverified: 0
 overrides_applied: 0
 re_verification:
   previous_status: gaps_found
   previous_score: 13/15
-  gaps_closed: []
+  gaps_closed:
+    - "Meaningful answer edits survive an aborted immediate draft transport by being retained locally and replayed after reload."
+    - "Atomic-write tests now inject open, write, fsync, close, rename, and mkdir failures."
   gaps_remaining:
-    - "Meaningful answer edits can still be lost when the immediate draft request fails or is aborted during reload/closure."
+    - "Dead-lock recovery can delete a lock newly acquired by a live competing writer after the stale claimant's inode check."
   regressions: []
 gaps:
-  - truth: "Meaningful answer edits survive browser refresh, reconnect, closure, host detach, and bridge restart as revisions of the same round."
+  - truth: "A crash, partial write, or corrupt persisted record leaves recoverable records intact and presents a safe recovery error for the bad record."
     status: failed
-    reason: "DraftWriter starts a request immediately, but catches a failed or aborted save, clears its only queued draft, and performs no retry or durable unload handoff. A reload/closure can abort fetch after the edit and before the server commits it."
+    reason: "The stale-lock recovery protocol has a check-then-unlink race. A competing recovery can remove the dead lock and install a live lock after the first claimant verifies inode identity; the first claimant then unlinks that live lock and writes concurrently."
     artifacts:
-      - path: "web/draft-writer.js"
-        issue: "The catch path at lines 23-26 discards the only unsaved draft; writer state has no retry, failure signal, or persisted pending queue."
-      - path: "web/live.js"
-        issue: "postDraft uses ordinary fetch without an unload-delivery guarantee; page reload/closure can therefore reject the request that DraftWriter suppresses."
-      - path: "test/draft-writer.test.js"
-        issue: "The test proves save() is invoked synchronously, not that an aborted/rejected save remains recoverable after unmount/reload."
+      - path: "lib/atomic-write.cjs"
+        issue: "recoverStaleLock() performs statSync(lockPath)/statSync(claim) before a non-atomic unlinkSync(lockPath); no ownership-safe handoff protects a replacement lock."
+      - path: "test/settings.test.js"
+        issue: "The takeover test aborts before recoverStaleLock() can link, inspect, and unlink a stale lock, so it does not exercise the claimed critical interleaving."
     missing:
-      - "Retain and retry the latest failed draft, including a tested reload/closure-safe delivery strategy or explicit recovery handoff."
-      - "Add an integration regression that aborts the first draft transport, unmounts/reloads, and proves the last edit is hydrated from the server record."
-behavior_unverified_items:
-  - truth: "A crash or partial write leaves the prior named snapshot usable while the affected record has a safe recovery outcome."
-    test: "Inject write, fsync, close, rename, lock, and directory-creation failures into RoundStore/atomic-write, then reload the store."
-    expected: "The prior named valid snapshot remains available; temporary artifacts are ignored or cleaned; the failed record returns a typed persistence/recovery error without hiding healthy records."
-    why_human: "The implementation uses temp → fsync → close → rename and normal corruption handling passes, but no current RoundStore test injects the required filesystem failures. macOS evidence honestly excludes power-loss and those individual fault paths."
+      - "Replace check-then-unlink stale-lock reclamation with an ownership-safe handoff that cannot unlink a pathname reacquired by another live writer."
+      - "Add a deterministic two-contender regression that replaces the public lock after claimant inode verification and proves the replacement remains present and the claimant fails closed."
 ---
 
 # Phase 9: Durable Round Store & Recovery API Verification Report
 
 **Phase Goal:** Users can reopen an exact saved round and safely retrieve its final answer after browser, host, or bridge interruption.
-**Verified:** 2026-07-17T11:23:37Z
+**Verified:** 2026-07-17T11:36:39Z
 **Status:** gaps_found
-**Re-verification:** Yes — after `b41557a`
+**Re-verification:** Yes — after `21f86c1`
 
 ## Goal Achievement
 
@@ -46,117 +41,109 @@ behavior_unverified_items:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Meaningful edits survive refresh, reconnect, closure, host detach, and restart as revisions of the same round. | ✗ FAILED | Immediate invocation fixes the old debounce cancellation, but rejected/aborted `postDraft()` is swallowed and discarded. A direct aborted-save reproduction left `durable: null`, `attempts: 1`, `retried: false`. |
-| 2 | A user can choose one recoverable round; the product does not guess a latest round. | ✓ VERIFIED | `waitForAnswers()` rejects absent selectors; `/resume`, `resumeBridge()`, and MCP resume pass an exact request/round selector. Focused selector tests pass. |
-| 3 | Crash, partial-write, or corrupt-record handling preserves healthy records and safely handles the bad one. | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | Corrupt-sibling quarantine succeeds and the atomic primitive is substantive, but write/sync/close/rename/mkdir fault injection required by Plan 09-01 is absent. |
-| 4 | A submitted answer is immutable; result retrieval and acknowledgement retries are safe. | ✓ VERIFIED | Record transitions reject changed final retries, replay matching results, and preserve the first acknowledgement timestamp/revision across restart. |
-| 5 | Existing pre-v1.1 requests enter the durable model without cross-round loss. | ✓ VERIFIED | Registration creates a legacy-marked durable record while preserving the successful `{ answers }` envelope and numeric active-round guard. |
-| 6 | Registration produces a versioned private snapshot before visibility. | ✓ VERIFIED | `Bridge.submitQuestions()` calls `RoundStore.create()` before exposing `peek`; record/store regressions pass. |
-| 7 | Each accepted persisted mutation advances revision once; idempotent/conflicting retries cannot overwrite it. | ✓ VERIFIED | `Record.saveDraft`, `finalize`, and `acknowledge` provide revision guards and replay semantics; focused tests pass. |
-| 8 | Initial durable retention follows the resolved detached-round TTL. | ✓ VERIFIED | Bridge passes resolved TTL into `RoundStore.create`; expiry is persisted and targeted cleanup removed only the expired snapshot. |
-| 9 | Lifecycle transitions persist before success is reported. | ✓ VERIFIED | Bridge delegates draft, detach/resume, result, acknowledgement, cancellation, and expiry through store mutation before reporting success. |
-| 10 | Legacy successful envelopes remain compatible while unsafe recovery is typed. | ✓ VERIFIED | `/ask`, `/answer`, `/cancel`, and successful `/resume` retain compatible responses; missing selector is `invalid_selector`. |
-| 11 | Invalid, expired, missing, ambiguous, or unauthorized recovery requests are redacted typed errors. | ✓ VERIFIED | `recoveryError()` maps selection and ownership failures; server tests cover redacted discovery and capability checks. |
-| 12 | Maintained docs describe exact selection, results, acknowledgement, retention, quarantine, and Node authority. | ✓ VERIFIED | `docs/api.md` and D-010 match the implemented routes and declare browser storage non-authoritative. |
-| 13 | macOS evidence is bounded and does not claim Linux/Windows/power-loss validation. | ✓ VERIFIED | Evidence and D-010 expressly limit claims to macOS and exclude Linux, Windows, and universal power-loss guarantees. |
-| 14 | Support docs keep discovery and recovery outcomes redacted. | ✓ VERIFIED | Discovery docs exclude questions, answers, capabilities, diagnostics, and paths. |
-| 15 | Existing store directories and snapshots use restrictive permissions. | ✓ VERIFIED | Independent macOS probe observed `rounds=700`, `quarantine=700`, `snapshot=600`; constructor also chmods existing directories. |
+| 1 | Meaningful answer edits survive browser refresh, reconnect, closure, host detach, and bridge restart as revisions of the same round. | ✓ VERIFIED | `DraftWriter` persists an unacknowledged local mirror before sending, `postDraft()` uses `keepalive` for small bodies, and `draft writer replays an immediately aborted edit after reload` passes. Bridge restart and reconnecting restart regressions pass. |
+| 2 | A user can choose a specific recoverable round rather than the product guessing a “latest” round. | ✓ VERIFIED | `resumeBridge()` rejects selector-less calls; bridge/server and MCP resume tests require exact request/round selectors. |
+| 3 | A crash, partial write, or corrupt persisted record leaves recoverable records intact and presents a safe recovery error for the bad record. | ✗ FAILED — BLOCKER | Fault injection and corrupt-sibling quarantine pass, but stale-lock recovery can delete a newly acquired live lock; direct reproduction below proves concurrent writes become possible. |
+| 4 | A submitted answer cannot be changed by a retry, and result retrieval or delivery acknowledgement can be safely repeated. | ✓ VERIFIED | `round-record`, bridge, and server regressions prove immutable final results, matching replay, and one persisted acknowledgement fact across retries/restart. |
+| 5 | Existing pre-v1.1 requests continue into the durable recovery model without cross-round loss. | ✓ VERIFIED | Legacy numeric IDs remain in-process compatibility tokens while registration maps to a durable opaque round; focused bridge/server coverage passes. |
+| 6 | A newly registered durable round has a versioned private snapshot, opaque stable identity, revision, lifecycle, expiry, and TTL-derived retention. | ✓ VERIFIED | `round-record`/`round-store` tests and Bridge creation path pass; direct macOS probe observed `0700` rounds/quarantine and `0600` snapshot modes. |
+| 7 | Each meaningful persisted mutation advances revision once; retries and immutable-result conflicts cannot overwrite newer data. | ✓ VERIFIED | Pure record transition tests and guarded `/draft` server regression pass. |
+| 8 | Bad snapshots are quarantined individually without hiding healthy siblings. | ✓ VERIFIED | `bad records are quarantined individually while healthy siblings remain` passes. |
+| 9 | Registration and every authoritative lifecycle mutation commit before success is reported. | ✓ VERIFIED | `Bridge` delegates create/draft/detach/resume/finalize/ack/cancel through `RoundStore`; committed state is exposed only after `_write()` succeeds. |
+| 10 | A fresh Bridge hydrates recoverable drafting, detached, and reconnecting rounds from the store, not browser storage. | ✓ VERIFIED | Repeated restart regression completes detach → resume/reconnecting → restart → resume → answer. |
+| 11 | Discovery/recovery is redacted, exact, capability-guarded, and produces typed errors for invalid selectors. | ✓ VERIFIED | Server and client tests cover redacted discovery, no latest fallback, stale/missing/unauthorized conditions, and exact recovery. |
+| 12 | Docs accurately describe exact selection, results/acknowledgement, retention, quarantine, Node authority, and bounded platform/host scope. | ✓ VERIFIED | API/decision/evidence docs match routes and explicitly bound claims to macOS filesystem evidence; no Linux, Windows, power-loss, or live Claude acceptance claim is made. |
+| 13 | Existing directories and snapshots use restrictive permissions. | ✓ VERIFIED | Store chmods reused directories; focused test and direct macOS probe report `rounds=0700`, `quarantine=0700`, `snapshot=0600`. |
+| 14 | The browser draft flow is wired to the durable draft API and has real input data. | ✓ VERIFIED | React `answers` state feeds `DraftWriter`, which calls `postDraft()` with round/capability/revision; server `/draft` persists the real answers projection. |
+| 15 | Crash-created dead locks can be reclaimed without displacing a live owner. | ✗ FAILED — BLOCKER | Dead-PID recovery itself passes, but live-owner protection fails under the post-inode-check replacement interleaving. |
 
-**Score:** 13/15 truths verified (1 present, behavior-unverified)
+**Score:** 14/15 must-haves verified (0 present, behavior-unverified).
 
-### Required Artifacts
+## Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `lib/round-record.cjs` | Versioned records, revisions, immutable result/ack facts | ✓ VERIFIED | Substantive validation/transition chokepoint used by store and bridge. |
-| `lib/round-store.cjs` | Private snapshots, scan, quarantine, TTL cleanup | ✓ VERIFIED | Uses atomic writer, validates records independently, quarantines bad siblings, tightens directories, and deletes expired owned snapshots. |
-| `lib/atomic-write.cjs` | Private temp/sync/close/rename plus safe locking | ✓ VERIFIED | A lock pathname causes fail-closed `concurrent write lock`; no stale-lock stealing remains. |
-| `server/bridge.js` | Store-backed lifecycle, restart hydration, exact recovery | ✓ VERIFIED | Hydrates drafting/detached/reconnecting records and the repeated-restart regression passes. |
-| `server/server.js` | Exact discovery/recovery/draft/result/ack HTTP contracts | ✓ VERIFIED | Validates selectors/capabilities and delegates to Bridge. |
-| `web/app.js`, `web/live.js`, `web/draft-writer.js` | Durable browser drafts | ✗ HOLLOW | The request starts immediately but failure/unload handling loses the sole pending material edit. |
-| `test/round-record.test.js`, `test/round-store.test.js`, `test/bridge.test.js`, `test/server.test.js`, `test/settings.test.js`, `test/draft-writer.test.js` | Durable regression coverage | ⚠️ PARTIAL | 143 focused tests pass, including restart, selector, result/ack, quarantine, retention, modes, and lock; no injected filesystem-failure or aborted-draft recovery regression exists. |
-| Durable API/decision/evidence docs | Honest recovery contract and platform scope | ✓ VERIFIED | Documentation matches the code and confines live filesystem claims to macOS. |
+| `lib/round-record.cjs` | Versioned record, revisions, immutable result/ack | ✓ VERIFIED | Substantive validation and pure transition chokepoint exercised by record/store/bridge. |
+| `lib/round-store.cjs` | Private snapshots, scan, quarantine, expiry cleanup | ✓ VERIFIED | Uses atomic writer before map mutation; healthy records remain discoverable after invalid sibling and mkdir fault. |
+| `lib/atomic-write.cjs` | fsync/close/rename atomic replacement and safe lock recovery | ✗ BLOCKER | File-write fault cleanup passes, but stale-lock live-owner safety is broken by a reproducible race. |
+| `server/bridge.js` | Durable lifecycle and restart hydration | ✓ VERIFIED | Create-before-visible, durable mutation, exact recovery, repeated reconnecting restart coverage. |
+| `server/server.js` | Exact redacted recovery/draft/result/ack contracts | ✓ VERIFIED | Capability/revision selectors and typed errors are wired through Bridge. |
+| `web/app.js`, `web/live.js`, `web/draft-writer.js` | Abort/reload-safe draft delivery | ✓ VERIFIED | Local mirror stays until matching revision acknowledgement; test exercises rejected first transport and next-instance replay. |
+| `test/*.test.js` Phase 9 coverage | Regression proof for durability contract | ⚠️ PARTIAL | 158 focused and 438 full tests pass; the purported takeover test misses the actual stale-claim race. |
+| Durable API/decision/evidence docs | Honest recovery and platform/host scope | ✓ VERIFIED | Scope is deliberately macOS-only and says Claude host acceptance was unavailable in this Codex-only workspace. |
 
-### Key Link Verification
+## Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `RoundStore` | `writeFileAtomic` | `_write()` | ✓ WIRED | Record enters `_records` only after atomic writer success. |
-| `Bridge` | `RoundStore` | registration, draft, transitions, result, acknowledgement | ✓ WIRED | Authoritative mutations use store decisions before bridge success. |
-| Fresh store | fresh `Bridge` | constructor hydration / `_recover()` | ✓ WIRED | Detached and reconnecting restart paths are covered by focused bridge tests. |
-| Browser Flow | `/draft` | `DraftWriter` → `postDraft()` | ✗ NOT DURABLE | Call is wired but failed transport is discarded; the link cannot guarantee browser interruption recovery. |
-| Host adapters | explicit selector | `resumeBridge()` / MCP `resume` | ✓ WIRED | No selector-less latest fallback remains. |
+| `RoundStore` | `writeFileAtomic` | `_write()` before `_records.set()` | ✓ WIRED | A failed write returns `persistence_error` without advancing live store state. |
+| `Bridge` | `RoundStore` | registration, draft, lifecycle, result, acknowledgement | ✓ WIRED | Store-backed transitions precede Bridge success. |
+| Fresh store | fresh `Bridge` | constructor hydration / recoverable records | ✓ WIRED | Reconnecting restart test passes. |
+| Browser `Flow` | `/draft` | `DraftWriter` → `postDraft()` | ✓ WIRED | Dynamic React answers are mirrored, sent, and replayed after abort. |
+| Host adapters | explicit selector | `resumeBridge()` / MCP resume | ✓ WIRED | Selector-less latest-round recovery is rejected. |
 
-### Data-Flow Trace (Level 4)
+## Data-Flow Trace
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 | --- | --- | --- | --- | --- |
 | `RoundStore` | `_records` | Validated `rounds/*.json` scan | Yes | ✓ FLOWING |
-| `Bridge` | `_pending` | Newly created or durable-hydrated record | Yes | ✓ FLOWING |
-| Browser `Flow` | `answers` / draft revision | React state → immediate `/draft` | Only on successful transport; abort/rejection drops the latest edit | ✗ HOLLOW |
+| `Bridge` | `_pending` | New or hydrated durable record | Yes | ✓ FLOWING |
+| Browser `Flow` | `answers` / revision | React state → local replay mirror → `/draft` → RoundStore | Yes | ✓ FLOWING |
 
-### Behavioral Spot-Checks
+## Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Focused Phase 9 suite | `node --test test/round-record.test.js test/round-store.test.js test/bridge.test.js test/server.test.js test/settings.test.js test/bridge-client.test.js test/mcp-long-round.test.js test/draft-writer.test.js` | 143 passed, 0 failed | ✓ PASS |
-| Full workspace suite | `npm test` | 430 passed, 0 failed | ✓ PASS |
-| Reconnecting round restart/recovery | focused bridge regression | Detach → resume/reconnecting → restart → resume → answer passes | ✓ PASS |
-| Immediate edit then aborted reload/unmount transport | isolated `DraftWriter` rejection reproduction | `attempts: 1`, `durable: null`, `retried: false` | ✗ FAIL |
-| Exact selector recovery | focused bridge/server tests | Selector-less recovery rejects; exact round/request selection succeeds | ✓ PASS |
-| Quarantine, retention, permissions | isolated `RoundStore` probes | Healthy sibling listed / bad file quarantined; expired file removed only; modes `700/700/600` | ✓ PASS (macOS) |
-| Immutable result and idempotent acknowledgement | focused bridge/server tests | Matching result replay and repeated ack preserve stored facts | ✓ PASS |
-| Fail-closed lock | focused settings regression | Existing stale lock causes typed concurrent-lock failure; contender never unlinks another owner | ✓ PASS |
-| Lint / formatting | `npm run lint`; `npm run format:check` | `eslint` and `prettier` executables are absent in this checkout (both exit 127) | ? ENVIRONMENT LIMITATION |
+| Focused Phase 9 tests | `node --test test/round-record.test.js test/round-store.test.js test/bridge.test.js test/server.test.js test/settings.test.js test/bridge-client.test.js test/mcp-long-round.test.js test/draft-writer.test.js test/live.test.js` | 158 passed, 0 failed | ✓ PASS |
+| Full workspace tests | `npm test` | 438 passed, 0 failed | ✓ PASS |
+| Reconnecting repeated restart | focused `Bridge resumes a reconnecting browser round after a second bridge restart` | Passed | ✓ PASS |
+| Immediate draft abort/reload replay | focused `draft writer replays an immediately aborted edit after reload...` | Passed | ✓ PASS |
+| Exact selectors | bridge/server/MCP focused cases | No selector-less fallback; exact selector succeeds | ✓ PASS |
+| Quarantine and retention | focused store cases | Healthy sibling retained; expired snapshot removed only | ✓ PASS |
+| Permissions | isolated macOS RoundStore probe | `rounds=0700`, `quarantine=0700`, `snapshot=0600` | ✓ PASS (macOS only) |
+| Open/write/fsync/close/rename/mkdir faults | focused atomic/store cases | Prior named snapshot preserved; temporary and lock artifacts cleaned | ✓ PASS |
+| Immutable result/ack | focused record/bridge/server cases | Matching result and acknowledgement replay preserves final facts | ✓ PASS |
+| Crash dead lock / live owner protection | direct injected recovery interleaving | `{"injected":true,"recoveredWriteSucceeded":true,"liveLockStillExists":false,"final":"{\"revision\":2}"}` | ✗ FAIL |
+| Lint / formatting | `npm run lint`; `npm run format:check` | Both exit 127 because `eslint` and `prettier` are absent from this checkout | ? ENVIRONMENT LIMITATION |
+| Diff integrity | `git diff --check` | Exit 0 | ✓ PASS |
 
-### Probe Execution
+## Probe Execution
 
 No Phase 9 `scripts/**/tests/probe-*.sh` probe is declared or present.
 
-### Requirements Coverage
+## Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
-| --- | --- | --- | --- | --- |
-| DUR-01 | 09-01, 09-02 | Server maintains authoritative versioned local round records. | ✓ SATISFIED | Versioned private store is created before exposure and reloads into Bridge. |
-| DUR-02 | 09-01, 09-02 | Meaningful edits persist incrementally with revisions. | ✗ BLOCKED | Aborted/rejected browser draft transport discards the last edit without retry/recovery. |
-| DUR-03 | 09-01, 09-02, 09-04 | Records survive restart, crash/partial writes, and corruption. | ? NEEDS HUMAN / TESTS | Restart and corruption/quarantine pass; individual filesystem failure paths are untested. |
-| DUR-04 | 09-03 | Exact recoverable-round selection; no arbitrary latest behavior. | ✓ SATISFIED | Explicit selector requirement and redacted discovery/recovery tests pass. |
-| DUR-05 | 09-02, 09-03, 09-04 | Immutable final answer and idempotent result/ack. | ✓ SATISFIED | Persisted replay semantics pass before/after restart. |
-| DUR-06 | 09-02, 09-03 | Safe legacy migration. | ✓ SATISFIED | Legacy registration remains compatible and is durably mapped at registration. |
+| --- | --- | --- | --- |
+| DUR-01 | 09-01, 09-02 | Server maintains authoritative versioned local round records. | ✓ SATISFIED | Store-backed registration, mutation, and hydration pass. |
+| DUR-02 | 09-01, 09-02 | Meaningful edits persist incrementally with revisions. | ✓ SATISFIED | Abort/reload replay and guarded incremental draft persistence pass. |
+| DUR-03 | 09-01, 09-02, 09-04 | Records survive restart, crash recovery, partial writes, and corruption through atomic snapshots and quarantine. | ✗ BLOCKED | A stale recovery contender can remove a newly acquired live lock, enabling unsafe concurrent writes. |
+| DUR-04 | 09-03 | Exact recoverable-round selection; no arbitrary latest behavior. | ✓ SATISFIED | Exact selector requirement and redacted discovery/recovery tests pass. |
+| DUR-05 | 09-02, 09-03 | Immutable final answer and idempotent result/ack. | ✓ SATISFIED | Replay semantics pass before and after restart. |
+| DUR-06 | 09-02, 09-03 | Safe legacy migration. | ✓ SATISFIED | Legacy registration remains compatible and maps durably. |
 
-No Phase 9 requirement is orphaned from the plans. No later roadmap phase specifically defers DUR-02 or the missing DUR-03 fault coverage; Phase 11 concerns recovery UX, while Phase 13 is cross-platform validation rather than this phase's implementation/test contract.
+No Phase 9 requirement is orphaned from its plans. Later phases do not specifically defer this Phase 9 lock-safety failure; it remains actionable here.
 
-### Anti-Patterns Found
+## Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `web/draft-writer.js` | 23-26 | Rejected draft save is silently discarded | 🛑 BLOCKER | Last meaningful edit can be lost during reload/closure. |
-| `test/draft-writer.test.js` | 7-34 | Only proves invocation, not failed/unload delivery | ⚠️ Warning | Passing test overstates browser-interruption coverage. |
-| `test/round-store.test.js` | — | No injected write/sync/close/rename/mkdir failure coverage | ⚠️ Warning | Crash/partial-write claim is present but behavior-unverified. |
+| `lib/atomic-write.cjs` | 47-53 | Inode check followed by non-atomic public-lock unlink | 🛑 BLOCKER | Can delete a live competitor’s lock and permit concurrent overwrites. |
+| `test/settings.test.js` | 458-480 | Mock takeover bypasses stale recovery path | ⚠️ Warning | Passing test does not test the safety claim it names. |
 
 No unreferenced `TBD`, `FIXME`, or `XXX` marker was found in Phase 9 implementation files.
 
-### Human Verification Required
+## Human Verification / Scope Boundary
 
-1. **macOS permission evidence**
+The Phase 9 plan defers a macOS permission inspection. The verifier independently observed the requested `0700/0700/0600` modes on macOS. This does not extend to Linux, Windows, ACL semantics, power loss, remote filesystems, or a live Claude Code host run; the maintained docs accurately state those limits.
 
-**Test:** Inspect an isolated store fixture's `rounds/`, `quarantine/`, and snapshot modes on macOS.
-**Expected:** Directories are `0700` and snapshots are `0600`; do not infer Linux, Windows, or power-loss support.
-**Why human:** Plan 09-04 explicitly defers this platform-scoped inspection. The verifier's macOS probe observed the expected modes, but it cannot promote that observation to another OS or a power-loss guarantee.
+## Gaps Summary
 
-2. **Atomic filesystem-failure recovery**
+`21f86c1` closes the prior draft-loss gap and adds genuine individual filesystem-failure tests. It does **not** make stale-lock recovery safe: the claim link only preserves a reference to the dead inode; it does not reserve the public pathname after the identity check. A second contender can reclaim the dead lock, create a live replacement, and then have that replacement unlinked by the first contender. The direct reproduction shows the first writer succeeds and the live lock disappears.
 
-**Test:** Inject failures at write, fsync, close, rename, lock, and directory creation, then reload the same store.
-**Expected:** A prior named valid snapshot remains recoverable; temporary artifacts are ignored/cleaned and the affected record has a typed error without hiding healthy siblings.
-**Why human:** No deterministic regression exercises these failure paths. This is a required automated fix, not a claim established by the macOS run.
-
-### Gaps Summary
-
-`b41557a` genuinely fixes reconnecting-state hydration and removes unsafe stale-lock takeover. It does not complete DUR-02: an immediate draft fetch is merely started, not made durable. If the request rejects or is aborted during page reload/closure, `DraftWriter` clears the only copy and no later edit is required to demonstrate the loss. The existing immediate-unmount test uses a successful fake `save()` and therefore cannot establish the user-facing interruption guarantee.
-
-DUR-03 remains deliberately unverified for individual filesystem failure paths. Documentation is honest: this verification makes no Linux/Windows, universal crash, power-loss, or Claude Code availability claim. Claude-specific acceptance belongs to the later adapter-evidence phase and was not available in this Codex workspace.
+This is a **BLOCKER** for DUR-03 and the Phase 9 goal. Do not proceed to Phase 10 until stale-lock ownership transfer is made race-safe and covered by the exact two-contender regression.
 
 ---
 
-_Verified: 2026-07-17T11:23:37Z_
+_Verified: 2026-07-17T11:36:39Z_
 _Verifier: the agent (gsd-verifier)_
