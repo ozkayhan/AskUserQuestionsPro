@@ -14,7 +14,7 @@ Sprint 2 turns the existing resumable bridge into a durable, user-visible recove
 - [x] **Phase 9: Durable Round Store & Recovery API** - Preserve authoritative rounds and immutable results through interruption, restart, and safe recovery. (completed 2026-07-17)
 - [x] **Phase 10: Settings v2** - Give users durable, validated controls for recovery, delivery, browser, and adapter behavior. (completed 2026-07-17)
 - [x] **Phase 11: Browser Recovery & Delivery UX** - Let users recover, understand, and safely complete rounds through an accessible browser flow. (completed 2026-07-17)
-- [ ] **Phase 12: Adapter Contract & Tier 1 Acceptance** - Prove Claude Code and Codex work through distinct, evidence-backed lifecycle adapters.
+- [x] **Phase 12: Adapter Contract & Tier 1 Acceptance** - Prove Claude Code and Codex work through distinct, evidence-backed lifecycle adapters. (completed 2026-07-17)
 - [ ] **Phase 13: Evidence-Gated Host Expansion & Launch Hardening** - Evaluate the broader host landscape honestly and ship verified cross-platform documentation and release evidence.
 
 ## Phase Details
@@ -151,7 +151,13 @@ Plans:
   4. Durable recovery is verified on supported macOS, Linux, and Windows environments, and full tests, lint, formatting, shell, packaging, and release checks pass from a clean checkout.
   5. Maintained documentation explains settings, recovery, timeout ownership, delivery acknowledgement, troubleshooting, local retention/privacy, and redacted support diagnostics.
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+
+- [ ] 13-01-PLAN.md — Define the evidence ledger, integrity/redaction gates, and host matrix/cards.
+- [ ] 13-02-PLAN.md — Refresh official host research and add isolated unavailable-host gates.
+- [ ] 13-03-PLAN.md — Establish cross-platform durability and clean release evidence gates.
+- [ ] 13-04-PLAN.md — Consolidate launch documentation, packaging, and release checks.
 **Research flags**: Mandatory per-candidate official-document refresh and installed-host/manual long-round validation before promotion; research Roo Code and Windsurf individually, and never infer support from MCP discoverability alone.
 
 ## Progress
@@ -165,5 +171,5 @@ Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 | 9. Durable Round Store & Recovery API | 4/4 | Complete    | 2026-07-17 |
 | 10. Settings v2 | 4/4 | Complete    | 2026-07-17 |
 | 11. Browser Recovery & Delivery UX | 4/4 | Complete    | 2026-07-17 |
-| 12. Adapter Contract & Tier 1 Acceptance | 4/4 | In Progress|  |
-| 13. Evidence-Gated Host Expansion & Launch Hardening | 0/TBD | Not started | - |
+| 12. Adapter Contract & Tier 1 Acceptance | 4/4 | Complete    | 2026-07-17 |
+| 13. Evidence-Gated Host Expansion & Launch Hardening | 0/4 | Planned | - |
