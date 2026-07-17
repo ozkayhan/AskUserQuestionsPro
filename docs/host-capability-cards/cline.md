@@ -1,0 +1,9 @@
+# Cline
+- Transport: MCP documented
+- Timeout/deadline owner: Unavailable
+- Cancellation/disconnect: Unavailable
+- Approval/trust: Unverified
+- Configuration: Product-surface specific
+- Installation/upgrade/uninstall: Not run; exact extension or CLI gate required
+- Evidence state: `Researching`
+- Limitations: Extension and CLI must not be conflated.
