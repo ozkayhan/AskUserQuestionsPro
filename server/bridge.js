@@ -3,6 +3,7 @@
 const { randomBytes } = require('node:crypto');
 const { createRecord, transition, snapshot } = require('../lib/round-state.cjs');
 const Record = require('../lib/round-record.cjs');
+const { deliveryPolicy, closurePolicy } = require('../lib/runtime-settings.cjs');
 
 const CANCEL_REASON_MAP = new Map([
   ['client disconnected', 'host_disconnect'],
@@ -45,6 +46,7 @@ class Bridge {
     setTimer = setTimeout,
     clearTimer = clearTimeout,
     store = null,
+    settings,
   } = {}) {
     this._pending = null; // { id, questions, resolve, reject, waiters, detached }
     this._seq = 0;
@@ -58,6 +60,8 @@ class Bridge {
     this._completed = new Map();
     this._deliveries = new Map();
     this._store = store;
+    this._delivery = deliveryPolicy(settings);
+    this._closure = closurePolicy(settings);
     this._hydrateUniqueRecovery();
   }
 

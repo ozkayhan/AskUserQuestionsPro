@@ -9,19 +9,24 @@ const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { validQuestions: validateQuestionSet } = require('../lib/question-contract.cjs');
+const { deliveryPolicy, closurePolicy } = require('../lib/runtime-settings.cjs');
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
 const runtimeSettings = () => Settings.inspect().effective;
+const settingsStatus = Settings.inspect();
 const configuredDetachedTtl = Number(process.env.ASKUSER_DETACHED_ROUND_TTL_MS);
 const configuredSettings = runtimeSettings();
+const delivery = deliveryPolicy(configuredSettings);
+const closure = closurePolicy(configuredSettings);
 const bridge = new Bridge({
   detachedTtlMs: Number.isFinite(configuredSettings.recovery?.retentionMs)
     ? configuredSettings.recovery.retentionMs
     : Number.isFinite(configuredDetachedTtl)
       ? configuredDetachedTtl
     : DEFAULT_DETACHED_TTL_MS,
-  store: new RoundStore(),
+    store: new RoundStore(),
+    settings: configuredSettings,
 });
 // Retention is enforced both before recovery hydration and periodically while
 // the daemon is idle. The interval is bounded and unref'd so it never keeps a
@@ -365,6 +370,7 @@ async function handleRequest(req, res) {
     const lifecycle = createLifecycle({
       adapter: 'http',
       requestId,
+      settings: settingsStatus.status === 'current' ? configuredSettings : undefined,
     });
     lifecycle.event('ask_received');
     const answersPromise = bridge.submitQuestions(questions, requestId, lifecycle);
@@ -391,7 +397,7 @@ async function handleRequest(req, res) {
       settled = true;
       const delivered = await sendJsonAndObserve(res, 200, { answers });
       const deliveryId = bridge.durableRoundId(myId) || myId;
-      if (delivered) bridge.confirmDelivery(deliveryId);
+      if (delivered && !delivery.requiresAcknowledgement && (closure.mode === 'never' || closure.mode === 'after-delivery')) bridge.confirmDelivery(deliveryId);
       else bridge.markDeliveryUncertain(deliveryId);
       return;
     } catch (e) {
@@ -452,7 +458,7 @@ async function handleRequest(req, res) {
       settled = true;
       const delivered = await sendJsonAndObserve(res, 200, { answers });
       const deliveryId = waiter.roundId;
-      if (delivered) bridge.confirmDelivery(deliveryId);
+      if (delivered && !delivery.requiresAcknowledgement && (closure.mode === 'never' || closure.mode === 'after-delivery')) bridge.confirmDelivery(deliveryId);
       else bridge.markDeliveryUncertain(deliveryId);
       return;
     } catch (e) {

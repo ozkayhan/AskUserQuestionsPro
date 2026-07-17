@@ -9,6 +9,7 @@ const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { createProgressHeartbeat, isProgressToken } = require('../lib/mcp-progress.cjs');
 const { validQuestions } = require('../lib/question-contract.cjs');
+const { adapterEnabled } = require('../lib/runtime-settings.cjs');
 
 process.on('uncaughtException', (e) => log('mcp', e));
 process.on('unhandledRejection', (r) => log('mcp', r));
@@ -194,6 +195,7 @@ function formatAnswers(answers) {
 
 // 'ask' aracı çağrısını işle.
 async function handleAsk(args, signal, { progressToken } = {}) {
+  if (!adapterEnabled('codex')) return { content: [{ type: 'text', text: 'AskUserQuestionsPro Codex adapter is disabled in settings.' }], isError: true };
   if (!Array.isArray(args?.questions) || args.questions.length === 0) {
     return {
       content: [{ type: 'text', text: "Invalid input: 'questions' must be a non-empty array." }],

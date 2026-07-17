@@ -13,6 +13,7 @@ const require = createRequire(import.meta.url);
 const { buildHookOutput } = require('./hook-output.js');
 const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
+const { adapterEnabled } = require('../lib/runtime-settings.cjs');
 
 const TIMEOUT_MS = 60 * 60 * 1000;
 // stdin EOF gelmezse (parent yazma ucunu açık tutarsa) süresiz asılmamak için watchdog.
@@ -68,6 +69,7 @@ async function main() {
   } // bozuk → native UI
   const toolInput = input.tool_input || {};
   if (!toolInput.questions) process.exit(0);
+  if (!adapterEnabled('claude')) process.exit(0);
 
   // ASKUI_FORCE_MCP etkinse modeli mcp__askuserquestionspro__ask aracını kullanmaya yönlendir.
   // Varsayılan davranışı değiştirmez — yalnızca açıkça etkinleştirildiğinde çalışır.
