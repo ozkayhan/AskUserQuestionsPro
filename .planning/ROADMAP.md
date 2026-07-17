@@ -128,13 +128,14 @@ Plans:
   4. Version-pinned, authenticated Claude Code and Codex acceptance runs cover idle rounds, reconnect, restart, cancellation, recovery, and delivery.
   5. Install, doctor, upgrade, and uninstall affect only the intended host configuration and are safe to repeat.
 
-**Plans**: 4 plans
+**Plans**: 4/4 plans executed
 Plans:
 
-- [ ] 12-01-PLAN.md — Define the adapter contract and Tier 1 capability cards.
-- [ ] 12-02-PLAN.md — Prove Claude and Codex lifecycle behavior with fake-host conformance.
-- [ ] 12-03-PLAN.md — Verify scoped, idempotent adapter installation and onboarding gates.
-- [ ] 12-04-PLAN.md — Assemble Tier 1 acceptance evidence and live-host verification procedures.
+- [x] 12-01-PLAN.md — Define the adapter contract and Tier 1 capability cards.
+- [x] 12-02-PLAN.md — Prove Claude and Codex lifecycle behavior with fake-host conformance.
+- [x] 12-03-PLAN.md — Verify scoped, idempotent adapter installation and onboarding gates.
+- [x] 12-04-PLAN.md — Assemble Tier 1 acceptance evidence and live-host verification procedures.
+
 **Research flags**: Mandatory live host/OS validation: run the actual installed, authenticated Claude Code and Codex versions, record host deadline and response-write semantics, and separately verify Claude hook fallback and Codex MCP behavior.
 
 ### Phase 13: Evidence-Gated Host Expansion & Launch Hardening
@@ -164,5 +165,5 @@ Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 | 9. Durable Round Store & Recovery API | 4/4 | Complete    | 2026-07-17 |
 | 10. Settings v2 | 4/4 | Complete    | 2026-07-17 |
 | 11. Browser Recovery & Delivery UX | 4/4 | Complete    | 2026-07-17 |
-| 12. Adapter Contract & Tier 1 Acceptance | 0/TBD | Not started | - |
+| 12. Adapter Contract & Tier 1 Acceptance | 4/4 | In Progress|  |
 | 13. Evidence-Gated Host Expansion & Launch Hardening | 0/TBD | Not started | - |

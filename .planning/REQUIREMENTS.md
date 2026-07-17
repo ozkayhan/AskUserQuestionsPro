@@ -44,16 +44,16 @@ Requirements for Sprint 2. Each maps to exactly one roadmap phase.
 
 ### Adapter Workflow
 
-- [ ] **ADP-01**: A documented adapter contract defines start, attach, detach, cancel, resume, status, result, and delivery acknowledgement behavior.
-- [ ] **ADP-02**: Each host has a capability descriptor covering transport, timeout, cancellation, approval, trust, configuration scope, installation, and evidence status.
-- [ ] **ADP-03**: A fake-host conformance harness verifies adapter lifecycle and idempotency behavior.
-- [ ] **ADP-04**: Claude Code and Codex remain separate adapters with their host-specific framing, fallback, timeout, and cancellation semantics preserved.
-- [ ] **ADP-05**: Adapter installation, doctor, upgrade, and uninstall operations are scoped, idempotent, and safe.
-- [ ] **ADP-06**: New-host onboarding requires official documentation review, local installation/testing, automated conformance, manual long-round verification, and release evidence.
+- [x] **ADP-01**: A documented adapter contract defines start, attach, detach, cancel, resume, status, result, and delivery acknowledgement behavior.
+- [x] **ADP-02**: Each host has a capability descriptor covering transport, timeout, cancellation, approval, trust, configuration scope, installation, and evidence status.
+- [x] **ADP-03**: A fake-host conformance harness verifies adapter lifecycle and idempotency behavior.
+- [x] **ADP-04**: Claude Code and Codex remain separate adapters with their host-specific framing, fallback, timeout, and cancellation semantics preserved.
+- [x] **ADP-05**: Adapter installation, doctor, upgrade, and uninstall operations are scoped, idempotent, and safe.
+- [x] **ADP-06**: New-host onboarding requires official documentation review, local installation/testing, automated conformance, manual long-round verification, and release evidence.
 
 ### Host Support
 
-- [ ] **HST-01**: Version-pinned authenticated Claude Code and Codex acceptance runs verify idle rounds, reconnect, restart, cancellation, recovery, and delivery.
+- [x] **HST-01**: Version-pinned authenticated Claude Code and Codex acceptance runs verify idle rounds, reconnect, restart, cancellation, recovery, and delivery.
 - [ ] **HST-02**: Cursor, GitHub Copilot CLI, Gemini CLI, and Amazon Q Developer are evaluated as the first expansion cohort and receive only evidence-backed statuses.
 - [ ] **HST-03**: Cline, Kiro, Kilo Code, Qwen Code, and OpenCode are evaluated through the same adapter gate.
 - [ ] **HST-04**: Roo Code and Windsurf are researched individually; Aider remains explicitly unsupported unless a safe authoritative integration surface is verified.
@@ -115,13 +115,13 @@ Deferred beyond this milestone but retained for future planning.
 | WEB-07 | Phase 11 | Complete |
 | WEB-08 | Phase 11 | Complete |
 | WEB-09 | Phase 11 | Complete |
-| ADP-01 | Phase 12 | Pending |
-| ADP-02 | Phase 12 | Pending |
-| ADP-03 | Phase 12 | Pending |
-| ADP-04 | Phase 12 | Pending |
-| ADP-05 | Phase 12 | Pending |
-| ADP-06 | Phase 12 | Pending |
-| HST-01 | Phase 12 | Pending |
+| ADP-01 | Phase 12 | Complete |
+| ADP-02 | Phase 12 | Complete |
+| ADP-03 | Phase 12 | Complete |
+| ADP-04 | Phase 12 | Complete |
+| ADP-05 | Phase 12 | Complete |
+| ADP-06 | Phase 12 | Complete |
+| HST-01 | Phase 12 | Complete |
 | HST-02 | Phase 13 | Pending |
 | HST-03 | Phase 13 | Pending |
 | HST-04 | Phase 13 | Pending |

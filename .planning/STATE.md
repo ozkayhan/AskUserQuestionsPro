@@ -4,16 +4,16 @@ milestone: v1.1
 milestone_name: Sprint 2
 current_phase: 12
 current_phase_name: Adapter Contract & Tier 1 Acceptance
-status: planning
-stopped_at: Phase 11 complete; ready to plan Phase 12
-last_updated: "2026-07-17T20:06:00+03:00"
+status: verifying
+stopped_at: Completed 12-04-PLAN.md
+last_updated: "2026-07-17T17:17:11.044Z"
 last_activity: 2026-07-17
-last_activity_desc: Phase 11 complete after gap closure and browser smoke, ready for Phase 12
+last_activity_desc: Phase 12 executed with local fake-host/integration evidence; live authenticated host rows remain unavailable
 progress:
-  total_phases: 4
-  completed_phases: 2
-  total_plans: 18
-  completed_plans: 16
+  total_phases: 5
+  completed_phases: 3
+  total_plans: 21
+  completed_plans: 19
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 12 of 13 (Adapter Contract & Tier 1 Acceptance)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-17 — Phase 11 complete after gap closure and browser smoke, ready to plan Phase 12
+Plan: 4 of 4
+Status: Phase complete — ready for verification
+Last activity: 2026-07-17 — Phase 12 executed with local fake-host/integration evidence; live authenticated host rows remain unavailable
 
-Progress: [█████████░] 94%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 94%
 | Phase 10 P3 | 26m | 6 tasks | 15 files |
 | Phase 10 P04 | 35m | 3 tasks | 13 files |
 | Phase 11 P3 | 30m | 6 tasks | 12 files |
+| Phase 12 P4 | 30 | 8 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Import apply validates preview token, exact payload, and baseline revision before CAS persistence; doctor emits an allowlisted redacted projection.
 - [Phase ?]: Phase 11: browser recovery requires explicit exact-round selection and revision reconciliation; browser storage is cache-only.
 - [Phase ?]: Phase 11: delivery acknowledgement gates closure; uncertain delivery preserves the result and never auto-closes.
+- [Phase ?]: Phase 12 uses local Node fake-host and integration evidence; authenticated Claude/Codex rows remain unavailable until version-pinned manual runs.
 
 ### Pending Todos
 
@@ -100,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-17T20:06:00+03:00
-Stopped at: Phase 11 complete after gap closure and browser smoke; ready to plan Phase 12
+Last session: 2026-07-17T17:16:55.603Z
+Stopped at: Completed 12-04-PLAN.md
 Resume file: None
