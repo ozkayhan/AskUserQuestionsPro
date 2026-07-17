@@ -2,6 +2,64 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { Bridge, terminalReason } = require('../server/bridge.js');
 
+function scheduler() {
+  let now = 0;
+  const pending = new Map();
+  let sequence = 0;
+  return {
+    now: () => now,
+    setTimer(callback, delay) {
+      const id = ++sequence;
+      pending.set(id, { callback, at: now + delay });
+      return id;
+    },
+    clearTimer(id) {
+      pending.delete(id);
+    },
+    advance(ms) {
+      now += ms;
+      for (const [id, entry] of [...pending]) {
+        if (entry.at <= now) {
+          pending.delete(id);
+          entry.callback();
+        }
+      }
+    },
+  };
+}
+
+test('Bridge snapshot uses opaque capability and deterministic detached expiry', async () => {
+  const clock = scheduler();
+  const b = new Bridge({ detachedTtlMs: 10, ...clock });
+  const owner = b.submitQuestions([{ question: 'private' }], 'owner');
+  const round = b.peek('owner');
+  const state = b.getSnapshot();
+  assert.equal(state.state, 'drafting');
+  assert.equal(typeof state.capability, 'string');
+  assert.equal(JSON.stringify(state).includes('private'), false);
+  assert.equal(b.detach('host disconnected', round.id, state.capability), true);
+  clock.advance(10);
+  await assert.rejects(owner, (error) => error.code === 'application_timeout');
+  assert.equal(b.getSnapshot().state, 'expired');
+});
+
+test('wrong id or capability cannot mutate a later round', async () => {
+  const b = new Bridge();
+  const first = b.submitQuestions([{ question: 'one' }]);
+  const old = b.peek();
+  const oldCapability = b.getSnapshot().capability;
+  b.cancel('user cancelled', old.id, oldCapability);
+  await assert.rejects(first);
+  const second = b.submitQuestions([{ question: 'two' }]);
+  const current = b.peek();
+  assert.equal(b.detach('host disconnected', old.id, oldCapability), false);
+  assert.equal(b.cancel('user cancelled', current.id, oldCapability), false);
+  assert.equal(b.provideAnswers(current.id, { two: 'yes' }, oldCapability), false);
+  assert.equal(b.getSnapshot().state, 'drafting');
+  assert.equal(b.provideAnswers(current.id, { two: 'yes' }, b.getSnapshot().capability), true);
+  await second;
+});
+
 test('submitQuestions, provideAnswers(id) gelince resolve olur', async () => {
   const b = new Bridge();
   const p = b.submitQuestions([{ question: 'Q?' }]);
