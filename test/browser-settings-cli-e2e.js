@@ -52,6 +52,8 @@ async function main() {
     cli('click', "button[role='switch'][aria-label='Reduce motion']");
     cli('click', "button:has-text('Save settings')");
     await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.equal(evaluate("document.querySelector('[role=dialog] button.btn--primary').textContent.trim()"), 'Save settings');
+    assert.match(cli('snapshot'), /Settings saved\./);
     cli('reload');
     cli('click', "button[aria-label='Settings']");
     assert.equal(evaluate("document.querySelector('[aria-label=\"High contrast\"]').getAttribute('aria-checked')"), 'true');

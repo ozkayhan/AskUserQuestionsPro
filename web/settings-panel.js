@@ -283,9 +283,15 @@ function SettingsModal({ onClose }) {
     closeRef.current?.focus();
     return () => {
       window.removeEventListener('keydown', onKey, true);
-      if (abortRef.current) abortRef.current.abort();
     };
   }, [isSaving]);
+
+  // Abort only when the modal is actually unmounted. The keyboard effect above
+  // also tracks isSaving, so aborting from its cleanup would cancel every save
+  // immediately after the state changes to true.
+  useEffectSet(() => () => {
+    if (abortRef.current) abortRef.current.abort();
+  }, []);
 
   function change(key, value) {
     setDraft((prev) => ({ ...prev, [key]: value }));

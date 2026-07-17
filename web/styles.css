@@ -1254,8 +1254,8 @@ button {
 
 /* modal kartı — popup token'larını yeniden kullanır */
 .settings {
-  width: min(440px, calc(100vw - 48px));
-  max-height: calc(100vh - 32px);
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 24px);
   overflow-y: auto;
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
@@ -1330,7 +1330,14 @@ button {
   white-space: pre-wrap;
   word-break: break-word;
 }
-@media (max-width: 480px) { .settings { padding: 16px; } .setting-row { align-items: flex-start; gap: 8px; } }
+@media (max-width: 640px) {
+  .settings { padding: 16px; }
+  .setting-row { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .setting-seg { width: 100%; }
+  .setting-toggle { align-self: flex-start; }
+  .settings__foot { align-items: stretch; }
+  .settings__saved { flex-basis: 100%; min-height: 1em; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
 .settings__chip {
   font-family: var(--font-mono);
@@ -1367,7 +1374,8 @@ button {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  flex-shrink: 0;
 }
 .setting-seg__btn {
   border: 1px solid var(--border);
@@ -1436,6 +1444,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .settings__saved {
   font-size: 12.5px;
@@ -1444,6 +1454,7 @@ button {
 .settings__actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* ───────────────────────── binary card ───────────────────────── */
