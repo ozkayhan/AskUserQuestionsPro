@@ -12,26 +12,37 @@ Date: 2026-07-17 (Europe/Istanbul)
 
 ## Local browser evidence
 
-`playwright-cli` is present at `/Users/oka/.local/bin/playwright-cli`, but the
-Playwright Node package and a browser binary are not resolvable from this
-workspace. The available CLI was therefore not claimed as a completed
-recovery-flow run: no authenticated host round can be created safely through
-the static settings-only harness. The automated contract tests above provide
-the strongest reproducible local evidence for chooser semantics, redaction,
-delivery transitions, close denial, focus-owned dialogs, and reduced-motion
-CSS.
+`playwright-cli` at `/Users/oka/.local/bin/playwright-cli` was used against an
+isolated bridge on `127.0.0.1:4527` with a synthetic one-question round. The
+run was intentionally separate from the user's active bridge and used no
+external host installation.
+
+Observed on 2026-07-17:
+
+- The live question rendered with zero page errors.
+- A local/server revision mismatch opened `Saved round changed`; the heading
+  received focus, Tab stayed inside the dialog, and `Discard local draft`
+  returned to the round without losing the server answer.
+- Submitting the answer completed the durable delivery path; the browser
+  returned to waiting and the recoverable-round chooser showed only redacted
+  state/time/question-count metadata.
+- Escape dismissed the recovery chooser and returned to the waiting surface.
+
+This is a real local browser smoke run, not authenticated Claude/Codex host
+evidence. The automated contract tests remain the evidence for external-host
+and failure-injection paths.
 
 ## Scenario matrix and limitations
 
 | Scenario | Evidence | Limitation |
 |---|---|---|
-| Exact round selection / no latest fallback | automated contract + `getRecoverableRounds` test | Full interactive chooser needs a browser runtime |
-| Revision conflict and storage failure preservation | draft-writer tests + typed recovery errors | Quota/private-mode injection not run in a real browser |
-| Pending → acknowledged delivery | delivery transition tests + server ack contract | Full click-through unavailable without Playwright runtime |
-| Uncertain delivery / denied close | transition and `attemptClose` tests | Browser ownership policy not exercised interactively |
+| Exact round selection / no latest fallback | local chooser smoke + automated contract + `getRecoverableRounds` test | External-host selection remains out of scope |
+| Revision conflict and storage failure preservation | local conflict smoke + draft-writer tests + typed recovery errors | Quota/private-mode injection not run |
+| Pending → acknowledged delivery | local submit/ack smoke + server ack contract | External host delivery remains out of scope |
+| Uncertain delivery / denied close | transition and `attemptClose` tests | Browser ownership denial not forced in this smoke |
 | Origin/port drift and opening fallback | typed opening result and recovery error seams | External opener/profile failure not launch-tested |
-| Keyboard focus, Escape, live announcements | mounted-source accessibility contract tests | Screen reader and real tab order require manual browser/AT |
-| Narrow viewport / reduced motion | responsive CSS and existing settings evidence | No fresh screenshot artifact due missing browser runtime |
+| Keyboard focus, Escape, live announcements | local focus/Tab/Escape smoke + mounted-source contracts | Screen reader still needs manual AT |
+| Narrow viewport / reduced motion | responsive CSS and existing settings evidence | No new narrow-viewport screenshot captured |
 
 No question or answer payload is included in evidence, diagnostics, or recovery
 metadata.
