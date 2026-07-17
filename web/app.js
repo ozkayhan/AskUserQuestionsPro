@@ -127,24 +127,27 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
   const [closeDenied, setCloseDenied] = useState(false);
   const [conflict, setConflict] = useState(null);
   const [recoveryReview, setRecoveryReview] = useState(false);
+  const resolvedConflictKey = useRef(null);
   const applyServerDraft = useCallback(
     () => {
+      if (conflict) resolvedConflictKey.current = `${conflict.serverRevision}:${conflict.localRevision}`;
       setAnswers(() => createAnswerState(QUESTIONS, draftAnswers));
       if (Number.isInteger(revision)) draftRevision.current = revision;
       if (DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
       setRecoveryReview(false);
       setConflict(null);
     },
-    [QUESTIONS, draftAnswers, draftWriterKey, revision]
+    [QUESTIONS, conflict, draftAnswers, draftWriterKey, revision]
   );
   useEffect(() => {
     const local = DraftWriter.readLatestPendingDraft
       ? DraftWriter.readLatestPendingDraft(draftWriterKey)
       : null;
     if (local && Number.isInteger(revision) && local.revision !== revision) {
-      setConflict(
-        DraftWriter.reconcileDraft(draftAnswers || {}, local.draft, revision, local.revision)
-      );
+      const key = `${revision}:${local.revision}`;
+      if (key !== resolvedConflictKey.current) {
+        setConflict(DraftWriter.reconcileDraft(draftAnswers || {}, local.draft, revision, local.revision));
+      }
     }
   }, [draftAnswers, draftWriterKey, revision]);
   useEffect(() => {

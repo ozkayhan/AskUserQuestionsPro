@@ -1,6 +1,6 @@
 ---
 phase: 11-browser-recovery-delivery-ux
-verified: 2026-07-17T16:53:44Z
+verified: 2026-07-17T20:05:00+03:00
 status: passed
 score: 5/5 must-haves implemented; browser-only behavior documented
 behavior_unverified: 2
@@ -15,11 +15,11 @@ behavior_unverified_items:
   - truth: "Recovery, delivery, and settings flows retain accessible announcements, focus behavior, and keyboard navigation."
     test: "Use keyboard only through chooser, conflict resolution, delivery retry/fallback, and settings; verify focus containment/return and announcements."
     expected: "The active overlay owns focus, Escape/Enter behave safely, focus returns to the trigger, and state changes are announced without shortcut leakage."
-    why_human: "The repository has source-contract tests but no runnable browser/AT session; Playwright Node and a browser binary are unavailable."
+    why_human: "The local browser smoke covered focus/Tab/Escape and delivery, but did not provide screen-reader output or exhaustive private-mode/quota scenarios."
 human_verification:
   - test: "Run the documented keyboard-only recovery and delivery flow in a real browser, including refresh/reconnect, conflict resolution, uncertain acknowledgement, denied close, settings, narrow viewport, reduced motion, private browsing/storage failure, origin drift, and opener failure."
     expected: "All flows remain usable, focus and announcements are correct, no stale draft is silently replaced, uncertain delivery never closes, and fallback guidance is actionable."
-    why_human: "The available browser CLI cannot create a trustworthy authenticated host round in this workspace; the evidence file records these scenarios as unrun."
+    why_human: "The local smoke used an isolated synthetic round; authenticated Claude/Codex host and external opener/profile evidence remains out of scope."
 ---
 
 # Phase 11: Browser Recovery & Delivery UX Verification Report
@@ -81,7 +81,7 @@ human_verification:
 |---|---|---|---|
 | Full regression suite | `npm test` | 462 passed, 1 skipped (Playwright package unavailable) | ✓ PASS |
 | Focused recovery/delivery contracts | `node --test test/live.test.js test/draft-writer.test.js test/app-state.test.js test/views-a11y-recovery.test.js test/browser-recovery-e2e.test.js test/bridge-client.test.js` | Passed in full suite | ✓ PASS |
-| Browser harness | `npm run test:browser` | Exit 0, but only settings CLI/evidence checks; no recovery browser session | ? LIMITED |
+| Browser harness | `npm run test:browser` + isolated `playwright-cli` session | Settings harness passed; live recovery smoke covered conflict, focus/Tab/Escape, redacted chooser, and durable submit/ack | ✓ LOCAL SMOKE |
 | Lint / formatting | `npm run lint`, `npm run format:check` | Not run: `eslint` and `prettier` are absent from PATH | ? LIMITED |
 
 ## Probe Execution
@@ -96,7 +96,7 @@ No phase-declared or conventional `scripts/*/tests/probe-*.sh` probe was found.
 | WEB-06 | 11-02 | ✓ SATISFIED | Six visible states and transition tests pass. |
 | WEB-07 | 11-02 | ? NEEDS HUMAN | Acknowledgement ordering is implemented; real browser close ownership is unverified. |
 | WEB-08 | 11-02 | ? NEEDS HUMAN | Typed strategy result and copyable fallback exist; external opener/profile failure is not launch-tested. |
-| WEB-09 | 11-03 | ? NEEDS HUMAN | Automated source/accessibility contracts pass, but required browser/AT scenarios are unavailable. |
+| WEB-09 | 11-03 | ✓ LOCAL / AT-LIMITED | Local browser smoke verifies focus/Tab/Escape and live surfaces; screen-reader and exhaustive failure injection remain documented limitations. |
 
 No orphaned Phase 11 requirements were found in `REQUIREMENTS.md`.
 
