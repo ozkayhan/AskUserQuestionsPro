@@ -62,6 +62,11 @@ step, richer input types, and larger batches. Install is
 
 ## Browser recovery and delivery
 
+Compatibility is evidence-gated. Candidate products in the [compatibility matrix](../test/host-compatibility-evidence.md)
+remain `Researching` until installed, authenticated, version-pinned lifecycle
+evidence exists. `Unsupported` and `Unavailable` are explicit non-support
+states, not promises based on MCP discovery.
+
 Refresh, reconnect, and origin changes use the durable bridge record as the
 authority. When more than one recoverable round exists, the browser presents a
 redacted exact-round chooser rather than silently selecting the latest. Cached

@@ -215,6 +215,10 @@ rejected with HTTP 409 so answers cannot cross rounds.
 
 ## Troubleshooting
 
+Compatibility is evidence-gated: see the [host matrix](test/host-compatibility-evidence.md),
+[capability cards](docs/host-capability-cards/), and [native OS limitations](docs/evidence/phase-13-native-os-runs.md).
+`Researching`, `Unsupported`, and `Unavailable` rows are not support promises.
+
 - Run `askuserquestionspro doctor --target all` to see host-specific hook,
   skill, and MCP registration status. Use a narrower target when only one host
   is intended.

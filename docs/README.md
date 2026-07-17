@@ -25,6 +25,9 @@ bridge, and the browser UI.
 - [frontend.md](frontend.md) — web UI: React-via-Babel app, views, themes, answer logic
 - [backend.md](backend.md) — bridge server, hook, MCP server, CLI, install
 - [hosts.md](hosts.md) — Codex/Claude lifecycle contracts, fallbacks, and host-boundary evidence
+- [host matrix](../test/host-compatibility-evidence.md) and [capability cards](host-capability-cards/) — evidence-gated compatibility states
+- [host research gates](host-research/README.md) — dated sources and isolated installed-host handoff
+- [cross-platform evidence](evidence/phase-13-cross-platform.md) and [native OS handoff](evidence/phase-13-native-os-runs.md) — release limitations and required lanes
 - [timeout-runbook.md](timeout-runbook.md) — long-round reproduction, lifecycle interpretation, and recovery
 - [api.md](api.md) — HTTP endpoints, MCP tool contract, hook I/O shapes
 - [testing.md](testing.md) — test suite layout and how to run it

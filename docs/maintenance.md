@@ -18,6 +18,15 @@ Use descriptive lowercase kebab-case names. One document owns one topic:
 - UI behavior: `frontend.md`
 - verification and release: `testing.md`, `tech-stack.md`
 
+## Phase 13 launch checklist
+
+Before promotion or release, validate the [matrix and cards](../test/host-compatibility-evidence.md),
+run redaction checks, tests, lint/format, shell syntax/ShellCheck, audit,
+package dry-run, and changeset/release workflow checks. Refresh evidence dates
+and require native macOS, Linux, and Windows rows plus isolated
+install/upgrade/uninstall/trust/scope evidence for any `Supported` host.
+Keep absent hosts `Researching`/`Unavailable` and Aider `Unsupported`.
+
 Add a link to `docs/README.md` for every new maintained document. Prefer updating
 the existing owner over creating a second document with overlapping scope.
 
