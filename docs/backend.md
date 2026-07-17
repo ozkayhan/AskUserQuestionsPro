@@ -163,7 +163,7 @@ defaults, never throws. `apply()` functions run only in the browser.
   read contract).
 - `write(patch)` — merge over current, validate, then atomic write via
   `writeFileAtomic` from `lib/atomic-write.cjs` (`.tmp.<pid>` + `rename` +
-  `O_EXCL` lockfile); stamps `_v: 1`. **Contract W:** returns
+  directory lease); stamps `_v: 1`. **Contract W:** returns
   `{ ok: true, value: next }` on success or `{ ok: false, value: next, error: e }`
   on disk failure (never swallows the error silently). Callers check `ok`
   before trusting the write.
@@ -172,11 +172,18 @@ defaults, never throws. `apply()` functions run only in the browser.
 ### Atomic write helper (`lib/atomic-write.cjs`)
 
 `writeFileAtomic(file, data)` — writes data to `file.tmp.<pid>`, then
-`rename`s it into place (POSIX-atomic). An `O_EXCL` lockfile (`file.lock`)
-serialises concurrent writers: a second writer fails fast with an error rather
-than racing to `rename`. Stale locks older than 10 s are reclaimed (handles
-killed writers). Orphan `.tmp` files are cleaned up on failure. Consumed by
-`lib/settings.js` and `bin/install.js`.
+`rename`s it into place (POSIX-atomic). A `mkdir` directory lease
+(`file.lock/owner`) serialises concurrent writers: creating the directory is
+the atomic acquisition, and a second writer fails fast rather than racing to
+`rename`. The owner records its PID, a random lease token, and (where Linux
+procfs provides it) the process start identity. Crash recovery removes only a
+confirmed-dead owner's private `owner` entry, then atomically retires the now
+empty lease directory with `rmdir`; it never unlinks the public lease pathname.
+A live PID with a missing or unreadable identity is treated as uncertain and
+remains held (fail closed); operators must remove such a lease only after
+confirming the writer is gone. A mismatched identity proves PID reuse, so the
+crashed lease can be recovered safely. Orphan `.tmp` files are cleaned up on
+failure. Consumed by `lib/settings.js` and `bin/install.js`.
 
 ## Hook (`hooks/askuserquestionspro-bridge.mjs` + `hooks/hook-output.js`)
 

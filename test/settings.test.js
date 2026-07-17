@@ -456,6 +456,24 @@ test('writeFileAtomic: crash-created dead-owner lock is recovered for the next w
   }
 });
 
+test('writeFileAtomic: a reused PID does not keep a crashed directory lease held', () => {
+  const { ownerIsAlive } = require('../lib/atomic-write.cjs');
+  const reusedOwner = { pid: 4321, token: 'crashed-writer', identity: 'linux:old-start-ticks' };
+  assert.equal(
+    ownerIsAlive(reusedOwner, {
+      kill: () => {},
+      getProcessIdentity: () => 'linux:new-start-ticks',
+    }),
+    false,
+    'a matching PID with a different start identity is a reused PID, not a live lease owner'
+  );
+  assert.equal(
+    ownerIsAlive(reusedOwner, { kill: () => {}, getProcessIdentity: () => null }),
+    true,
+    'unknown identity must fail closed'
+  );
+});
+
 test('writeFileAtomic: stale directory recovery cannot remove a newly acquired lease', () => {
   const { acquireLock } = require('../lib/atomic-write.cjs');
   const lock = '/virtual/round.json.lock';
@@ -559,7 +577,8 @@ for (const operation of ['openSync', 'writeFileSync', 'fsyncSync', 'closeSync', 
         if (property !== operation) return target[property];
         if (operation === 'writeFileSync') {
           return (targetFile, ...args) => {
-            if (typeof targetFile === 'number') throw Object.assign(new Error('injected write'), { code: 'EIO' });
+            if (typeof targetFile === 'number')
+              throw Object.assign(new Error('injected write'), { code: 'EIO' });
             return target.writeFileSync(targetFile, ...args);
           };
         }
