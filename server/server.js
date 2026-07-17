@@ -146,12 +146,16 @@ function broadcastCurrent() {
 // Ayarlar bellek cache'i: her index.html / POST /settings'te fs.readFileSync ile
 // event loop'u bloke etmemek için. write yolundan invalidate edilir.
 let settingsCache = null;
+const settingsPreviews = new Map();
 function readSettings() {
-  if (settingsCache === null) settingsCache = Settings.read();
+  const status = Settings.inspect();
+  if (settingsCache === null || settingsCacheRevision !== status.revision) { settingsCache = status.effective; settingsCacheRevision = status.revision; }
   return settingsCache;
 }
+let settingsCacheRevision = null;
 function invalidateSettings(value) {
   settingsCache = value || null; // value verilirse direkt cache'le, yoksa lazy re-read.
+  settingsCacheRevision = value ? Settings.inspect().revision : null;
 }
 
 // index.html taban HTML'i ilk istekte cache'lenir (UTF-8 decode bir kez). Ayar
@@ -584,6 +588,39 @@ async function handleRequest(req, res) {
     invalidateSettings(r.value); // bellek cache'i taze değerle güncelle.
     const { _v, ...clientSettings } = r.value; // _v disk formatı; tarayıcıya sızdırma
     return sendJson(res, 200, { ok: true, settings: clientSettings });
+  }
+
+  if (req.method === 'GET' && url === '/settings/export') {
+    const status = Settings.inspect();
+    const body = JSON.stringify(status.effective, null, 2) + '\n';
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="askuserquestionspro-settings-v2.json"', 'Cache-Control': 'no-store' });
+    return res.end(body);
+  }
+  if (req.method === 'POST' && (url === '/settings/preview' || url === '/settings/apply' || url === '/settings/reset')) {
+    let payload;
+    try { payload = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    const status = Settings.inspect();
+    if (url === '/settings/preview') {
+      const candidate = payload.payload || payload;
+      const checked = require('../web/settings-schema.js').inspectEnvelope(candidate);
+      const id = require('node:crypto').randomBytes(12).toString('hex');
+      settingsPreviews.set(id, { revision: payload.baselineRevision ?? status.revision, candidate: checked.envelope, expiresAt: Date.now() + 10 * 60 * 1000 });
+      return sendJson(res, 200, { previewId: id, baselineRevision: payload.baselineRevision ?? status.revision, status: checked.status, valid: checked.valid, migration: checked.migrated, ignored: checked.ignored || { count: 0, truncated: false }, canApply: checked.valid && checked.status !== 'unsupported-future' });
+    }
+    if (url === '/settings/reset') {
+      const namespace = payload.namespace;
+      const defaults = require('../web/settings-schema.js').namespaceDefaults();
+      if (!Object.prototype.hasOwnProperty.call(defaults, namespace)) return sendJson(res, 400, { error: 'invalid namespace' });
+      const result = Settings.mutateCompareAndSwap(payload.baselineRevision, (current) => ({ ...current, [namespace]: defaults[namespace] }));
+      if (!result.ok) return sendJson(res, 409, { error: result.code });
+      invalidateSettings(result.value); return sendJson(res, 200, { ok: true, settings: result.value });
+    }
+    const preview = settingsPreviews.get(payload.previewId);
+    if (!preview || preview.expiresAt < Date.now()) return sendJson(res, 409, { error: 'preview expired' });
+    settingsPreviews.delete(payload.previewId);
+    const result = Settings.mutateCompareAndSwap(preview.revision, () => preview.candidate);
+    if (!result.ok) return sendJson(res, 409, { error: result.code });
+    invalidateSettings(result.value); return sendJson(res, 200, { ok: true, settings: result.value });
   }
 
   if (req.method === 'GET') return serveStatic(req, res);
