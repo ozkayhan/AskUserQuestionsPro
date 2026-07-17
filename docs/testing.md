@@ -145,3 +145,8 @@ apply a separate wall-clock deadline.
 - `server.test.js` isolates disk I/O by setting `XDG_CONFIG_HOME` to a tmp
   dir before requiring the server module (the settings dir is resolved at
   load time).
+# Testing boundaries
+
+Phase 12 acceptance separates deterministic local evidence from authenticated host evidence. Run `npm test`, `npm run lint`, and `npm run format:check` where available; run `bash -n install.sh uninstall.sh reinstall.sh` for shell changes.
+
+The Tier 1 matrix is maintained in `test/tier1-acceptance-evidence.md` and checked by `node --test test/tier1-acceptance.test.js`. It covers idle, reconnect, restart-shaped recovery, cancellation, exact recovery selection, result replay, and delivery acknowledgement for Claude Code and Codex. Missing authentication or host binaries produce `Unavailable`, not a passing live row.
