@@ -52,3 +52,29 @@ test('lifecycle normalizes unknown terminal reasons and never throws when loggin
   assert.doesNotThrow(() => lifecycle.finish('not-a-contract-reason'));
   assert.doesNotThrow(() => lifecycle.event('not-a-contract-event'));
 });
+
+test('lifecycle diagnostics allowlist boundary and deadline owner without payload metadata', () => {
+  const seen = [];
+  const lifecycle = createLifecycle({
+    adapter: 'mcp',
+    requestId: 'opaque-request',
+    now: () => 10,
+    logger: (_scope, detail) => seen.push(JSON.parse(detail)),
+  });
+  lifecycle.event('host_detached', {
+    boundary: 'stdio',
+    deadlineOwner: 'transport',
+    question: 'secret',
+  });
+  lifecycle.finish('host_disconnect', { boundary: 'stdio', deadlineOwner: 'transport' });
+  assert.deepEqual(seen[1], {
+    event: 'host_detached',
+    adapter: 'mcp',
+    requestId: 'opaque-request',
+    pid: process.pid,
+    elapsedMs: 0,
+    boundary: 'stdio',
+    deadlineOwner: 'transport',
+  });
+  assert.equal(JSON.stringify(seen).includes('secret'), false);
+});
