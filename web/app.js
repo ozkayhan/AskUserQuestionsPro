@@ -19,6 +19,21 @@ function normalizeBootSettings() {
 const APP_SETTINGS = normalizeBootSettings();
 const currentAppSettings = () => window.__ASKUSER_SETTINGS__ || APP_SETTINGS;
 
+function createAnswerState(questions, draft) {
+  const answers = {};
+  questions.forEach((q) => {
+    answers[q.question] = {
+      sel: [],
+      confirmed: false,
+      customText: '',
+      value: null,
+      order: null,
+      path: null,
+    };
+  });
+  return { ...answers, ...(draft && typeof draft === 'object' ? draft : {}) };
+}
+
 function App() {
   const { id, roundId: durableRoundId, questions, capability, revision, draftAnswers } = useLiveQuestions();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -79,26 +94,11 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
 
   // answers[question] = { sel:number[], confirmed, customText, value, order, path }
   const [answers, setAnswers] = useState(() => {
-    const a = {};
-    QUESTIONS.forEach((q) => {
-      a[q.question] = {
-        sel: [],
-        confirmed: false,
-        customText: '',
-        value: null,
-        order: null,
-        path: null,
-      };
-    });
     const pending = DraftWriter.readLatestPendingDraft
       ? DraftWriter.readLatestPendingDraft(draftWriterKey)
       : null;
     const localDraft = pending?.draft || DraftWriter.readPendingDraft(draftWriterKey, revision);
-    return {
-      ...a,
-      ...(draftAnswers && typeof draftAnswers === 'object' ? draftAnswers : {}),
-      ...(localDraft && typeof localDraft === 'object' ? localDraft : {}),
-    };
+    return createAnswerState(QUESTIONS, localDraft || draftAnswers);
   });
   const draftRevision = useRef(revision);
   const draftWriter = useRef(null);
@@ -128,14 +128,14 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
   const [conflict, setConflict] = useState(null);
   const [recoveryReview, setRecoveryReview] = useState(false);
   const applyServerDraft = useCallback(
-    ({ clearLocal = false } = {}) => {
-      setAnswers((prev) => ({ ...prev, ...(draftAnswers || {}) }));
+    () => {
+      setAnswers(() => createAnswerState(QUESTIONS, draftAnswers));
       if (Number.isInteger(revision)) draftRevision.current = revision;
-      if (clearLocal && DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
+      if (DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
       setRecoveryReview(false);
       setConflict(null);
     },
-    [draftAnswers, draftWriterKey, revision]
+    [QUESTIONS, draftAnswers, draftWriterKey, revision]
   );
   useEffect(() => {
     const local = DraftWriter.readLatestPendingDraft
@@ -621,7 +621,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           conflict={conflict}
           onKeepServer={() => applyServerDraft()}
           onReview={() => setRecoveryReview(true)}
-          onDiscard={() => applyServerDraft({ clearLocal: true })}
+          onDiscard={applyServerDraft}
         />
       )}
       {conflict && recoveryReview && (
@@ -629,7 +629,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           conflict={conflict}
           onKeepServer={() => applyServerDraft()}
           onReview={() => setRecoveryReview(false)}
-          onDiscard={() => applyServerDraft({ clearLocal: true })}
+          onDiscard={applyServerDraft}
         />
       )}
       {confirmArmed && (
