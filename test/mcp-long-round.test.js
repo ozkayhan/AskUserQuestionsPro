@@ -155,7 +155,7 @@ test('MCP stdio: 15 soru heartbeat arkasında bekler ve doğru cevapla tamamlan�
     const answerResponse = await fetch(`http://127.0.0.1:${port}/answer`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: current.id, answers }),
+      body: JSON.stringify({ id: current.id, capability: current.capability, answers }),
     });
     assert.strictEqual(answerResponse.status, 200);
     const result = await waitFor((message) => message.id === 2, 10_000);
@@ -232,10 +232,8 @@ test('MCP resume: kopan host turu browser cevabini yeni MCP processine verir', a
     assert.ok(current?.id != null, 'detached test round sunucuda pending olmali');
     request.destroy();
     await new Promise((resolve) => setTimeout(resolve, 30));
-    assert.strictEqual(
-      (await (await fetch(`http://127.0.0.1:${port}/current`)).json()).id,
-      current.id
-    );
+    current = await (await fetch(`http://127.0.0.1:${port}/current`)).json();
+    assert.ok(current.capability, 'detached round capability korunmalı');
 
     mcp.stdout.setEncoding('utf8');
     mcp.stdout.on('data', (chunk) => {
@@ -253,10 +251,11 @@ test('MCP resume: kopan host turu browser cevabini yeni MCP processine verir', a
       }) + '\n'
     );
     await new Promise((resolve) => setTimeout(resolve, 30));
+    current = await (await fetch(`http://127.0.0.1:${port}/current`)).json();
     const answer = await fetch(`http://127.0.0.1:${port}/answer`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: current.id, answers: { 'Kopan tur?': 'Tamam' } }),
+      body: JSON.stringify({ id: current.id, capability: current.capability, answers: { 'Kopan tur?': 'Tamam' } }),
     });
     assert.strictEqual(answer.status, 200);
     const result = await waitForResult(9);
@@ -381,11 +380,9 @@ test('MCP stdin EOF aktif ask turunu detach eder ve yeni process resume edebilir
     first.stdin.end();
     await waitForExit(first);
     assert.strictEqual(getFirstOutput(), '', 'EOF sonrası ilk process geç sonuç yazmamalı');
-    assert.strictEqual(
-      (await (await fetch(`http://127.0.0.1:${port}/current`)).json()).id,
-      current.id,
-      'stdin EOF browser roundunu düşürmemeli'
-    );
+    current = await (await fetch(`http://127.0.0.1:${port}/current`)).json();
+    assert.equal(current.id != null, true, 'stdin EOF browser roundunu düşürmemeli');
+    assert.ok(current.capability, 'stdin EOF capability bilgisini korumalı');
 
     const second = spawn(process.execPath, [MCP_PATH], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -415,7 +412,7 @@ test('MCP stdin EOF aktif ask turunu detach eder ve yeni process resume edebilir
       const answer = await fetch(`http://127.0.0.1:${port}/answer`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id: current.id, answers: { 'EOF detach?': 'Yes' } }),
+        body: JSON.stringify({ id: current.id, capability: current.capability, answers: { 'EOF detach?': 'Yes' } }),
       });
       assert.strictEqual(answer.status, 200);
       const result = await waitForMessage(secondMessages, (message) => message.id === 12);

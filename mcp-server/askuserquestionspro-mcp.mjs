@@ -279,7 +279,7 @@ async function handleAsk(args, signal, { progressToken } = {}) {
       log('mcp', 'pending round not visible within 5 seconds; continuing to wait for ask');
     }
     openBrowser();
-    lifecycle.event('browser_opened');
+    lifecycle.event('browser_opened', { boundary: 'mcp', deadlineOwner: 'none' });
     answers = await askPromise;
   } catch (e) {
     const hostCancelled = signal?.aborted === true;
@@ -293,7 +293,11 @@ async function handleAsk(args, signal, { progressToken } = {}) {
         ? 'host_cancelled'
         : e?.name === 'TimeoutError'
           ? 'application_timeout'
-          : 'bridge_error'
+          : 'bridge_error',
+      {
+        boundary: stdinClosed ? 'stdio' : 'mcp',
+        deadlineOwner: hostCancelled ? (stdinClosed ? 'transport' : 'host') : e?.name === 'TimeoutError' ? 'application' : 'none',
+      }
     );
     log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
     const cause = hostCancelled

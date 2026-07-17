@@ -113,7 +113,10 @@ async function main() {
     if (error?.name === 'TimeoutError') {
       await cancelBridge(requestId, 'timeout').catch((cancelError) => log('hook', cancelError));
     }
-    lifecycle?.finish(roundController.signal.aborted ? 'host_cancelled' : 'bridge_error');
+    lifecycle?.finish(roundController.signal.aborted ? 'host_cancelled' : 'bridge_error', {
+      boundary: 'hook',
+      deadlineOwner: error?.name === 'TimeoutError' ? 'application' : 'host',
+    });
     roundController.abort();
     process.exit(0); // timeout/hata → native fallback
   }
