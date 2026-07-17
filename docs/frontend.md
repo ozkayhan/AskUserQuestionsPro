@@ -220,6 +220,11 @@ degrades it to `single` or `multi` transparently.
   draft to `/settings`, updates `window.__ASKUSER_SETTINGS__`, advances the
   `baseline` to the saved values, and shows a reload notice if a
   `reload`-class setting changed.
+- The modal also includes a Data & recovery surface: export backup, import
+  JSON with a server-side preview before apply, namespace reset, undo back to
+  the session-start envelope, and a redacted effective-settings/health view.
+  Recovery mutations use revision checks so a second tab cannot silently
+  overwrite newer settings.
 - On boot, `applyAll(window.__ASKUSER_SETTINGS__)` applies the
   server-injected settings (theme is handled separately by `themes.js`).
 

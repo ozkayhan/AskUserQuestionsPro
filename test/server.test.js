@@ -929,6 +929,41 @@ test('POST /settings dizi/null -> 400', async () => {
   assert.strictEqual(r.status, 400);
 });
 
+test('settings recovery endpoints expose redacted doctor data and CAS-protected preview/apply/reset', async () => {
+  const doctor = await (await fetch(`${base}/settings/doctor`)).json();
+  assert.ok(doctor.effective && doctor.effective.browser);
+  assert.equal(Object.prototype.hasOwnProperty.call(doctor, 'path'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(doctor.effective, 'path'), false);
+
+  const Schema = require('../web/settings-schema.js');
+  const candidate = Schema.envelopeDefaults();
+  candidate.browser.theme = 'paper';
+  const previewResponse = await post('/settings/preview', {
+    payload: candidate,
+    baselineRevision: doctor.revision,
+  });
+  assert.strictEqual(previewResponse.status, 200);
+  const preview = await previewResponse.json();
+  assert.equal(preview.valid, true);
+  assert.equal(preview.canApply, true);
+
+  const appliedResponse = await post('/settings/apply', {
+    previewId: preview.previewId,
+    payload: candidate,
+    baselineRevision: preview.baselineRevision,
+  });
+  assert.strictEqual(appliedResponse.status, 200);
+  assert.equal((await appliedResponse.json()).settings.browser.theme, 'paper');
+
+  const afterApply = await (await fetch(`${base}/settings/doctor`)).json();
+  const resetResponse = await post('/settings/reset', {
+    namespace: 'browser',
+    baselineRevision: afterApply.revision,
+  });
+  assert.strictEqual(resetResponse.status, 200);
+  assert.equal((await resetResponse.json()).settings.browser.theme, Schema.namespaceDefaults().browser.theme);
+});
+
 test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir) — poll, sleep degil', async () => {
   const sse = await fetch(`${base}/events`);
   const reader = sse.body.getReader();

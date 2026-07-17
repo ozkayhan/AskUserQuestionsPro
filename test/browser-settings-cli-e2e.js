@@ -40,6 +40,8 @@ async function main() {
     cli('open', `http://127.0.0.1:${port}/`);
     cli('click', "button[aria-label='Settings']");
     assert.match(cli('snapshot'), /dialog/);
+    assert.match(cli('snapshot'), /Data & recovery/);
+    assert.deepEqual(evaluate("fetch('/settings/doctor').then(async r => ({ ok: r.ok, hasEffective: !!(await r.json()).effective }))"), { ok: true, hasEffective: true });
     assert.equal(evaluate("document.activeElement.getAttribute('aria-label')"), 'Close settings');
     cli('press', 'Tab');
     assert.equal(evaluate("document.querySelector('[role=dialog]').contains(document.activeElement)"), true);
@@ -54,6 +56,12 @@ async function main() {
     cli('click', "button[aria-label='Settings']");
     assert.equal(evaluate("document.querySelector('[aria-label=\"High contrast\"]').getAttribute('aria-checked')"), 'true');
     assert.equal(evaluate("document.querySelector('[aria-label=\"Reduce motion\"]').getAttribute('aria-checked')"), 'true');
+    assert.equal(evaluate("(() => { const i=document.querySelector('input[type=file]'); const d=new DataTransfer(); d.items.add(new File([JSON.stringify(window.__ASKUSER_SETTINGS_V2__)], 'backup.json', {type:'application/json'})); Object.defineProperty(i, 'files', {value:d.files, configurable:true}); i.dispatchEvent(new Event('change', {bubbles:true})); return true; })()"), true);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.match(cli('snapshot'), /Import preview/);
+    cli('click', "button:has-text('Apply import')");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.match(cli('snapshot'), /backup\.json/);
     assert.equal(evaluate("(() => { const s=getComputedStyle(document.querySelector('[role=dialog]')); return s.animationDuration === '0s' || s.transitionDuration === '0s'; })()"), true);
     assert.equal(evaluate("(() => { const before=JSON.stringify(Settings_Schema.defaults()); const r=Settings_Schema.inspectEnvelope({_v:999}); return !r.valid && JSON.stringify(Settings_Schema.defaults())===before; })()"), true);
     cli('screenshot', path.join(shotDir, 'settings-cli.png'));

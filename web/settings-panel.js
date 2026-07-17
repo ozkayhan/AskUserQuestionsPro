@@ -82,6 +82,171 @@ function SettingRow({ entry, value, onChange }) {
   );
 }
 
+const SETTINGS_NAMESPACES = ['browser', 'recovery', 'autosave', 'diagnostics', 'delivery', 'closure', 'adapters'];
+
+function currentEnvelope() {
+  const value = typeof window !== 'undefined' && window.__ASKUSER_SETTINGS_V2__;
+  return value && value._v === 2 ? JSON.parse(JSON.stringify(value)) : Settings_Schema.envelopeFromLegacy(currentSettings());
+}
+
+async function settingsJson(url, options) {
+  const response = await fetch(url, options);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || 'Settings request failed');
+  return body;
+}
+
+function SettingsDataPanel({ sessionBaseline, onSettingsChanged }) {
+  const [doctor, setDoctor] = useStateSet(null);
+  const [doctorError, setDoctorError] = useStateSet('');
+  const [busy, setBusy] = useStateSet(false);
+  const [message, setMessage] = useStateSet('');
+  const [error, setError] = useStateSet('');
+  const [namespace, setNamespace] = useStateSet('browser');
+  const [preview, setPreview] = useStateSet(null);
+  const importRef = useRefSet(null);
+
+  async function loadDoctor() {
+    try {
+      setDoctorError('');
+      const result = await settingsJson('/settings/doctor');
+      setDoctor(result);
+      return result;
+    } catch (err) {
+      setDoctorError(err.message || 'Could not load settings status.');
+      return null;
+    }
+  }
+
+  useEffectSet(() => { loadDoctor(); }, []);
+
+  function clearFeedback() {
+    setMessage('');
+    setError('');
+  }
+
+  async function previewPayload(payload, successMessage) {
+    clearFeedback();
+    setBusy(true);
+    try {
+      const status = doctor || await loadDoctor();
+      const result = await settingsJson('/settings/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload, baselineRevision: status && status.revision }),
+      });
+      setPreview({ payload, result, successMessage });
+    } catch (err) {
+      setError(err.message || 'Could not preview settings.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyPreview() {
+    if (!preview || !preview.result.canApply) return;
+    clearFeedback();
+    setBusy(true);
+    try {
+      const result = await settingsJson('/settings/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          previewId: preview.result.previewId,
+          payload: preview.payload,
+          baselineRevision: preview.result.baselineRevision,
+        }),
+      });
+      onSettingsChanged(result.settings);
+      setPreview(null);
+      setMessage(preview.successMessage || 'Settings applied.');
+      await loadDoctor();
+    } catch (err) {
+      setError(err.message || 'Could not apply settings. Refresh the preview and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleImport(event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const payload = JSON.parse(await file.text());
+      await previewPayload(payload, `Preview ready for ${file.name}.`);
+    } catch (err) {
+      setError(err instanceof SyntaxError ? 'The selected file is not valid JSON.' : err.message);
+    }
+  }
+
+  async function resetNamespace() {
+    if (!doctor || !window.confirm(`Reset the ${namespace} settings to defaults?`)) return;
+    clearFeedback();
+    setBusy(true);
+    try {
+      const result = await settingsJson('/settings/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ namespace, baselineRevision: doctor.revision }),
+      });
+      onSettingsChanged(result.settings);
+      setMessage(`${namespace} reset to defaults.`);
+      await loadDoctor();
+    } catch (err) {
+      setError(err.message || 'Could not reset this namespace.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function rollbackSession() {
+    previewPayload(sessionBaseline, 'Session-start settings are ready to apply.');
+  }
+
+  const effective = doctor && doctor.effective;
+  return (
+    <div className="settings__data" aria-labelledby="settings-data-title">
+      <div id="settings-data-title" className="settings__group-title">Data & recovery</div>
+      <p className="settings__data-copy">Export a portable backup, review an import before it changes anything, or recover one namespace without touching the others.</p>
+      <div className="settings__data-actions">
+        <button className="btn" type="button" onClick={() => { const link = document.createElement('a'); link.href = '/settings/export'; link.download = 'askuserquestionspro-settings-v2.json'; link.click(); }} disabled={busy}>Export backup</button>
+        <button className="btn" type="button" onClick={() => importRef.current?.click()} disabled={busy}>Import backup</button>
+        <input ref={importRef} className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} />
+      </div>
+      {preview && (
+        <div className="settings__preview" role="status" aria-live="polite">
+          <strong>Import preview</strong>
+          <span>{preview.result.valid ? 'Schema is valid.' : 'Schema needs attention.'} {preview.result.migration ? 'Legacy format will be migrated safely.' : ''}</span>
+          {preview.result.ignored && preview.result.ignored.count > 0 && <span>{preview.result.ignored.count} unknown field(s) will be ignored.</span>}
+          {preview.result.errors?.length > 0 && <span className="settings__notice--error">{preview.result.errors.map((item) => item.error).join(', ')}</span>}
+          <div className="settings__data-actions">
+            <button className="btn btn--primary" type="button" onClick={applyPreview} disabled={busy || !preview.result.canApply}>Apply import</button>
+            <button className="btn" type="button" onClick={() => setPreview(null)} disabled={busy}>Discard</button>
+          </div>
+        </div>
+      )}
+      <div className="settings__reset-row">
+        <select aria-label="Settings namespace" value={namespace} onChange={(event) => setNamespace(event.target.value)} disabled={busy}>
+          {SETTINGS_NAMESPACES.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <button className="btn" type="button" onClick={resetNamespace} disabled={busy || !doctor}>Reset namespace</button>
+        <button className="btn" type="button" onClick={rollbackSession} disabled={busy}>Undo session changes</button>
+      </div>
+      {message && <div className="settings__notice" role="status" aria-live="polite">{message}</div>}
+      {error && <div className="settings__notice settings__notice--error" role="alert" aria-live="assertive">{error}</div>}
+      {doctorError && <div className="settings__notice settings__notice--error" role="alert">{doctorError}</div>}
+      <details className="settings__doctor">
+        <summary>Effective settings & health</summary>
+        {effective ? (
+          <pre>{JSON.stringify({ status: doctor.status, migration: doctor.migration, effective }, null, 2)}</pre>
+        ) : <span>Loading…</span>}
+        <button className="btn" type="button" onClick={loadDoctor} disabled={busy}>Refresh status</button>
+      </details>
+    </div>
+  );
+}
+
 function SettingsModal({ onClose }) {
   // ponytail: sessionBaseline frozen at open-time; used for sticky needsReload comparison.
   const sessionBaseline = useRefSet(() => ({ ...currentSettings() })).current;
@@ -90,6 +255,7 @@ function SettingsModal({ onClose }) {
   const [saved, setSaved] = useStateSet(false);
   const [saveError, setSaveError] = useStateSet(false);
   const [needsReload, setNeedsReload] = useStateSet(false);
+  const sessionBaselineEnvelope = useRefSet(() => currentEnvelope()).current;
   // ponytail: isSaving guard — prevents double-save and guards cancel/Escape during fetch.
   const [isSaving, setIsSaving] = useStateSet(false);
   // AbortController ref for in-flight save fetch; aborted on unmount.
@@ -182,6 +348,18 @@ function SettingsModal({ onClose }) {
       });
   }
 
+  function adoptEnvelope(envelope) {
+    const legacy = Settings_Schema.browserToLegacy(envelope.browser);
+    window.__ASKUSER_SETTINGS_V2__ = envelope;
+    window.__ASKUSER_SETTINGS__ = legacy;
+    Settings_Schema.applyAll(legacy);
+    const next = { ...legacy };
+    setBaseline(next);
+    setDraft(next);
+    setNeedsReload((prev) => prev || Settings_Schema.entries().some((e) => e.applies === 'reload' && next[e.key] !== sessionBaseline[e.key]));
+    setSaved(true);
+  }
+
   const groups = Settings_Schema.groups();
   return (
     <div
@@ -209,6 +387,7 @@ function SettingsModal({ onClose }) {
               ))}
           </div>
         ))}
+        <SettingsDataPanel sessionBaseline={sessionBaselineEnvelope} onSettingsChanged={adoptEnvelope} />
         {needsReload && (
           <div role="status" aria-live="polite" className="settings__notice">Reload the page for this to fully take effect.</div>
         )}

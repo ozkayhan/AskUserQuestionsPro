@@ -617,6 +617,12 @@ async function handleRequest(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="askuserquestionspro-settings-v2.json"', 'Cache-Control': 'no-store' });
     return res.end(body);
   }
+  if (req.method === 'GET' && url === '/settings/doctor') {
+    // The browser needs an actionable health view, but never the raw config
+    // path or arbitrary imported fields. Keep this projection identical to
+    // the CLI's redacted doctor output.
+    return sendJson(res, 200, Settings.doctorProjection(Settings.inspectReadOnly()));
+  }
   if (req.method === 'POST' && (url === '/settings/preview' || url === '/settings/apply' || url === '/settings/reset')) {
     let payload;
     try { payload = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: 'bad json' }); }
