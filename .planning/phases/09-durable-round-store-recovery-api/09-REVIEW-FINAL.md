@@ -1,14 +1,12 @@
 ---
 phase: 09-durable-round-store-recovery-api
-reviewed: 2026-07-17T11:09:15Z
+reviewed: 2026-07-17T11:22:45Z
 depth: deep
-files_reviewed: 19
+files_reviewed: 22
 files_reviewed_list:
   - docs/api.md
-  - docs/backend.md
   - docs/decisions.md
   - docs/evidence/phase-09-durable-recovery.md
-  - docs/timeout-runbook.md
   - lib/atomic-write.cjs
   - lib/bridge-client.mjs
   - lib/round-record.cjs
@@ -16,109 +14,107 @@ files_reviewed_list:
   - mcp-server/askuserquestionspro-mcp.mjs
   - server/bridge.js
   - server/server.js
-  - skill/askpro/SKILL.md
+  - test/bridge-client.test.js
   - test/bridge.test.js
+  - test/draft-writer.test.js
+  - test/mcp-long-round.test.js
+  - test/round-record.test.js
   - test/round-store.test.js
   - test/server.test.js
   - test/settings.test.js
   - web/app.js
+  - web/draft-writer.js
+  - web/index.html
   - web/live.js
 findings:
-  critical: 3
+  critical: 2
   warning: 0
   info: 0
-  total: 3
+  total: 2
 status: issues_found
 ---
 
 # Phase 09: Final Code Review Report
 
-**Reviewed:** 2026-07-17T11:09:15Z
+**Reviewed:** 2026-07-17T11:22:45Z
 **Depth:** deep
-**Files Reviewed:** 19
+**Files Reviewed:** 22
 **Status:** issues_found
 
 ## Summary
 
-Commit `b71b920` fixes the original detached-round hydration case, exposes a
-revision-guarded draft API, rejects selector-less resume, schedules expiry
-cleanup, tightens existing store directories, and narrows the durability
-evidence. The focused suites pass, but three recovery/durability guarantees
-remain false under ordinary interruption or concurrent-writer races.
+The reconnecting restart defect from the prior review is fixed: hydration now
+marks `drafting`, `detached`, and `reconnecting` records as resumable, and the
+new bridge regression completes detach → resume → restart → resume → answer.
+The stale-lock *takeover race* is also removed because existing locks are no
+longer unlinked automatically.
 
-Verified fixed from the prior review: detached-state restart hydration; direct
-draft API persistence and reload; explicit selectors/no latest-result fallback;
-startup plus periodic expiry deletion; existing-directory `0700` tightening;
-and the evidence's removal of unimplemented filesystem-fault claims. These do
-not close the findings below.
+However, the replacement draft writer does not guarantee delivery before a
+browser navigation, and the replacement lock behavior turns any crash-created
+lock into a permanent write outage with no in-product recovery. Both violate
+the phase's durable-recovery contract. The focused suite passes, but its draft
+test observes only synchronous invocation of `fetch`, not successful delivery
+across page teardown, and its lock test asserts the permanent failure.
 
 ## Narrative Findings (AI reviewer)
 
 ## Critical Issues
 
-### CR-01: A resumed round becomes unrecoverable after a subsequent bridge restart
+### CR-01: Immediate navigation can still discard the latest draft
 
-**File:** `server/bridge.js:84`, `server/bridge.js:301-304`
+**Classification:** BLOCKER
 
-**Issue:** `_hydrate()` sets `p.detached` only when the persisted lifecycle is
-`detached`. `waitForAnswers()` persists the lifecycle as `reconnecting`, but
-leaves the live `p.detached` flag true. If the bridge restarts while that
-resumed waiter is still awaiting the browser, hydration restores the record as
-`reconnecting` with `p.detached === false`; `_findDetached()` then rejects the
-same explicit selector with `stale_round`. A direct reproduction produced
-`{"diskState":"reconnecting","hydratedState":"reconnecting","detached":false,"retry":"stale_round"}`.
-This loses the phase's restart recovery path precisely during a host retry.
+**File:** `web/live.js:120-128`, `web/draft-writer.js:14-30`, `web/app.js:80-90`
 
-**Fix:** Treat every nonterminal recoverable lifecycle (`drafting`, `detached`,
-and `reconnecting`) as browser-owned/resumable after hydration, or make
-`_findDetached()` consult the durable lifecycle rather than the transient flag.
-Add a regression that detaches, begins an explicit resume, restarts the bridge,
-then resumes and answers the same round.
+**Issue:** The new writer invokes `postDraft()` immediately, but that function
+uses an ordinary `fetch` without `keepalive`, `sendBeacon`, or an unload flush.
+When a user refreshes or closes the page immediately after editing, the browser
+may cancel the in-flight request during document teardown. The queued draft has
+already been removed at `web/draft-writer.js:16-18`, so the next page instance
+has no way to resend it. `test/draft-writer.test.js:24-29` only substitutes a
+synchronous successful `save`; it cannot prove delivery after a real reload.
+This leaves prior finding CR-02 unfixed for the interruption it was meant to
+cover.
 
-### CR-02: The browser discards the most recent draft edit on refresh or close
+**Fix:** Keep an acknowledged local draft until the server returns its revision,
+then flush it through an unload-safe transport (with payload-size handling), or
+persist client-side and replay it after the next connection. Add a browser or
+integration test that performs an edit, terminates the page/request before the
+server receives it, reloads, and verifies the edit is eventually durably saved.
 
-**File:** `web/app.js:77-88`
+### CR-02: A crashed writer permanently disables persistence
 
-**Issue:** Each answer change is persisted only after a 250 ms timer. The effect
-cleanup clears that timer on unmount, so refreshing, closing, or crashing the
-browser during the debounce interval sends no `/draft` request at all. This is
-not a theoretical network failure: a user can select an answer and immediately
-reload, and the durable record retains the previous draft. The stated recovery
-contract requires meaningful edits to survive browser interruption/restart.
+**Classification:** BLOCKER
 
-**Fix:** Persist the material edit before allowing it to be lost (for example,
-write immediately and coalesce only subsequent in-flight updates), and add a UI
-or integration regression that edits then immediately unmounts/reloads and
-observes the edit after hydration. If a debounce is retained, flush it with a
-delivery mechanism that has a defined unload guarantee and keep the normal
-revision-conflict path intact.
+**File:** `lib/atomic-write.cjs:12-24`, `lib/atomic-write.cjs:41-46`
 
-### CR-03: Stale-lock takeover can still delete a newly acquired writer's lock
+**Issue:** Removing automatic stale-lock stealing prevents the previous
+check-then-unlink race, but a process that exits after line 16 and before
+`releaseLock()` leaves `<target>.lock` behind forever. Every later
+`writeFileAtomic()` call fails at lines 43-46. There is no lock-recovery command
+or startup recovery path in the production callers (`lib/round-store.cjs` and
+`lib/settings.js`). Consequently a bridge restart can read an unfinished round
+but cannot save a draft, final answer, delivery acknowledgement, or expiry
+transition; the test at `test/settings.test.js:443-455` explicitly codifies
+this permanent failure as the expected behavior.
 
-**File:** `lib/atomic-write.cjs:41-50`
-
-**Issue:** The second token read is only a check; it is not atomically coupled
-to `unlinkSync()`. After the equality check at line 47, another writer can
-remove the dead lock and create its own fresh lock. This contender then unlinks
-that fresh lock at line 49 and acquires the pathname, while the displaced writer
-continues writing under its now-unlinked lock. Concurrent atomic renames can
-therefore still overwrite a newer lifecycle/revision snapshot. The added test
-covers old/live owners but not this stale-takeover interleaving.
-
-**Fix:** Do not implement lock stealing as check-then-unlink. Use an ownership
-safe lock primitive/protocol (such as an atomic rename-based lease with a unique
-owner file and verified inode/owner handoff), or fail closed and require manual
-stale-lock recovery. Add a deterministic two-contender test that swaps the lock
-between verification and removal and proves the new owner is never removed.
+**Fix:** Provide an ownership-safe stale-lock recovery protocol plus a supported
+operator/CLI recovery path, and make callers surface a distinct recoverable-lock
+error. Add a crash simulation that leaves a lock, restarts the bridge, recovers
+the lock safely, and completes a draft/final-answer write without permitting a
+live owner to be displaced.
 
 ---
 
-_Reviewed: 2026-07-17T11:09:15Z_
-_Reviewer: the agent (gsd-code-reviewer)_
-_Depth: deep_
-
 ## Verification Performed
 
-- Passed: `node --test test/round-record.test.js test/round-store.test.js test/bridge.test.js test/server.test.js test/settings.test.js test/bridge-client.test.js test/mcp-long-round.test.js` — 140 passed, 0 failed.
-- Reproduced CR-01 with a detached round that entered `reconnecting`, then a fresh `Bridge`/`RoundStore` restart.
-- `npm run lint -- --quiet` and `npm run format:check -- --check` could not run because the workspace has no installed `eslint` or `prettier` executable (`sh: command not found`).
+- Read the previous Phase 9 reviews and `09-REVIEW-FIX.md`, then traced the
+  persistence, bridge recovery, browser draft, and lock call chains in the
+  current tree at `b41557a`.
+- Passed: `node --test test/round-record.test.js test/round-store.test.js test/bridge.test.js test/server.test.js test/settings.test.js test/bridge-client.test.js test/mcp-long-round.test.js test/draft-writer.test.js` — 143 passed, 0 failed.
+- Confirmed fixed: prior CR-01 reconnecting restart and the destructive
+  stale-lock takeover race. Prior CR-02 remains open as CR-01 above.
+
+_Reviewed: 2026-07-17T11:22:45Z_
+_Reviewer: the agent (gsd-code-reviewer)_
+_Depth: deep_
