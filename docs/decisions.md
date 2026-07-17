@@ -95,6 +95,10 @@ bugs without new evidence.
 
 ## D-008 — Host disconnect detaches resumable MCP rounds
 
+## D-009 — Lifecycle capability and deadline ownership
+
+Round identity plus an opaque capability guard localhost browser mutations. This is not remote authentication: binding remains `127.0.0.1`, Node 18+, and zero production dependencies remain constraints. Avoidable idle timeouts do not cancel rounds; application, host, and transport deadline owners remain distinct.
+
 When a host-owned `/ask` connection carrying a `requestId` disappears without
 an explicit cancellation, the bridge marks the round detached instead of
 rejecting it. The browser remains authoritative for the answer; a later

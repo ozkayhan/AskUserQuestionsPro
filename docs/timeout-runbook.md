@@ -5,6 +5,8 @@ Codex/Claude call ends after a repeatable wall-clock interval.
 
 ## Scope and current contract
 
+Read redacted `boundary`, `deadlineOwner`, `reason`, and `elapsedMs` together. Attachment loss is detached (recover with `resume`), not cancelled. Deterministic tests prove this local contract only; authenticated Claude Code and Codex evidence is required before making host timeout claims.
+
 The application timeout is one hour in the shared bridge client. The HTTP server
 sets `requestTimeout = 0`, and the bridge is localhost-only. MCP progress
 heartbeats are optional liveness notifications; they do not override a host’s

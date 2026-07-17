@@ -6,6 +6,8 @@ its hooks cannot return answers as the native `request_user_input` result.
 
 ## HTTP endpoints (`server/server.js`, port `ASKUSER_PORT` / 4517)
 
+Lifecycle snapshots are payload-free: `id`, opaque `capability`, `state`, `deadlineOwner`, `terminalReason`, and timestamps. Browser `/answer` and `/cancel` mutations require both the numeric id and server-issued capability; missing, stale, or wrong capabilities return `ownership_conflict`. States are drafting, detached, reconnecting, delivery-pending, delivered, delivery-uncertain, cancelled, recovery-error, and expired. Lifecycle diagnostics allowlist boundary, deadline owner, reason, elapsed time, adapter, and opaque IDs only; question and answer content is never logged.
+
 All on `127.0.0.1`. No auth (localhost-only, single user).
 
 | Method & path    | Body                      | Response                                                       | Purpose                                                                                                                                                                                                                   |
