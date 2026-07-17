@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v1.0.0
 milestone_name: milestone
-current_phase: 7
-current_phase_name: Cross-Host Hardening & Acceptance
+current_phase: null
+current_phase_name: Milestone complete
 status: complete
-stopped_at: 'Milestone shipped; PR #22 open for merge'
+stopped_at: 'Milestone v1.0.0 archived and tagged'
 last_updated: '2026-07-16T15:21:38.534Z'
 last_activity: 2026-07-16
-last_activity_desc: 'Milestone v1.0 shipped; PR #22 opened with security gate passed'
+last_activity_desc: 'Milestone v1.0.0 archived and tagged after audit passed'
 progress:
   total_phases: 7
   completed_phases: 7
@@ -23,11 +23,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-16)
 
 **Core value:** Users must be able to complete a long, multi-question round at their own pace without the bridge, browser, or host integration timing out or losing their answers.
-**Current focus:** Milestone complete — cross-host acceptance and documentation handoff
+**Current focus:** Milestone complete — archived v1.0.0; define next milestone with `$gsd-new-milestone`
 
 ## Current Position
 
-Phase: 7 of 7 (Cross-Host Hardening & Acceptance)
+Phase: Milestone complete
 Plan: 07-02 complete
 Status: Complete
 Last activity: 2026-07-16 — Milestone v1.0 shipped; PR #22 opened with security gate passed
@@ -38,7 +38,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 8
+- Total plans completed: 14
 - Average duration: -
 - Total execution time: -
 

@@ -1,5 +1,11 @@
 # Roadmap: AskUserQuestionsPro Reliability and Documentation Overhaul
 
+## Completed Milestones
+
+- [x] **v1.0.0 — AskUserQuestionsPro Reliability and Documentation Overhaul** (2026-07-16) — 7 phases, 14 plans, 27 requirements complete. [Archived roadmap](milestones/v1.0.0-ROADMAP.md) · [Archived requirements](milestones/v1.0.0-REQUIREMENTS.md)
+
+The next milestone should be started with `$gsd-new-milestone`.
+
 ## Overview
 
 This milestone turns the observed Codex long-round timeout into a measurable, host-aware reliability contract, then hardens the shared bridge, browser, integrations, tooling, and documentation around that contract. The work proceeds as vertical MVP slices: each phase produces an observable improvement and regression evidence before the next layer is refactored.
