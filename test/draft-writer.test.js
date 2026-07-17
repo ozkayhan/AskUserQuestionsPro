@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDraftWriter, readPendingDraft } = require('../web/draft-writer.js');
+const { createDraftWriter, readPendingDraft, reconcileDraft } = require('../web/draft-writer.js');
 
 function memoryStorage() {
   const values = new Map();
@@ -150,4 +150,12 @@ test('draft writer re-keys a queued edit after an earlier save and replays it af
   assert.deepEqual(replayed, [{ draft: second, expectedRevision: 1 }]);
   assert.equal(revision, 2);
   assert.equal(readPendingDraft(roundKey, 1, storage), null);
+});
+
+test('draft reconciliation preserves both versions until explicit choice', () => {
+  const result = reconcileDraft({ Q: { sel: [0] } }, { Q: { sel: [1] } }, 4, 3);
+  assert.equal(result.state, 'conflict');
+  assert.deepEqual(result.actions, ['keep-server', 'review-differences', 'discard-local-draft']);
+  assert.deepEqual(result.serverDraft, { Q: { sel: [0] } });
+  assert.deepEqual(result.localDraft, { Q: { sel: [1] } });
 });

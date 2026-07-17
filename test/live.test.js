@@ -3,7 +3,7 @@
 // timeout abort ve yeniden bağlanma backoff'u (jitter + tavan).
 const test = require('node:test');
 const assert = require('node:assert');
-const { postAnswers, postDraft, cancelRound, reconnectDelay } = require('../web/live.js');
+const { postAnswers, postDraft, cancelRound, reconnectDelay, deliveryTransition, attemptClose, getRecoverableRounds } = require('../web/live.js');
 
 // fetch'i mock'la, t.after ile geri yükle (DOM/global kirliliği bırakma — Contract T ruhu).
 function withFetch(t, impl) {
@@ -125,4 +125,16 @@ test('reconnectDelay: full-jitter [0, exp) ve 30s tavanı aşmaz', () => {
     const big = reconnectDelay(20);
     assert.ok(big >= 0 && big < 30000, 'tavan 30s, negatif değil');
   }
+});
+
+test('recovery requires exact selection and never chooses latest implicitly', async (t) => {
+  withFetch(t, async () => ({ ok: true, status: 200, json: async () => ({ rounds: [{ roundId: 'opaque-1', state: 'drafting' }] }) }));
+  assert.deepEqual(await getRecoverableRounds(), [{ roundId: 'opaque-1', state: 'drafting' }]);
+  assert.equal(deliveryTransition('delivery-pending', 'timeout'), 'delivery-uncertain');
+  assert.equal(deliveryTransition('delivery-uncertain', 'retry'), 'delivery-pending');
+});
+
+test('uncertain delivery and denied close remain recoverable', () => {
+  assert.deepEqual(attemptClose(() => { throw new Error('denied'); }), { closed: false, denied: true });
+  assert.equal(deliveryTransition('delivery-uncertain', 'acknowledged'), 'delivered');
 });

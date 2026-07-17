@@ -133,6 +133,96 @@ async function postDraft(id, answers, capability, revision) {
   return r.json();
 }
 
+class RecoveryError extends Error {
+  constructor(message, { code = 'recovery_error', status, preserveDraft = true, cause } = {}) {
+    super(message, { cause });
+    this.name = 'RecoveryError';
+    this.code = code;
+    this.status = status;
+    this.preserveDraft = preserveDraft;
+  }
+}
+
+async function getRecoverableRounds() {
+  let response;
+  try {
+    response = await fetch('/rounds');
+  } catch (error) {
+    throw new RecoveryError('Recoverable rounds are unavailable. Your current work remains active.', {
+      code: 'origin_or_network',
+      cause: error,
+    });
+  }
+  if (!response.ok) throw new RecoveryError('Recoverable rounds could not be loaded.', { status: response.status });
+  const body = await response.json().catch((cause) => {
+    throw new RecoveryError('Recoverable rounds returned invalid data.', { code: 'invalid_response', cause });
+  });
+  if (!Array.isArray(body.rounds)) throw new RecoveryError('Recoverable rounds are unavailable.', { code: 'invalid_response' });
+  return body.rounds;
+}
+
+async function selectRecoveryRound(selector) {
+  if (!selector || (selector.roundId == null && !selector.requestId)) {
+    throw new RecoveryError('Choose an exact recoverable round before continuing.', { code: 'selection_required' });
+  }
+  const query = selector.roundId != null ? `/resume/${encodeURIComponent(selector.roundId)}` : '/resume';
+  try {
+    const response = await fetch(query, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(selector),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new RecoveryError('This round could not be recovered safely. Your current work was not replaced.', {
+        code: body.reason || 'selection_failed', status: response.status,
+      });
+    }
+    return body;
+  } catch (error) {
+    if (error instanceof RecoveryError) throw error;
+    throw new RecoveryError('Recovery failed. Retry or choose another round.', { code: 'origin_or_network', cause: error });
+  }
+}
+
+async function acknowledgeDelivery(id, capability) {
+  const response = await fetch(`/rounds/${encodeURIComponent(id)}/ack`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ capability }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new RecoveryError('Delivery status is uncertain. Your answer is preserved.', {
+      code: body.reason || 'ack_uncertain', status: response.status,
+    });
+    error.server = true;
+    throw error;
+  }
+  return { ...body, state: 'delivered', acknowledged: true };
+}
+
+function attemptClose(close = typeof window !== 'undefined' ? window.close.bind(window) : null) {
+  if (typeof close !== 'function') return { closed: false, denied: true };
+  try {
+    close();
+    return { closed: true, denied: false };
+  } catch {
+    return { closed: false, denied: true };
+  }
+}
+
+function deliveryTransition(state, event) {
+  const table = {
+    drafting: { submit: 'delivery-pending', cancel: 'cancelled' },
+    'delivery-pending': { acknowledged: 'delivered', timeout: 'delivery-uncertain', network_error: 'delivery-uncertain', cancelled: 'cancelled' },
+    'delivery-uncertain': { acknowledged: 'delivered', retry: 'delivery-pending', recovered: 'delivery-uncertain' },
+    delivered: {},
+    cancelled: {},
+    'recovery-error': { retry: 'drafting', choose: 'drafting' },
+  };
+  return table[state]?.[event] || state;
+}
+
 async function cancelRound(id, reason = 'user cancelled', capability) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
@@ -152,5 +242,13 @@ async function cancelRound(id, reason = 'user cancelled', capability) {
 
 // node:test için CommonJS dışa aktarımı (tarayıcıda global olarak yüklenir).
 if (typeof module === 'object' && module.exports) {
-  module.exports = { postAnswers, postDraft, cancelRound, reconnectDelay };
+  module.exports = { postAnswers, postDraft, cancelRound, reconnectDelay, RecoveryError, getRecoverableRounds, selectRecoveryRound, acknowledgeDelivery, attemptClose, deliveryTransition };
+}
+if (typeof window !== 'undefined') {
+  window.RecoveryError = RecoveryError;
+  window.getRecoverableRounds = getRecoverableRounds;
+  window.selectRecoveryRound = selectRecoveryRound;
+  window.acknowledgeDelivery = acknowledgeDelivery;
+  window.attemptClose = attemptClose;
+  window.deliveryTransition = deliveryTransition;
 }
