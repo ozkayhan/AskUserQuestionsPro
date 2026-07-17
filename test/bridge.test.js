@@ -168,7 +168,8 @@ test('detach host baglantisi kopsa da pending roundu korur ve resume cevabi alir
   const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
   const round = b.peek('owner-a');
   assert.strictEqual(b.detach('host disconnected', round.id), true);
-  assert.deepStrictEqual(b.peek('owner-a'), round);
+  assert.equal(b.peek('owner-a').id, round.id);
+  assert.equal(b.getSnapshot().state, 'detached');
 
   const resumed = b.waitForAnswers('owner-a');
   assert.equal(b.provideAnswers(round.id, { 'Q?': 'A' }), true);

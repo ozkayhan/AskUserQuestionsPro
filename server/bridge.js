@@ -1,5 +1,8 @@
 'use strict';
 
+const { randomBytes } = require('node:crypto');
+const { createRecord, transition, snapshot } = require('../lib/round-state.cjs');
+
 const CANCEL_REASON_MAP = new Map([
   ['client disconnected', 'host_disconnect'],
   ['host disconnected', 'host_disconnect'],
@@ -22,10 +25,13 @@ function terminalReason(reason) {
 // Cevap/iptal yolları bu id ile sahiplenir: gec gelen bir tur, o sirada bekleyen
 // baska bir turu sessizce çözemez/iptal edemez (cross-round race koruması — Contract R).
 class Bridge {
-  constructor({ detachedTtlMs = DEFAULT_DETACHED_TTL_MS, now = Date.now } = {}) {
+  constructor({ detachedTtlMs = DEFAULT_DETACHED_TTL_MS, now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
     this._pending = null; // { id, questions, resolve, reject, waiters, detached }
     this._seq = 0;
     this._now = now;
+    this._setTimer = setTimer;
+    this._clearTimer = clearTimer;
+    this._lastSnapshot = null;
     this._detachedTtlMs = Number.isFinite(detachedTtlMs)
       ? Math.max(1, detachedTtlMs)
       : DEFAULT_DETACHED_TTL_MS;
@@ -51,6 +57,7 @@ class Bridge {
         waiters: [],
         detached: false,
         detachTimer: null,
+        record: createRecord({ id, capability: randomBytes(32).toString('base64url'), now: this._now() }),
       };
     });
   }
@@ -67,19 +74,34 @@ class Bridge {
     if (!this._pending || (requestId !== undefined && this._pending.requestId !== requestId)) {
       return null;
     }
-    return { id: this._pending.id, questions: this._pending.questions };
+    return { id: this._pending.id, questions: this._pending.questions, capability: this._pending.record.capability, lifecycle: snapshot(this._pending.record) };
+  }
+
+  getSnapshot() { return snapshot(this._pending?.record) || this._lastSnapshot; }
+
+  _transition(p, event, options) {
+    const result = transition(p.record, event, { now: this._now(), ...options });
+    if (result.ok) p.record = result.record;
+    return result.ok;
+  }
+
+  _owns(p, expectedId, capability) {
+    return !!p && (expectedId == null || p.id === expectedId) && (capability == null || p.record.capability === capability);
   }
 
   // UI tarafı: cevapları ver, bekleyen submitQuestions promise'ini resolve et.
   // Contract R: id eslesmezse false döner (resolve etmez); aksi resolve+true.
-  provideAnswers(id, answers) {
-    if (!this._pending || this._pending.id !== id) return false;
+  provideAnswers(id, answers, capability) {
+    if (!this._owns(this._pending, id, capability)) return false;
     const p = this._pending;
+    if (!this._transition(p, 'answerAccepted')) return false;
+    this._transition(p, 'delivered', { reason: 'completed', deadlineOwner: 'none' });
     this._pending = null;
-    if (p.detachTimer) clearTimeout(p.detachTimer);
+    if (p.detachTimer) this._clearTimer(p.detachTimer);
     p.lifecycle?.event('answer_received');
     p.lifecycle?.finish('completed');
     this._rememberCompleted(p, answers);
+    this._lastSnapshot = snapshot(p.record);
     p.resolve(answers);
     for (const waiter of p.waiters) waiter.resolve(answers);
     return true;
@@ -87,16 +109,17 @@ class Bridge {
 
   // Host soketi koptuğunda requestId'li turü koru. Host daha sonra yeni MCP
   // sürecinde /resume çağırarak aynı browser turunun cevabını alabilir.
-  detach(reason, expectedId) {
-    if (!this._pending || (expectedId != null && this._pending.id !== expectedId)) {
+  detach(reason, expectedId, capability) {
+    if (!this._owns(this._pending, expectedId, capability)) {
       return false;
     }
     const p = this._pending;
     if (p.detached) return false;
+    if (!this._transition(p, 'detach', { reason: terminalReason(reason), deadlineOwner: 'host' })) return false;
     p.detached = true;
     p.lifecycle?.event('host_detached');
-    p.detachTimer = setTimeout(() => {
-      if (this._pending === p && p.detached) this.cancel('detached round expired', p.id);
+    p.detachTimer = this._setTimer(() => {
+      if (this._pending === p && p.detached) this.expire(p.id, p.record.capability);
     }, this._detachedTtlMs);
     p.detachTimer.unref?.();
     return true;
@@ -107,6 +130,7 @@ class Bridge {
   waitForAnswers(requestId) {
     const p = this._findDetached(requestId);
     if (p) {
+      this._transition(p, 'resume', { deadlineOwner: 'host' });
       p.lifecycle?.event('round_resumed');
       let waiter;
       const promise = new Promise((resolve, reject) => {
@@ -145,7 +169,7 @@ class Bridge {
       roundId: p.id,
       expiresAt: this._now() + this._detachedTtlMs,
     });
-    const timer = setTimeout(() => {
+    const timer = this._setTimer(() => {
       const item = this._completed.get(p.requestId);
       if (item && item.roundId === p.id) this._completed.delete(p.requestId);
     }, this._detachedTtlMs);
@@ -164,14 +188,16 @@ class Bridge {
   }
 
   // Timeout/iptal. Contract R: expectedId verilmis ve eslesmiyorsa hicbir sey yapma.
-  cancel(reason, expectedId) {
-    if (!this._pending || (expectedId != null && this._pending.id !== expectedId)) return false;
+  cancel(reason, expectedId, capability) {
+    if (!this._owns(this._pending, expectedId, capability)) return false;
     const p = this._pending;
+    if (!this._transition(p, 'cancel', { reason: terminalReason(reason), deadlineOwner: 'host' })) return false;
     this._pending = null;
-    if (p.detachTimer) clearTimeout(p.detachTimer);
+    if (p.detachTimer) this._clearTimer(p.detachTimer);
     const outcome = terminalReason(reason);
     p.lifecycle?.event('bridge_cancelled');
     p.lifecycle?.finish(outcome);
+    this._lastSnapshot = snapshot(p.record);
     const error = new Error(reason || 'cancelled');
     error.code = outcome;
     error.roundId = p.id;
@@ -179,6 +205,18 @@ class Bridge {
     for (const waiter of p.waiters) {
       waiter.reject(Object.assign(new Error(error.message), { code: outcome, roundId: p.id }));
     }
+    return true;
+  }
+
+  expire(expectedId, capability) {
+    if (!this._owns(this._pending, expectedId, capability)) return false;
+    const p = this._pending;
+    if (!this._transition(p, 'expire', { reason: 'application_timeout', deadlineOwner: 'application' })) return false;
+    this._pending = null;
+    this._lastSnapshot = snapshot(p.record);
+    const error = Object.assign(new Error('detached round expired'), { code: 'application_timeout', roundId: p.id });
+    p.reject(error);
+    for (const waiter of p.waiters) waiter.reject(error);
     return true;
   }
 }
