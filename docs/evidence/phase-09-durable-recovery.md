@@ -23,12 +23,14 @@ stat -f '%Lp' "$EVIDENCE_XDG/askuserquestionspro/rounds"
 stat -f '%Lp' "$EVIDENCE_XDG/askuserquestionspro/rounds/<opaque-round>.json"
 ```
 
-All 77 focused tests passed. The deterministic suites cover injected write,
-sync, close, rename, lock, and directory-creation failure seams; temporary
-artifacts; individual corrupt-sibling quarantine; restart reload; exact
-selection; immutable result replay; duplicate acknowledgement; and retention
-expiry. The observed store-directory mode was `700`; the snapshot-file mode was
-`600`.
+The focused suites cover normal atomic write/reload behavior, an ordinary
+unwritable-target cleanup path, stale/dead versus stale/live lock ownership,
+individual corrupt-sibling quarantine, startup expiry cleanup, existing
+directory permission tightening, exact selection, immutable result replay,
+idempotent draft saves, and a real HTTP-server restart that hydrates a detached
+draft for `/current` and `/resume`. They do not inject write, sync, close,
+rename, or directory-creation failures. The observed store-directory mode was
+`700`; the snapshot-file mode was `600`.
 
 ## Boundaries
 

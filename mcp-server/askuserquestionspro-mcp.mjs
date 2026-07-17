@@ -137,22 +137,22 @@ const ASK_TOOL = {
 const RESUME_TOOL = {
   name: 'resume',
   description:
-    'Resume the latest detached askuserquestionspro browser round after a host timeout or MCP connection loss. ' +
+    'Resume one explicitly selected detached askuserquestionspro browser round after a host timeout or MCP connection loss. ' +
     'Use this before starting a new ask round so answers already submitted in the browser are not lost. ' +
-    'Optionally pass the original requestId when it is known.',
+    'Pass the original requestId or an exact durable roundId.',
   inputSchema: {
     type: 'object',
     properties: {
       requestId: {
         type: 'string',
-        description:
-          'Original round request id, if available; otherwise the latest detached round is used.',
+        description: 'Original round request id.',
       },
       roundId: {
         type: 'string',
         description: 'Exact durable round id from redacted recovery discovery.',
       },
     },
+    anyOf: [{ required: ['requestId'] }, { required: ['roundId'] }],
   },
   outputSchema: ASK_TOOL.outputSchema,
   annotations: {
@@ -300,7 +300,13 @@ async function handleAsk(args, signal, { progressToken } = {}) {
           : 'bridge_error',
       {
         boundary: stdinClosed ? 'stdio' : 'mcp',
-        deadlineOwner: hostCancelled ? (stdinClosed ? 'transport' : 'host') : e?.name === 'TimeoutError' ? 'application' : 'none',
+        deadlineOwner: hostCancelled
+          ? stdinClosed
+            ? 'transport'
+            : 'host'
+          : e?.name === 'TimeoutError'
+            ? 'application'
+            : 'none',
       }
     );
     log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
@@ -366,10 +372,13 @@ async function handleResume(args, signal, { progressToken } = {}) {
     intervalMs: progressIntervalMs(),
   });
   try {
-    const answers = await resumeBridge(args?.roundId ? { roundId: args.roundId, requestId: args?.requestId } : args?.requestId, {
-      timeoutMs: 60 * 60 * 1000,
-      signal,
-    });
+    const answers = await resumeBridge(
+      args?.roundId ? { roundId: args.roundId, requestId: args?.requestId } : args?.requestId,
+      {
+        timeoutMs: 60 * 60 * 1000,
+        signal,
+      }
+    );
     return formatAnswers(answers);
   } catch (e) {
     const cause =

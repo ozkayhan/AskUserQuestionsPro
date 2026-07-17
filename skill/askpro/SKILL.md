@@ -64,13 +64,14 @@ tool; if it merely disconnects, use `resume` first.
 
 When the host reports a timeout or the MCP call disappears around a fixed
 wall-clock interval, do not submit the same questions again immediately. Call
-`mcp__askuserquestionspro__resume` with an optional original request id:
+`mcp__askuserquestionspro__resume` with the original request id (or exact durable round id):
 
 ```json
-{ "requestId": "optional-original-request-id" }
+{ "requestId": "original-request-id" }
 ```
 
-Omitting `requestId` selects the latest detached round. A successful result is
+Recovery requires the original `requestId` or an exact durable `roundId`; a
+selector-less resume is rejected to avoid returning a different round. A successful result is
 the original `{ "answers": ... }` object; a `no resumable browser round` error
 means the bounded one-hour window expired or the user explicitly cancelled the
 round, so use the native fallback.

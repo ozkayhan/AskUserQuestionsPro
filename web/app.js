@@ -1,11 +1,11 @@
-/* global React, ReactDOM, AnswerMap, useLiveQuestions, postAnswers, fullOptions,
+/* global React, ReactDOM, AnswerMap, useLiveQuestions, postAnswers, postDraft, fullOptions,
    Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary,
    SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
 const { useState, useEffect, useRef, useCallback } = React;
 
 function App() {
-  const { id, questions, capability } = useLiveQuestions();
+  const { id, questions, capability, revision, draftAnswers } = useLiveQuestions();
   const roundId = id;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -16,7 +16,14 @@ function App() {
       </div>
     ) : (
       // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
-      <Flow questions={questions} roundId={roundId} capability={capability} key={id == null ? 'q' : 'round-' + id} />
+      <Flow
+        questions={questions}
+        roundId={roundId}
+        capability={capability}
+        revision={revision}
+        draftAnswers={draftAnswers}
+        key={id == null ? 'q' : 'round-' + id}
+      />
     );
 
   return (
@@ -28,7 +35,7 @@ function App() {
   );
 }
 
-function Flow({ questions, roundId, capability }) {
+function Flow({ questions, roundId, capability, revision, draftAnswers }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
 
@@ -45,12 +52,30 @@ function Flow({ questions, roundId, capability }) {
         path: null,
       };
     });
-    return a;
+    return draftAnswers && typeof draftAnswers === 'object' ? { ...a, ...draftAnswers } : a;
   });
+  const draftRevision = useRef(revision);
+  const draftTimer = useRef(null);
+  useEffect(() => {
+    if (Number.isInteger(revision)) draftRevision.current = revision;
+  }, [revision]);
   const [current, setCurrent] = useState(0);
   const [dir, setDir] = useState('right');
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  useEffect(() => {
+    if (!Number.isInteger(draftRevision.current) || !capability || submitted) return undefined;
+    clearTimeout(draftTimer.current);
+    const draft = answers;
+    draftTimer.current = setTimeout(() => {
+      postDraft(roundId, draft, capability, draftRevision.current)
+        .then((saved) => {
+          if (Number.isInteger(saved.revision)) draftRevision.current = saved.revision;
+        })
+        .catch(() => {}); // The final submission remains authoritative; SSE will retry on the next edit.
+    }, 250);
+    return () => clearTimeout(draftTimer.current);
+  }, [answers, capability, roundId, submitted]);
   // sendError: null | 'network' | 'server' | 'stale' (yalnızca network retry edilebilir).
   const [sendError, setSendError] = useState(null);
   // confirmSubmit ayarı açıkken: ilk Enter/tık "silahlar", ikincisi gerçekten gönderir.

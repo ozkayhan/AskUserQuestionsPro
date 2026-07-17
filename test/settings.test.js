@@ -446,7 +446,8 @@ test('writeFileAtomic: bayat kilit (>10sn) devralınır', () => {
   try {
     const file = path.join(dir, 'test.json');
     const lock = file + '.lock';
-    fs.writeFileSync(lock, '12345', { flag: 'wx' });
+    // A non-existent owner is recoverable; a merely old live owner is not.
+    fs.writeFileSync(lock, '99999999:crashed-writer', { flag: 'wx' });
     // mtime'ı 1 dakika geriye al → bayat say.
     const old = Date.now() / 1000 - 60;
     fs.utimesSync(lock, old, old);
@@ -454,6 +455,22 @@ test('writeFileAtomic: bayat kilit (>10sn) devralınır', () => {
     writeFileAtomic(file, '{"ok":true}');
     assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).ok, true);
     assert.ok(!fs.existsSync(lock), 'devralınan kilit yazım sonunda bırakılmalı');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('writeFileAtomic: old lock owned by a live writer is never reclaimed', () => {
+  const { writeFileAtomic } = require('../lib/atomic-write.cjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-lock-live-'));
+  try {
+    const file = path.join(dir, 'test.json');
+    const lock = file + '.lock';
+    fs.writeFileSync(lock, `${process.pid}:slow-writer`, { flag: 'wx' });
+    const old = Date.now() / 1000 - 60;
+    fs.utimesSync(lock, old, old);
+    assert.throws(() => writeFileAtomic(file, '{"x":1}'), /concurrent write lock/);
+    assert.strictEqual(fs.readFileSync(lock, 'utf8'), `${process.pid}:slow-writer`);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

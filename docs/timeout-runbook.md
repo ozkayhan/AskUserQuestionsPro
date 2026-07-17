@@ -15,9 +15,9 @@ the host boundary instead of “fixed” by increasing the application constant.
 
 The supported recovery paths are:
 
-- Either MCP host: call `mcp__askuserquestionspro__resume` after an unexpected
-  host disconnect, before creating a new round. With no argument it selects the
-  latest detached round.
+- Either MCP host: call `mcp__askuserquestionspro__resume` with the original
+  request id or exact durable round id after an unexpected host disconnect,
+  before creating a new round. Selector-less recovery is rejected.
 - Codex: call `request_user_input` natively if resume reports no available
   round or the MCP round was explicitly cancelled.
 - Claude Code: call native `AskUserQuestion` if the hook cannot complete.

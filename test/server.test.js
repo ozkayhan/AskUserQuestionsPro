@@ -10,6 +10,9 @@ const path = require('node:path');
 process.env.XDG_CONFIG_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-srv-'));
 const { server, bridge } = require('../server/server.js');
 const APP_ID = require('../lib/app-id.cjs');
+const Record = require('../lib/round-record.cjs');
+const { createRecord, transition } = require('../lib/round-state.cjs');
+const { RoundStore } = require('../lib/round-store.cjs');
 
 let base;
 test.before(async () => {
@@ -105,21 +108,78 @@ test('requestTimeout devre dışı (uzun /ask beklemesi Node 5dk tavanına takı
 });
 
 test('durable discovery is redacted and result acknowledgement is idempotent', async () => {
-  const ask = post('/ask', { questions: [{ question: 'DURABLE?', options: [{ label: 'A' }] }], requestId: 'durable-http' });
+  const ask = post('/ask', {
+    questions: [{ question: 'DURABLE?', options: [{ label: 'A' }] }],
+    requestId: 'durable-http',
+  });
   const current = await waitForPending();
   const listed = await (await fetch(`${base}/rounds`)).json();
   const item = listed.rounds.find((round) => round.roundId === current.roundId);
   assert.ok(item);
   assert.equal(JSON.stringify(item).includes('DURABLE?'), false);
-  const before = await post(`/rounds/${current.roundId}/result`, { capability: current.capability });
+  const before = await post(`/rounds/${current.roundId}/result`, {
+    capability: current.capability,
+  });
   assert.equal(before.status, 409);
-  await post('/answer', { id: current.id, capability: current.capability, answers: { 'DURABLE?': 'A' } });
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'DURABLE?': 'A' },
+  });
   await ask;
-  const result = await post(`/rounds/${current.roundId}/result`, { capability: current.capability });
+  const result = await post(`/rounds/${current.roundId}/result`, {
+    capability: current.capability,
+  });
   assert.deepEqual((await result.json()).answers, { 'DURABLE?': 'A' });
-  const first = await (await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })).json();
-  const replay = await (await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })).json();
+  const first = await (
+    await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })
+  ).json();
+  const replay = await (
+    await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })
+  ).json();
   assert.deepEqual(replay, first);
+});
+
+test('/draft persists capability/revision guarded browser state and rejects a stale edit', async () => {
+  const ask = post('/ask', {
+    requestId: 'draft-http',
+    questions: [{ question: 'DRAFT?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const draft = { 'DRAFT?': { sel: [0], confirmed: true } };
+  const first = await post('/draft', {
+    id: current.id,
+    capability: current.capability,
+    revision: current.revision,
+    answers: draft,
+  });
+  assert.equal(first.status, 200);
+  assert.deepEqual(await first.json(), {
+    ok: true,
+    revision: current.revision + 1,
+    replayed: false,
+  });
+  const replay = await post('/draft', {
+    id: current.id,
+    capability: current.capability,
+    revision: current.revision,
+    answers: draft,
+  });
+  assert.equal((await replay.json()).replayed, true);
+  const stale = await post('/draft', {
+    id: current.id,
+    capability: current.capability,
+    revision: current.revision,
+    answers: { 'DRAFT?': { sel: [1] } },
+  });
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).reason, 'stale_revision');
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'DRAFT?': 'A' },
+  });
+  await ask;
 });
 
 test('/health ok döndürür', async () => {
@@ -210,8 +270,7 @@ test('real server lifecycle diagnostics attribute Bridge events without question
     assert.ok(diagnostics.length > 0, 'real server should emit lifecycle diagnostics');
     assert.ok(
       diagnostics.every(
-        (entry) =>
-          typeof entry.boundary === 'string' && typeof entry.deadlineOwner === 'string'
+        (entry) => typeof entry.boundary === 'string' && typeof entry.deadlineOwner === 'string'
       ),
       'every emitted operational lifecycle record must identify its boundary and deadline owner'
     );
@@ -232,6 +291,105 @@ test('real server lifecycle diagnostics attribute Bridge events without question
   } finally {
     child.kill();
     await new Promise((resolve) => child.once('exit', resolve));
+    fs.rmSync(configHome, { recursive: true, force: true });
+  }
+});
+
+test('real server restart hydrates a detached draft for /current and exact /resume', async () => {
+  const probe = http.createServer();
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const port = probe.address().port;
+  await new Promise((resolve, reject) =>
+    probe.close((error) => (error ? reject(error) : resolve()))
+  );
+  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-restart-'));
+  const store = new RoundStore({ root: path.join(configHome, 'askuserquestionspro') });
+  const capability = 'restart-capability';
+  const lifecycle = transition(createRecord({ id: 41, capability, now: Date.now() }), 'detach', {
+    now: Date.now(),
+    deadlineOwner: 'host',
+    reason: 'host_disconnect',
+  }).record;
+  const created = store.create({
+    questions: [{ question: 'RESTART?', options: [{ label: 'A' }] }],
+    requestId: 'restart-http',
+    capability,
+    lifecycle,
+    retentionMs: 60 * 1000,
+  });
+  const drafted = store.mutate(created.record.roundId, (record, now) =>
+    Record.saveDraft(record, { 'RESTART?': { sel: [0], confirmed: true } }, record.revision, now)
+  );
+  assert.equal(drafted.ok, true);
+  const childPath = path.join(__dirname, '..', 'server', 'server.js');
+  const start = () =>
+    spawn(process.execPath, [childPath], {
+      env: { ...process.env, ASKUSER_PORT: String(port), XDG_CONFIG_HOME: configHome },
+      stdio: 'ignore',
+    });
+  const stop = async (child) => {
+    if (child.exitCode != null || child.signalCode != null) return;
+    child.kill('SIGTERM');
+    await new Promise((resolve) => {
+      const force = setTimeout(() => {
+        child.kill('SIGKILL');
+        resolve();
+      }, 1000);
+      child.once('exit', () => {
+        clearTimeout(force);
+        resolve();
+      });
+    });
+  };
+  let first = start();
+  let second;
+  try {
+    const childBase = `http://127.0.0.1:${port}`;
+    await waitForCondition(async () => {
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
+    });
+    const current = await (await fetch(`${childBase}/current?requestId=restart-http`)).json();
+    assert.equal(current.id, 41);
+    assert.equal(current.lifecycle.state, 'detached');
+    await stop(first);
+
+    second = start();
+    await waitForCondition(async () => {
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
+    });
+    const hydrated = await (await fetch(`${childBase}/current?requestId=restart-http`)).json();
+    assert.deepEqual(hydrated.questions, [{ question: 'RESTART?', options: [{ label: 'A' }] }]);
+    assert.equal(hydrated.roundId, created.record.roundId);
+    assert.equal(hydrated.capability, capability);
+    assert.equal(hydrated.lifecycle.state, 'detached');
+    assert.deepEqual(hydrated.draftAnswers, { 'RESTART?': { sel: [0], confirmed: true } });
+    const resumed = fetch(`${childBase}/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: 'restart-http', roundId: created.record.roundId }),
+    });
+    const answer = await fetch(`${childBase}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: hydrated.id,
+        capability: hydrated.capability,
+        answers: { 'RESTART?': 'A' },
+      }),
+    });
+    assert.equal(answer.status, 200);
+    assert.deepEqual(await (await resumed).json(), { answers: { 'RESTART?': 'A' } });
+  } finally {
+    await stop(first);
+    if (second) await stop(second);
     fs.rmSync(configHome, { recursive: true, force: true });
   }
 });

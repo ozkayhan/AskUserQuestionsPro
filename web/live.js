@@ -15,7 +15,14 @@ function reconnectDelay(attempt) {
 
 // SSE ile bekleyen turu canlı al: { id, questions } (questions null = bekliyor).
 function useLiveQuestions() {
-  const [round, setRound] = useStateLive({ id: null, questions: null, capability: null, lifecycle: null });
+  const [round, setRound] = useStateLive({
+    id: null,
+    questions: null,
+    capability: null,
+    lifecycle: null,
+    revision: null,
+    draftAnswers: null,
+  });
   const timerRef = useRefLive(null);
   useEffectLive(() => {
     let es;
@@ -40,7 +47,14 @@ function useLiveQuestions() {
           console.warn('[live] SSE parse edilemedi:', err.message);
           return;
         }
-        const next = { id: d.id ?? null, questions: d.questions ?? null, capability: d.capability ?? null, lifecycle: d.lifecycle ?? null };
+        const next = {
+          id: d.id ?? null,
+          questions: d.questions ?? null,
+          capability: d.capability ?? null,
+          lifecycle: d.lifecycle ?? null,
+          revision: d.revision ?? null,
+          draftAnswers: d.draftAnswers ?? null,
+        };
         // Round id state boundary'sidir: reconnect aynı round'u yeniden yayınlasa da
         // Flow içindeki cevaplar korunur; yeni id React key ile temiz remount eder.
         setRound((prev) => (prev.id === next.id ? { ...prev, ...next } : next));
@@ -103,6 +117,16 @@ async function postAnswers(id, answers, capability) {
   }
 }
 
+async function postDraft(id, answers, capability, revision) {
+  const r = await fetch('/draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, answers, capability, revision }),
+  });
+  if (!r.ok) throw await responseError('/draft', r);
+  return r.json();
+}
+
 async function cancelRound(id, reason = 'user cancelled', capability) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
@@ -122,5 +146,5 @@ async function cancelRound(id, reason = 'user cancelled', capability) {
 
 // node:test için CommonJS dışa aktarımı (tarayıcıda global olarak yüklenir).
 if (typeof module === 'object' && module.exports) {
-  module.exports = { postAnswers, cancelRound, reconnectDelay };
+  module.exports = { postAnswers, postDraft, cancelRound, reconnectDelay };
 }

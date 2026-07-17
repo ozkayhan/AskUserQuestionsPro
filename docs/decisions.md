@@ -8,9 +8,10 @@ the historical audit/plan material; the source documents are preserved in
 ## D-001 — Local, single-user, zero-runtime-dependency architecture
 
 The product remains a local question UI: the bridge binds to `127.0.0.1`, keeps
-one in-memory round, and ships with no production npm dependencies. React,
-ReactDOM, and Babel are vendored in `web/vendor/`. Question/answer payloads are
-not persisted; only UI settings are written to the user config directory.
+one active in-memory round, and ships with no production npm dependencies. React,
+ReactDOM, and Babel are vendored in `web/vendor/`. Durable round question and
+answer snapshots are the narrowly-scoped exception documented in D-010; UI
+settings remain separately persisted in the user config directory.
 
 **Why:** this keeps installation simple and avoids turning a local interaction
 tool into an unauthenticated remote service.

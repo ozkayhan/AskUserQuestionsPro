@@ -76,7 +76,7 @@ and `_seq` (monotonic counter for ids).
 | `provideAnswers(id, answers)` | **Contract R:** resolves only if `id` matches the current pending round's id. Returns `true` on resolve, `false` on mismatch/no pending (no throw). |
 | `cancel(reason, expectedId?)` | **Contract R:** rejects the pending promise only if `expectedId` is absent or matches. Returns `true` on cancel, `false` on mismatch/no pending.    |
 | `detach(reason, expectedId)`  | Keeps a requestId-bearing round alive after host disconnect until the bounded TTL; ownership-checked.                                               |
-| `waitForAnswers(requestId?)`  | Returns a cancellable waiter for the detached/latest completed round without cancelling the browser round.                                          |
+| `waitForAnswers(selector)`    | Requires an exact `roundId` or uniquely matching `requestId`, then returns a cancellable waiter without cancelling the browser round.               |
 
 Round identity (`_seq` monotonically incremented) is the mechanism that makes
 cross-round answer mix-up structurally impossible: a late `/answer` carrying
@@ -122,8 +122,8 @@ Used by both the hook and the MCP server. Port/base from `ASKUSER_PORT`
   `AbortController` timeout (not on HTTP errors or JSON failures).
 - `BridgeError` — exported class with `status` and parsed `body`; used to show
   actionable validation failures such as the required `{label}` option shape.
-- `resumeBridge(requestId?, { timeoutMs?, signal? })` — `POST /resume`; recovers
-  a detached round after a host-side connection deadline.
+- `resumeBridge(selector, { timeoutMs?, signal? })` — `POST /resume`; requires
+  an exact `roundId` or `requestId` to recover a detached round after a host-side connection deadline.
 - `cancelBridge(requestId, reason?)` — resolves the current round id and sends
   explicit `/cancel` before an MCP cancellation closes the owning stream.
 

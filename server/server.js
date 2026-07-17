@@ -19,6 +19,12 @@ const bridge = new Bridge({
     : DEFAULT_DETACHED_TTL_MS,
   store: new RoundStore(),
 });
+// Retention is enforced both before recovery hydration and periodically while
+// the daemon is idle. The interval is bounded and unref'd so it never keeps a
+// CLI process alive.
+const cleanupTimer = setInterval(() => bridge._store?.cleanupExpired(), 60 * 1000);
+cleanupTimer.unref?.();
+bridge._store?.cleanupExpired();
 const sseClients = new Set();
 const MIME = {
   '.html': 'text/html',
@@ -36,15 +42,16 @@ function sendJson(res, code, obj) {
 }
 
 function recoveryError(res, code) {
-  const status = {
-    invalid_selector: 400,
-    ownership_conflict: 409,
-    ambiguous_selection: 409,
-    result_not_ready: 409,
-    expired: 410,
-    not_found: 404,
-    recovery_error: 409,
-  }[code] || 409;
+  const status =
+    {
+      invalid_selector: 400,
+      ownership_conflict: 409,
+      ambiguous_selection: 409,
+      result_not_ready: 409,
+      expired: 410,
+      not_found: 404,
+      recovery_error: 409,
+    }[code] || 409;
   return sendJson(res, status, { error: 'round recovery unavailable', reason: code });
 }
 
@@ -240,15 +247,37 @@ async function handleRequest(req, res) {
   if (roundMatch && req.method === 'GET' && !roundMatch[2]) {
     const found = bridge.getDurable(roundMatch[1]);
     if (!found.ok) return recoveryError(res, found.code);
-    const { roundId, requestId, lifecycle, revision, createdAt, updatedAt, expiresAt, questions } = found.record;
-    return sendJson(res, 200, { roundId, requestId, state: lifecycle.state, revision, createdAt, updatedAt, expiresAt, questionCount: questions.length });
+    const { roundId, requestId, lifecycle, revision, createdAt, updatedAt, expiresAt, questions } =
+      found.record;
+    return sendJson(res, 200, {
+      roundId,
+      requestId,
+      state: lifecycle.state,
+      revision,
+      createdAt,
+      updatedAt,
+      expiresAt,
+      questionCount: questions.length,
+    });
   }
 
-  if (roundMatch && req.method === 'POST' && (roundMatch[2] === 'result' || roundMatch[2] === 'ack')) {
+  if (
+    roundMatch &&
+    req.method === 'POST' &&
+    (roundMatch[2] === 'result' || roundMatch[2] === 'ack')
+  ) {
     let body;
-    try { body = await readBody(req); } catch { return sendJson(res, 400, { error: 'read error' }); }
+    try {
+      body = await readBody(req);
+    } catch {
+      return sendJson(res, 400, { error: 'read error' });
+    }
     let capability;
-    try { ({ capability } = JSON.parse(body)); } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    try {
+      ({ capability } = JSON.parse(body));
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
     if (typeof capability !== 'string') return recoveryError(res, 'invalid_selector');
     if (roundMatch[2] === 'result') {
       const result = bridge.getResult(roundMatch[1], capability);
@@ -261,7 +290,10 @@ async function handleRequest(req, res) {
     if (!record.record.answers) return recoveryError(res, 'result_not_ready');
     if (!bridge.confirmDelivery(roundMatch[1])) return recoveryError(res, 'recovery_error');
     const acknowledged = bridge.getDurable(roundMatch[1]);
-    return sendJson(res, 200, { acknowledgedAt: acknowledged.record.delivery.acknowledgedAt, revision: acknowledged.record.revision });
+    return sendJson(res, 200, {
+      acknowledgedAt: acknowledged.record.delivery.acknowledgedAt,
+      revision: acknowledged.record.revision,
+    });
   }
 
   if (req.method === 'GET' && url === '/events') {
@@ -377,7 +409,10 @@ async function handleRequest(req, res) {
       if (payload.requestId !== undefined && typeof payload.requestId !== 'string') {
         return sendJson(res, 400, { error: 'invalid requestId' });
       }
-      if (payload.roundId !== undefined && (typeof payload.roundId !== 'string' || !/^round_[A-Za-z0-9_-]+$/.test(payload.roundId))) {
+      if (
+        payload.roundId !== undefined &&
+        (typeof payload.roundId !== 'string' || !/^round_[A-Za-z0-9_-]+$/.test(payload.roundId))
+      ) {
         return sendJson(res, 400, { error: 'invalid roundId' });
       }
       requestId = payload.requestId;
@@ -390,10 +425,11 @@ async function handleRequest(req, res) {
     if (roundId) {
       const found = bridge.getDurable(roundId);
       if (!found.ok) return recoveryError(res, found.code);
-      if (requestId && found.record.requestId !== requestId) return recoveryError(res, 'ownership_conflict');
+      if (requestId && found.record.requestId !== requestId)
+        return recoveryError(res, 'ownership_conflict');
       requestId = found.record.requestId;
     }
-    const waiter = bridge.waitForAnswers(requestId);
+    const waiter = bridge.waitForAnswers({ requestId, roundId });
     let settled = false;
     const onClose = () => {
       if (!settled) waiter.cancel();
@@ -403,7 +439,7 @@ async function handleRequest(req, res) {
       const answers = await waiter.promise;
       settled = true;
       const delivered = await sendJsonAndObserve(res, 200, { answers });
-      const deliveryId = bridge.durableRoundId(bridge.getSnapshot()?.id) || bridge.getSnapshot()?.id;
+      const deliveryId = waiter.roundId;
       if (delivered) bridge.confirmDelivery(deliveryId);
       else bridge.markDeliveryUncertain(deliveryId);
       return;
@@ -444,6 +480,40 @@ async function handleRequest(req, res) {
     }
     broadcastCurrent();
     return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url === '/draft') {
+    let body;
+    try {
+      body = await readBody(req);
+    } catch {
+      return sendJson(res, 400, { error: 'read error' });
+    }
+    let id, answers, capability, revision;
+    try {
+      ({ id, answers, capability, revision } = JSON.parse(body));
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
+    if (
+      !Number.isInteger(id) ||
+      !answers ||
+      typeof answers !== 'object' ||
+      Array.isArray(answers) ||
+      typeof capability !== 'string' ||
+      !Number.isInteger(revision) ||
+      revision < 0
+    ) {
+      return sendJson(res, 400, { error: 'invalid draft request' });
+    }
+    const saved = bridge.saveDraft(id, answers, capability, revision);
+    if (!saved.ok) return recoveryError(res, saved.code);
+    broadcastCurrent();
+    return sendJson(res, 200, {
+      ok: true,
+      revision: saved.record.revision,
+      replayed: saved.replayed,
+    });
   }
 
   if (req.method === 'POST' && url === '/cancel') {

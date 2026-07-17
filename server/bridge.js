@@ -58,6 +58,77 @@ class Bridge {
     this._completed = new Map();
     this._deliveries = new Map();
     this._store = store;
+    this._hydrateUniqueRecovery();
+  }
+
+  _hydrateUniqueRecovery() {
+    if (!this._store) return;
+    const records = this._store.recoverable();
+    if (records.length === 1) this._hydrate(records[0]);
+  }
+
+  _hydrate(record) {
+    if (this._pending) return this._pending.durable?.roundId === record.roundId;
+    const id =
+      Number.isInteger(record.lifecycle.id) && record.lifecycle.id > 0
+        ? record.lifecycle.id
+        : ++this._seq;
+    this._seq = Math.max(this._seq, id);
+    const p = {
+      id,
+      questions: record.questions,
+      requestId: record.requestId || undefined,
+      resolve() {},
+      reject() {},
+      waiters: [],
+      detached: record.lifecycle.state === 'detached',
+      detachTimer: null,
+      record: record.lifecycle,
+      durable: record,
+    };
+    this._pending = p;
+    const remaining = record.expiresAt - this._now();
+    if (remaining <= 0) {
+      this.expire(p.id, p.record.capability);
+    } else {
+      p.detachTimer = this._setTimer(() => this.expire(p.id, p.record.capability), remaining);
+      p.detachTimer.unref?.();
+    }
+    return true;
+  }
+
+  _selector(selector) {
+    if (typeof selector === 'string') return { requestId: selector };
+    if (!selector || typeof selector !== 'object') return null;
+    const { requestId, roundId } = selector;
+    if (typeof requestId !== 'string' && typeof roundId !== 'string') return null;
+    return { requestId, roundId };
+  }
+
+  _selectDurable(selector) {
+    const selected = this._selector(selector);
+    if (!selected) return { ok: false, code: 'invalid_selector' };
+    if (!this._store) return { ok: false, code: 'not_found' };
+    const found = selected.roundId
+      ? this._store.get(selected.roundId)
+      : this._store.findByRequestId(selected.requestId);
+    if (!found.ok) return found;
+    if (selected.requestId && found.record.requestId !== selected.requestId)
+      return { ok: false, code: 'ownership_conflict' };
+    if (found.record.expiresAt <= this._now()) return { ok: false, code: 'expired' };
+    return found;
+  }
+
+  _recover(selector) {
+    const found = this._selectDurable(selector);
+    if (!found.ok) return found;
+    if (found.record.answers) return { ok: true, record: found.record };
+    if (!['drafting', 'detached', 'reconnecting'].includes(found.record.lifecycle.state))
+      return { ok: false, code: 'stale_round' };
+    if (this._pending && this._pending.durable?.roundId !== found.record.roundId)
+      return { ok: false, code: 'round_in_progress' };
+    this._hydrate(found.record);
+    return { ok: true, record: found.record };
   }
 
   // Hook tarafı: soru setini kaydet, cevap promise'i al.
@@ -95,7 +166,9 @@ class Bridge {
         });
         if (!created.ok) {
           this._pending = null;
-          reject(Object.assign(new Error('durable round registration failed'), { code: created.code }));
+          reject(
+            Object.assign(new Error('durable round registration failed'), { code: created.code })
+          );
           return;
         }
         this._pending.durable = created.record;
@@ -121,6 +194,7 @@ class Bridge {
       capability: this._pending.record.capability,
       roundId: this._pending.durable?.roundId,
       revision: this._pending.durable?.revision,
+      draftAnswers: this._pending.durable?.draftAnswers || null,
       lifecycle: snapshot(this._pending.record),
     };
   }
@@ -176,6 +250,18 @@ class Bridge {
     return true;
   }
 
+  saveDraft(id, answers, capability, expectedRevision) {
+    if (!this._owns(this._pending, id, capability) || !this._pending.durable)
+      return { ok: false, code: 'ownership_conflict' };
+    const p = this._pending;
+    const persisted = this._store.mutate(p.durable.roundId, (record, now) =>
+      Record.saveDraft(record, answers, expectedRevision, now)
+    );
+    if (!persisted.ok) return persisted;
+    p.durable = persisted.record;
+    return { ok: true, record: persisted.record, replayed: !!persisted.replayed };
+  }
+
   // Host soketi koptuğunda requestId'li turü koru. Host daha sonra yeni MCP
   // sürecinde /resume çağırarak aynı browser turunun cevabını alabilir.
   detach(reason, expectedId, capability) {
@@ -197,8 +283,22 @@ class Bridge {
 
   // A resumed HTTP request must be cancellable independently of the browser
   // round. The returned cancel function only removes that caller's waiter.
-  waitForAnswers(requestId) {
-    const p = this._findDetached(requestId);
+  waitForAnswers(selector) {
+    const selected = this._selector(selector);
+    if (!selected) {
+      const error = Object.assign(new Error('an explicit roundId or requestId is required'), {
+        code: 'invalid_selector',
+      });
+      return { promise: Promise.reject(error), cancel() {} };
+    }
+    const recovered = this._recover(selected);
+    if (!recovered.ok && recovered.code !== 'not_found') {
+      const error = Object.assign(new Error('round recovery unavailable'), {
+        code: recovered.code,
+      });
+      return { promise: Promise.reject(error), cancel() {} };
+    }
+    const p = this._findDetached(selected);
     if (p) {
       this._transition(p, 'resume', { deadlineOwner: 'host' });
       p.lifecycle?.event('round_resumed', { boundary: 'bridge', deadlineOwner: 'host' });
@@ -209,6 +309,7 @@ class Bridge {
       });
       return {
         promise,
+        roundId: p.durable?.roundId || p.id,
         cancel: () => {
           const index = p.waiters.indexOf(waiter);
           if (index >= 0) p.waiters.splice(index, 1);
@@ -216,17 +317,25 @@ class Bridge {
       };
     }
 
-    const completed = this._findCompleted(requestId) || this._findPersisted(requestId);
+    const completed =
+      this._findCompleted(selected) ||
+      (recovered.ok && recovered.record.answers
+        ? { answers: recovered.record.answers, roundId: recovered.record.roundId }
+        : null);
     if (!completed) {
       const error = new Error('no resumable question set');
       error.code = 'stale_round';
       return { promise: Promise.reject(error), cancel() {} };
     }
-    return { promise: Promise.resolve(completed.answers), cancel() {} };
+    return { promise: Promise.resolve(completed.answers), roundId: completed.roundId, cancel() {} };
   }
 
-  _findDetached(requestId) {
-    if (this._pending?.detached && (requestId == null || this._pending.requestId === requestId)) {
+  _findDetached(selector) {
+    if (
+      this._pending?.detached &&
+      (!selector.roundId || this._pending.durable?.roundId === selector.roundId) &&
+      (!selector.requestId || this._pending.requestId === selector.requestId)
+    ) {
       return this._pending;
     }
     return null;
@@ -259,10 +368,18 @@ class Bridge {
   // can be recovered by /resume instead of being reported as a false delivery.
   confirmDelivery(roundId) {
     if (this._store && typeof roundId === 'string') {
-      const confirmed = this._store.mutate(roundId, (record, now) => Record.acknowledge(record, now));
-      const delivery = [...this._deliveries.values()].find((item) => item.p.durable?.roundId === roundId);
+      const confirmed = this._store.mutate(roundId, (record, now) =>
+        Record.acknowledge(record, now)
+      );
+      const delivery = [...this._deliveries.values()].find(
+        (item) => item.p.durable?.roundId === roundId
+      );
       if (confirmed.ok && delivery) {
-        const transitioned = transition(delivery.p.record, 'delivered', { now: this._now(), reason: 'completed', deadlineOwner: 'none' });
+        const transitioned = transition(delivery.p.record, 'delivered', {
+          now: this._now(),
+          reason: 'completed',
+          deadlineOwner: 'none',
+        });
         if (transitioned.ok) delivery.p.record = transitioned.record;
         delivery.p.lifecycle?.finish('completed', { boundary: 'bridge', deadlineOwner: 'none' });
         this._lastSnapshot = snapshot(delivery.p.record);
@@ -287,11 +404,19 @@ class Bridge {
       const uncertain = this._store.mutate(roundId, (record, now) =>
         Record.transition(record, 'uncertain', record.revision, now, { deadlineOwner: 'host' })
       );
-      const delivery = [...this._deliveries.values()].find((item) => item.p.durable?.roundId === roundId);
+      const delivery = [...this._deliveries.values()].find(
+        (item) => item.p.durable?.roundId === roundId
+      );
       if (uncertain.ok && delivery) {
-        const transitioned = transition(delivery.p.record, 'uncertain', { now: this._now(), deadlineOwner: 'host' });
+        const transitioned = transition(delivery.p.record, 'uncertain', {
+          now: this._now(),
+          deadlineOwner: 'host',
+        });
         if (transitioned.ok) delivery.p.record = transitioned.record;
-        delivery.p.lifecycle?.event('delivery_uncertain', { boundary: 'bridge', deadlineOwner: 'host' });
+        delivery.p.lifecycle?.event('delivery_uncertain', {
+          boundary: 'bridge',
+          deadlineOwner: 'host',
+        });
         this._lastSnapshot = snapshot(delivery.p.record);
       }
       return uncertain.ok;
@@ -307,22 +432,26 @@ class Bridge {
     return true;
   }
 
-  _findCompleted(requestId) {
+  _findCompleted(selector) {
     const now = this._now();
     for (const [key, item] of this._completed) {
       if (item.expiresAt <= now) this._completed.delete(key);
     }
-    if (requestId != null) return this._completed.get(requestId) || null;
-    let latest = null;
-    for (const item of this._completed.values()) latest = item;
-    return latest;
+    if (!selector.requestId) return null;
+    const item = this._completed.get(selector.requestId) || null;
+    if (item && selector.roundId && item.roundId !== selector.roundId) return null;
+    return item;
   }
 
   _findPersisted(requestId) {
     if (!this._store || requestId == null) return null;
     const found = this._store.findByRequestId(requestId);
     if (!found.ok || !found.record.answers || found.record.expiresAt <= this._now()) return null;
-    return { answers: found.record.answers, roundId: found.record.roundId, expiresAt: found.record.expiresAt };
+    return {
+      answers: found.record.answers,
+      roundId: found.record.roundId,
+      expiresAt: found.record.expiresAt,
+    };
   }
 
   listRecoverable() {

@@ -23,6 +23,57 @@ test('Bridge persists durable registration and immutable result replay', async (
   assert.equal(restarted.confirmDelivery(current.roundId), true);
 });
 
+test('Bridge hydrates one detached draft after restart with its durable identity and expiry', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-restart-'));
+  const first = new Bridge({ store: new RoundStore({ root }), detachedTtlMs: 1000 });
+  const owner = first.submitQuestions([{ question: 'recover me' }], 'restart-request');
+  const original = first.peek('restart-request');
+  assert.equal(
+    first.saveDraft(original.id, { 'recover me': { sel: [0] } }, original.capability, 0).ok,
+    true
+  );
+  assert.equal(first.detach('host disconnected', original.id, original.capability), true);
+
+  const restarted = new Bridge({ store: new RoundStore({ root }), detachedTtlMs: 1000 });
+  const recovered = restarted.peek('restart-request');
+  assert.deepEqual(recovered.questions, [{ question: 'recover me' }]);
+  assert.equal(recovered.roundId, original.roundId);
+  assert.equal(recovered.capability, original.capability);
+  assert.deepEqual(recovered.draftAnswers, { 'recover me': { sel: [0] } });
+  assert.equal(recovered.lifecycle.state, 'detached');
+  const resumed = restarted.waitForAnswers({
+    requestId: 'restart-request',
+    roundId: original.roundId,
+  });
+  assert.equal(
+    restarted.provideAnswers(recovered.id, { 'recover me': 'A' }, recovered.capability),
+    true
+  );
+  assert.deepEqual(await resumed.promise, { 'recover me': 'A' });
+  owner.catch(() => {});
+});
+
+test('Bridge draft saves are capability/revision guarded, idempotent, and reloadable', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-draft-'));
+  const bridge = new Bridge({ store: new RoundStore({ root }) });
+  const round = bridge.submitQuestions([{ question: 'draft' }], 'draft-request');
+  round.catch(() => {});
+  const current = bridge.peek('draft-request');
+  const draft = { draft: { sel: [0], confirmed: true } };
+  const saved = bridge.saveDraft(current.id, draft, current.capability, 0);
+  assert.equal(saved.record.revision, 1);
+  assert.equal(bridge.saveDraft(current.id, draft, current.capability, 0).replayed, true);
+  assert.equal(
+    bridge.saveDraft(current.id, { draft: { sel: [1] } }, current.capability, 0).code,
+    'stale_revision'
+  );
+  assert.equal(bridge.saveDraft(current.id, draft, 'wrong', 1).code, 'ownership_conflict');
+  assert.deepEqual(
+    new Bridge({ store: new RoundStore({ root }) }).peek('draft-request').draftAnswers,
+    draft
+  );
+});
+
 function scheduler() {
   let now = 0;
   const pending = new Map();
@@ -346,15 +397,15 @@ test('detached round correct capability ile resume öncesi cevap kabul eder ve s
   assert.equal(b.getSnapshot().state, 'delivered');
 });
 
-test('resume round requestId olmadan en son detached cevabi bulur', async () => {
+test('resume requires an explicit roundId or requestId', async () => {
   const b = new Bridge({ detachedTtlMs: 1000 });
   const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
   const round = b.peek('owner-a');
   b.detach('host disconnected', round.id);
   const resumed = b.waitForAnswers();
-  b.provideAnswers(round.id, { 'Q?': 'A' });
-  assert.deepStrictEqual(await resumed.promise, { 'Q?': 'A' });
-  await owner;
+  await assert.rejects(resumed.promise, (error) => error.code === 'invalid_selector');
+  b.cancel('test cleanup', round.id);
+  await assert.rejects(owner);
 });
 
 test('detached round TTL sonunda typed application timeout ile temizlenir', async () => {
