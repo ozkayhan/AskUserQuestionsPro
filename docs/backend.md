@@ -355,3 +355,12 @@ reports a recoverable residue.
 ## Settings commands
 
 `askuserquestionspro settings export` prints the allowlisted v2 envelope. `settings import-preview <file|->` validates without applying and exits 0 for an applicable preview, 2 for invalid/future input, or 64 for usage/I/O errors. `settings reset <namespace>` performs a namespace-only CAS reset. Export and doctor output never includes raw unknown values, secrets, commands, or loopback configuration.
+
+### Settings HTTP preview/apply contract
+
+`POST /settings/preview` requires `{payload, baselineRevision}` and never writes. It returns a one-time
+`previewId`, status, validation errors, migration/ignored-data details, and `canApply`. Apply requires the
+preview id, the exact candidate payload, and the same baseline revision. The server revalidates the payload,
+preview, and current revision before one CAS-backed atomic write; stale, expired, reused, restarted, future,
+or mismatched requests preserve the current bytes. A failed write does not consume the preview. Reset is
+namespace-only and CAS-protected. Doctor uses a deterministic allowlisted projection with no absolute path.

@@ -537,19 +537,12 @@ async function cmdDoctor(argv) {
   try {
     const p = Settings.getPath();
     if (fs.existsSync(p)) {
-      const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
-      process.stdout.write(
-        `✓ Ayar dosyası (${p}) _v=${raw._v} → ${JSON.stringify(Settings.read())}\n`
-      );
+      process.stdout.write(`✓ Ayar dosyası durumu: ${JSON.stringify(Settings.doctorProjection())}\n`);
     } else {
-      process.stdout.write(
-        `· Ayar dosyası yok (${p}) — varsayılanlar: ${JSON.stringify(Settings.read())}\n`
-      );
+      process.stdout.write(`· Ayar dosyası yok — varsayılanlar: ${JSON.stringify(Settings.doctorProjection())}\n`);
     }
   } catch (e) {
-    process.stdout.write(
-      `· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.read())}\n`
-    );
+    process.stdout.write(`· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.doctorProjection())}\n`);
   }
   if (!ok) process.exitCode = 1;
 }
