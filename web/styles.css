@@ -1844,3 +1844,31 @@ button {
   animation: none !important;
   transition: none !important;
 }
+
+.recovery-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 58%);
+}
+.recovery-panel,
+.delivery-panel {
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 35%);
+}
+.recovery-list,
+.recovery-actions { display: grid; gap: 12px; margin: 20px 0; }
+.recovery-choice { display: grid; gap: 6px; min-height: 60px; padding: 14px; text-align: left; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: inherit; cursor: pointer; }
+.recovery-choice:hover, .recovery-choice:focus-visible { border-color: var(--accent); }
+.delivery-panel { margin: 16px auto; }
+.opening-fallback input { width: 100%; min-height: 44px; }
+@media (max-width: 520px) { .recovery-overlay { padding: 10px; } .recovery-panel { padding: 18px; } }

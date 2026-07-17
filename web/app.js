@@ -1,5 +1,5 @@
 /* global React, ReactDOM, AnswerMap, DraftWriter, Settings_Schema, useLiveQuestions, postAnswers, postDraft, fullOptions,
-   Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary,
+   Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary, RecoveryChooser, ReconciliationPanel, DeliveryPanel,
    SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
 const { useState, useEffect, useRef, useCallback } = React;
@@ -23,7 +23,22 @@ function App() {
   const { id, questions, capability, revision, draftAnswers } = useLiveQuestions();
   const roundId = id;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [recoverableRounds, setRecoverableRounds] = useState(null);
+  const [recoveryError, setRecoveryError] = useState(null);
+  const [selectedRecovery, setSelectedRecovery] = useState(null);
   const settingsFabRef = useRef(null);
+
+  useEffect(() => {
+    if (id != null || typeof getRecoverableRounds !== 'function') return undefined;
+    getRecoverableRounds().then(setRecoverableRounds).catch((error) => setRecoveryError(error.message));
+    return undefined;
+  }, [id]);
+
+  const chooseRecovery = (round) => {
+    setRecoveryError(null);
+    setSelectedRecovery(round);
+    selectRecoveryRound(round).catch((error) => setRecoveryError(error.message));
+  };
 
   const screen =
     !questions || questions.length === 0 ? (
@@ -47,6 +62,12 @@ function App() {
       {screen}
       <SettingsButton buttonRef={settingsFabRef} onOpen={() => setSettingsOpen(true)} />
       {settingsOpen && <SettingsModal onClose={() => { setSettingsOpen(false); setTimeout(() => settingsFabRef.current?.focus(), 0); }} />}
+      {id == null && recoverableRounds && recoverableRounds.length > 0 && !selectedRecovery && (
+        <RecoveryChooser rounds={recoverableRounds} error={recoveryError} onSelect={chooseRecovery} onRetry={() => {
+          setRecoveryError(null);
+          getRecoverableRounds().then(setRecoverableRounds).catch((error) => setRecoveryError(error.message));
+        }} />
+      )}
     </React.Fragment>
   );
 }

@@ -34,6 +34,16 @@ test('ensureServer() sunucu zaten çalışıyorken true döner', async () => {
   assert.strictEqual(result, true, 'ensureServer() true döndürmeli');
 });
 
+test('openBrowser returns an explicit opening strategy result', () => {
+  const previous = process.env.ASKUSER_OPEN_BROWSER;
+  process.env.ASKUSER_OPEN_BROWSER = '0';
+  const result = bridgeClient.openBrowser({ url: `${base}/` });
+  if (previous === undefined) delete process.env.ASKUSER_OPEN_BROWSER;
+  else process.env.ASKUSER_OPEN_BROWSER = previous;
+  assert.equal(result.attempted, false);
+  assert.equal(result.url, `${base}/`);
+});
+
 // /current poll loop — setTimeout busy-wait yerine deterministik bekleme (Contract R id'sini de okur).
 async function waitForPending(deadlineMs = 2000) {
   const start = Date.now();
