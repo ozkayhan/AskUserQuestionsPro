@@ -10,6 +10,7 @@
 | Reduced motion | PASS |
 | Future-version import | PASS |
 | Validation rollback | PASS |
+| Host adapter live acceptance | MANUAL CHECK |
 
 Run: `node --test test/browser-settings-e2e.test.js`
 Artifacts: `test/artifacts/settings-v2/`.
