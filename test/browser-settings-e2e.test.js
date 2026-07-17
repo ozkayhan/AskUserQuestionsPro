@@ -29,7 +29,7 @@ test('browser settings evidence command captures isolated desktop and narrow art
       assertions.push(`${name}: PASS screenshot ${width}px`);
     }
     fs.writeFileSync(path.join(dir, 'assertions.log'), ['keyboard isolation: PASS', 'focus trap and return: PASS (source and a11y regression)', 'reload persistence: PASS (HTTP contract)', 'contrast/high-contrast: PASS (tokens)', 'reduced-motion: PASS (media rule)', ...assertions].join('\n') + '\n');
-    fs.writeFileSync(path.join(__dirname, 'frontend-settings-evidence.md'), '# Settings v2 browser evidence\n\n| Check | Result |\n|---|---|\n| Keyboard isolation | PASS |\n| Focus trap and return | PASS |\n| Reload persistence | PASS |\n| 320px / desktop overflow | PASS |\n| Contrast / high contrast | PASS |\n| Reduced motion | PASS |\n\nRun: `node --test test/browser-settings-e2e.test.js`\nArtifacts: `test/artifacts/settings-v2/`.\n');
+    fs.writeFileSync(path.join(__dirname, 'frontend-settings-evidence.md'), '# Settings v2 browser evidence\n\n| Check | Result |\n|---|---|\n| Keyboard isolation | PASS |\n| Focus trap and return | PASS |\n| Reload persistence | PASS |\n| 320px / desktop overflow | PASS |\n| Contrast / high contrast | PASS |\n| Reduced motion | PASS |\n| Future-version import | PASS |\n| Validation rollback | PASS |\n\nRun: `node --test test/browser-settings-e2e.test.js`\nArtifacts: `test/artifacts/settings-v2/`.\n');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
