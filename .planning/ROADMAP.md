@@ -79,7 +79,13 @@ Plans:
   4. Users can export settings, reset an individual settings namespace, and inspect effective non-sensitive settings in doctor output.
   5. Settings controls remain keyboard-accessible and retain their persisted values after reload and upgrade.
 
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+
+- [ ] 10-01-PLAN.md — Establish the shared versioned settings schema and backed-up migration persistence.
+- [ ] 10-02-PLAN.md — Add transactional HTTP/CLI import, export, reset, and redacted doctor operations.
+- [ ] 10-03-PLAN.md — Deliver the accessible schema-driven Settings v2 browser experience.
+
 **UI hint**: yes
 **Research flags**: Decide the v2 version boundary, precedence, and unknown-future-version policy against current settings fixtures before implementation; keep executable host commands and loopback binding outside user-importable settings.
 
