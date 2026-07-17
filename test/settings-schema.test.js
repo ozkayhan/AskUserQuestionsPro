@@ -33,6 +33,26 @@ test('v2 validation applies bounds and ignores unknown values', () => {
   assert.strictEqual(result.diagnostics.enabled, true);
 });
 
+test('inspectEnvelope rejects malformed and unknown version markers', () => {
+  for (const marker of [0, -1, 1.5, '2', null, 3]) {
+    const result = Schema.inspectEnvelope({ _v: marker });
+    assert.strictEqual(result.valid, false, `marker ${String(marker)} should be rejected`);
+  }
+});
+
+test('browser normalization consumes explicit v2 values', () => {
+  const envelope = Schema.envelopeDefaults();
+  envelope.browser.behavior.autoAdvance = true;
+  envelope.browser.behavior.confirmSubmit = true;
+  envelope.browser.questionTypes.binary = false;
+  envelope.browser.questionTypes.ranking = false;
+  const browser = Schema.browserToLegacy(envelope.browser);
+  assert.strictEqual(browser.autoAdvance, true);
+  assert.strictEqual(browser.confirmSubmit, true);
+  assert.strictEqual(browser.qtypeBinary, false);
+  assert.strictEqual(browser.qtypeRanking, false);
+});
+
 // ── applyAll: console.warn on browser-side apply() error ─────────────────────
 // Finding [LOW] web/settings-schema.js:168-172: catch was empty; browser apply
 // failures were silently swallowed. Fix: console.warn when typeof document !== 'undefined'.

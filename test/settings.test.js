@@ -340,6 +340,28 @@ test('getPath: XDG_CONFIG_HOME altında settings.json', () => {
   });
 });
 
+test('v2 browser patch preserves non-browser namespaces with CAS', () => {
+  withTmpConfig((Settings) => {
+    const original = Schema.envelopeDefaults();
+    original.browser.theme = 'paper';
+    original.recovery.retentionMs = 7200000;
+    original.adapters.codexEnabled = false;
+    assert.strictEqual(Settings.writeEnvelope(original).ok, true);
+
+    const result = Settings.mutateCompareAndSwap(undefined, (envelope) => ({
+      ...envelope,
+      browser: Schema.mergeBrowserLegacy(envelope.browser, { theme: 'paper', autoAdvance: true }),
+    }));
+    assert.strictEqual(result.ok, true);
+    const disk = JSON.parse(fs.readFileSync(Settings.getPath(), 'utf8'));
+    assert.strictEqual(disk._v, 2);
+    assert.strictEqual(disk.browser.theme, 'paper');
+    assert.strictEqual(disk.browser.behavior.autoAdvance, true);
+    assert.strictEqual(disk.recovery.retentionMs, 7200000);
+    assert.strictEqual(disk.adapters.codexEnabled, false);
+  });
+});
+
 // ── write() hata yolu (Contract W) ───────────────────────────────────
 // Regresyon: yazma başarısızlığında ok:false döner, disk değişmez, .tmp kalmaz.
 test('write: yazılamaz dizin → ok:false, disk değişmez, .tmp kalmaz', () => {

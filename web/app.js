@@ -1,8 +1,23 @@
-/* global React, ReactDOM, AnswerMap, DraftWriter, useLiveQuestions, postAnswers, postDraft, fullOptions,
+/* global React, ReactDOM, AnswerMap, DraftWriter, Settings_Schema, useLiveQuestions, postAnswers, postDraft, fullOptions,
    Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary,
    SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
 const { useState, useEffect, useRef, useCallback } = React;
+
+// v2 is the canonical browser source. The flat global remains the explicit
+// compatibility path for v1 files and is updated so older consumers agree.
+function normalizeBootSettings() {
+  const envelope = window.__ASKUSER_SETTINGS_V2__;
+  if (envelope && envelope._v === 2 && envelope.browser) {
+    const b = envelope.browser;
+    const legacy = Settings_Schema.browserToLegacy(b);
+    window.__ASKUSER_SETTINGS__ = legacy;
+    return legacy;
+  }
+  return window.__ASKUSER_SETTINGS__ || Settings_Schema.defaults();
+}
+const APP_SETTINGS = normalizeBootSettings();
+const currentAppSettings = () => window.__ASKUSER_SETTINGS__ || APP_SETTINGS;
 
 function App() {
   const { id, questions, capability, revision, draftAnswers } = useLiveQuestions();
@@ -177,7 +192,7 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
           // autoAdvance: single-select ilk (armed olmayan) seçimde, custom ("Other")
           // değilse binary gibi tek basışta onayla+ilerle. multi hep 'toggle' döndüğünden
           // buraya girmez (B action.type==='select' guard).
-          const s = window.__ASKUSER_SETTINGS__;
+          const s = currentAppSettings();
           if (action.type === 'select' && s && s.autoAdvance) {
             const opts = fullOptions(q);
             if (optIdx !== opts.length - 1) {
@@ -322,7 +337,7 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
     if (ref.current.submitted || inflight.current) return;
     // confirmSubmit ayarı: ilk çağrı sadece "silahlanır" (toast gösterir), gerçek
     // gönderim ikinci Enter/tık'ta olur.
-    const confirmOn = window.__ASKUSER_SETTINGS__ && window.__ASKUSER_SETTINGS__.confirmSubmit;
+    const confirmOn = currentAppSettings().confirmSubmit;
     if (confirmOn && !ref.current.confirmArmed) {
       setConfirmArmed(true);
       return;
@@ -536,8 +551,8 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
 }
 
 // Boot: ayarlar varsa AnswerMap.setEnabled ile yeni tip toggleları uygula (reload'da okur).
-if (window.__ASKUSER_SETTINGS__) {
-  const s = window.__ASKUSER_SETTINGS__;
+if (APP_SETTINGS) {
+  const s = APP_SETTINGS;
   AnswerMap.setEnabled({
     binary: s.qtypeBinary !== false,
     scale: s.qtypeScale !== false,

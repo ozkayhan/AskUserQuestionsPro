@@ -211,7 +211,10 @@ function serveStatic(req, res) {
 }
 
 function sendIndex(res, baseHtml) {
-  const legacy = Settings.read();
+  const status = Settings.inspect();
+  const legacy = status.status === 'current'
+    ? require('../web/settings-schema.js').browserToLegacy(status.effective.browser)
+    : Settings.read();
   const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(legacy)}</script><script>window.__ASKUSER_SETTINGS_V2__=${JSON.stringify(readSettings())}</script>`;
   const html = baseHtml.replace('</head>', tag + '</head>');
   res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -580,14 +583,21 @@ async function handleRequest(req, res) {
     }
     if (!patch || typeof patch !== 'object' || Array.isArray(patch))
       return sendJson(res, 400, { error: 'invalid settings' });
-    // Contract W: write → {ok,value,error?}. Settings.write zaten validate eder.
-    const r = Settings.write(patch);
+    const current = Settings.inspect();
+    const r = current.status === 'current'
+      ? Settings.mutateCompareAndSwap(undefined, (envelope) => ({
+        ...envelope,
+        browser: require('../web/settings-schema.js').mergeBrowserLegacy(envelope.browser, patch),
+      }))
+      : Settings.write(patch);
     if (!r.ok)
-      return sendJson(res, 500, {
-        error: (r.error && r.error.message) || 'settings write failed',
+      return sendJson(res, r.code === 'STALE_REVISION' ? 409 : 500, {
+        error: (r.error && r.error.message) || r.code || 'settings write failed',
       });
     invalidateSettings(r.value); // bellek cache'i taze değerle güncelle.
-    const { _v, ...clientSettings } = r.value; // _v disk formatı; tarayıcıya sızdırma
+    const clientSettings = r.value._v === 2
+      ? require('../web/settings-schema.js').browserToLegacy(r.value.browser)
+      : (() => { const { _v, ...legacy } = r.value; return legacy; })();
     return sendJson(res, 200, { ok: true, settings: clientSettings });
   }
 

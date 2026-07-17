@@ -441,18 +441,46 @@
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function setPath(target, path, value) {
     var parts = path.split('.'), cursor = target;
-    parts.slice(0, -1).forEach(function (part) { cursor = cursor[part]; });
+    parts.slice(0, -1).forEach(function (part) { cursor[part] = cursor[part] || {}; cursor = cursor[part]; });
     cursor[parts[parts.length - 1]] = value;
   }
   function getPath(target, path) { return path.split('.').reduce(function (v, k) { return v && v[k]; }, target); }
   function envelopeDefaults() { return { _v: CURRENT_VERSION, browser: clone(NAMESPACE_DEFAULTS.browser), recovery: clone(NAMESPACE_DEFAULTS.recovery), autosave: clone(NAMESPACE_DEFAULTS.autosave), diagnostics: clone(NAMESPACE_DEFAULTS.diagnostics), delivery: clone(NAMESPACE_DEFAULTS.delivery), closure: clone(NAMESPACE_DEFAULTS.closure), adapters: clone(NAMESPACE_DEFAULTS.adapters) }; }
   function matrix() {
-    return ENTRIES.map(function (e) { return { path: 'browser.' + e.key, key: e.key, type: e.type === 'toggle' ? 'boolean' : 'string', default: e.default, importable: true, exportable: true, sensitive: false, effect: e.applies === 'reload' ? 'reload' : 'live', owner: 'browser' }; }).concat(FIELD_META.map(function (f) { return { path: f[0], type: f[1], default: f[2], options: Array.isArray(f[3]) && f[1] === 'select' ? f[3] : undefined, bounds: f[1] === 'number' ? f[3] : undefined, importable: true, exportable: true, sensitive: false, effect: f[4], owner: f[5] }; }));
+    return ENTRIES.map(function (e) { return { path: LEGACY_MAP[e.key] || 'browser.' + e.key, key: e.key, type: e.type === 'toggle' ? 'boolean' : 'string', default: e.default, importable: true, exportable: true, sensitive: false, effect: e.applies === 'reload' ? 'reload' : 'live', owner: 'browser' }; }).concat(FIELD_META.map(function (f) { return { path: f[0], type: f[1], default: f[2], options: Array.isArray(f[3]) && f[1] === 'select' ? f[3] : undefined, bounds: f[1] === 'number' ? f[3] : undefined, importable: true, exportable: true, sensitive: false, effect: f[4], owner: f[5] }; }));
   }
   function envelopeFromLegacy(input) {
     var out = envelopeDefaults();
     Object.keys(input || {}).forEach(function (key) { if (LEGACY_MAP[key] !== undefined) setPath(out, LEGACY_MAP[key], input[key]); });
     return out;
+  }
+  function browserFromLegacy(input) {
+    var out = {};
+    Object.keys(input || {}).forEach(function (key) {
+      var mapped = LEGACY_MAP[key];
+      if (mapped) setPath(out, mapped.slice('browser.'.length), input[key]);
+    });
+    return out;
+  }
+  function mergeBrowserLegacy(browser, input) {
+    var out = clone(browser || NAMESPACE_DEFAULTS.browser);
+    var patch = browserFromLegacy(input);
+    function merge(target, source) { Object.keys(source).forEach(function (key) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        target[key] = merge(target[key] || {}, source[key]);
+      } else target[key] = source[key];
+    }); return target; }
+    merge(out, patch);
+    return out;
+  }
+  function browserToLegacy(browser) {
+    var source = browser && typeof browser === 'object' ? browser : NAMESPACE_DEFAULTS.browser;
+    var out = clone(defaults());
+    Object.keys(LEGACY_MAP).forEach(function (key) {
+      var value = getPath({ browser: source }, LEGACY_MAP[key]);
+      if (value !== undefined) out[key] = value;
+    });
+    return validate(out);
   }
   function validateEnvelope(input) {
     var out = envelopeDefaults(), source = input && typeof input === 'object' ? input : {};
@@ -467,7 +495,9 @@
   }
   function inspectEnvelope(input) {
     var source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
-    if (source._v !== undefined && source._v > CURRENT_VERSION) return { status: 'unsupported-future', valid: false, envelope: null };
+    if (source._v !== undefined && (!Number.isInteger(source._v) || (source._v !== 1 && source._v !== CURRENT_VERSION))) {
+      return { status: source._v > CURRENT_VERSION ? 'unsupported-future' : 'invalid-version', valid: false, envelope: null };
+    }
     var legacy = source._v === undefined || source._v === 1;
     var envelope = legacy ? envelopeFromLegacy(source) : validateEnvelope(source);
     var ignored = Object.keys(source).filter(function (key) { return key !== '_v' && ['browser','recovery','autosave','diagnostics','delivery','closure','adapters'].indexOf(key) === -1; });
@@ -488,6 +518,9 @@
     legacyMap: function () { return clone(LEGACY_MAP); },
     envelopeDefaults: envelopeDefaults,
     envelopeFromLegacy: envelopeFromLegacy,
+    browserFromLegacy: browserFromLegacy,
+    mergeBrowserLegacy: mergeBrowserLegacy,
+    browserToLegacy: browserToLegacy,
     validateEnvelope: validateEnvelope,
     inspectEnvelope: inspectEnvelope,
   };
