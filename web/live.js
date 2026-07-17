@@ -167,9 +167,8 @@ async function selectRecoveryRound(selector) {
   if (!selector || (selector.roundId == null && !selector.requestId)) {
     throw new RecoveryError('Choose an exact recoverable round before continuing.', { code: 'selection_required' });
   }
-  const query = selector.roundId != null ? `/resume/${encodeURIComponent(selector.roundId)}` : '/resume';
   try {
-    const response = await fetch(query, {
+    const response = await fetch('/resume', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(selector),
