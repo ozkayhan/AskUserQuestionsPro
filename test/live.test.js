@@ -3,7 +3,7 @@
 // timeout abort ve yeniden bağlanma backoff'u (jitter + tavan).
 const test = require('node:test');
 const assert = require('node:assert');
-const { postAnswers, postDraft, cancelRound, reconnectDelay, deliveryTransition, attemptClose, getRecoverableRounds } = require('../web/live.js');
+const { postAnswers, postDraft, cancelRound, reconnectDelay, deliveryTransition, attemptClose, getRecoverableRounds, acknowledgeDelivery } = require('../web/live.js');
 
 // fetch'i mock'la, t.after ile geri yükle (DOM/global kirliliği bırakma — Contract T ruhu).
 function withFetch(t, impl) {
@@ -137,4 +137,15 @@ test('recovery requires exact selection and never chooses latest implicitly', as
 test('uncertain delivery and denied close remain recoverable', () => {
   assert.deepEqual(attemptClose(() => { throw new Error('denied'); }), { closed: false, denied: true });
   assert.equal(deliveryTransition('delivery-uncertain', 'acknowledged'), 'delivered');
+});
+
+test('acknowledgeDelivery uses the durable round id and is replayable', async (t) => {
+  let seen;
+  withFetch(t, async (url, opts) => {
+    seen = { url, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  });
+  await acknowledgeDelivery('round_opaque_42', 'capability');
+  assert.equal(seen.url, '/rounds/round_opaque_42/ack');
+  assert.deepEqual(seen.body, { capability: 'capability' });
 });

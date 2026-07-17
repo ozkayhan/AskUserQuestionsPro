@@ -29,6 +29,26 @@
     }
   }
 
+  function readLatestPendingDraft(roundKey, storage = browserStorage()) {
+    if (!storage || typeof storage.length !== 'number') return null;
+    const prefix = `${STORAGE_PREFIX}${roundKey}:`;
+    let latest = null;
+    try {
+      for (let i = 0; i < storage.length; i += 1) {
+        const key = storage.key(i);
+        if (!key || !key.startsWith(prefix)) continue;
+        const revision = Number(key.slice(prefix.length));
+        if (!Number.isInteger(revision)) continue;
+        const raw = storage.getItem(key);
+        const draft = raw == null ? null : JSON.parse(raw);
+        if (draft != null && (!latest || revision > latest.revision)) latest = { draft, revision };
+      }
+    } catch {
+      return null;
+    }
+    return latest;
+  }
+
   // Each material edit starts a request synchronously. Later edits wait behind
   // it so their expected revisions remain ordered instead of conflicting. The
   // local mirror is removed only by the matching server revision acknowledgement.
@@ -136,5 +156,5 @@
     };
   }
 
-  return { createDraftWriter, readPendingDraft, reconcileDraft };
+  return { createDraftWriter, readPendingDraft, readLatestPendingDraft, reconcileDraft };
 });

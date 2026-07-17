@@ -8,10 +8,17 @@ const {
 } = React;
 
 function RecoveryChooser({ rounds, onSelect, onRetry, error }) {
+  const titleRef = useRefView(null);
+  const returnFocusRef = useRefView(null);
+  useEffectView(() => {
+    returnFocusRef.current = document.activeElement;
+    titleRef.current?.focus();
+    return () => returnFocusRef.current?.focus?.();
+  }, []);
   return (
     <div className="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="recovery-title" aria-describedby="recovery-description">
       <div className="recovery-panel">
-        <h2 id="recovery-title">Choose a round to recover</h2>
+        <h2 id="recovery-title" tabIndex="-1" ref={titleRef}>Choose a round to recover</h2>
         <p id="recovery-description">Select the exact saved round. The newest round is never selected automatically.</p>
         {error && <p role="alert">{error}</p>}
         <div className="recovery-list">
@@ -29,11 +36,26 @@ function RecoveryChooser({ rounds, onSelect, onRetry, error }) {
 }
 
 function ReconciliationPanel({ conflict, onKeepServer, onReview, onDiscard }) {
+  const titleRef = useRefView(null);
+  const returnFocusRef = useRefView(null);
+  useEffectView(() => {
+    if (!conflict) return undefined;
+    returnFocusRef.current = document.activeElement;
+    titleRef.current?.focus();
+    const onKey = (event) => {
+      if (event.key === 'Escape') onKeepServer();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      returnFocusRef.current?.focus?.();
+    };
+  }, [conflict, onKeepServer]);
   if (!conflict) return null;
   return (
     <div className="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="reconcile-title">
       <div className="recovery-panel">
-        <h2 id="reconcile-title">Saved round changed</h2>
+        <h2 id="reconcile-title" tabIndex="-1" ref={titleRef}>Saved round changed</h2>
         <p>Your local draft and the server have different revisions. Nothing was overwritten.</p>
         <p role="status">Server revision {conflict.serverRevision}; local revision {conflict.localRevision}.</p>
         <div className="recovery-actions">

@@ -17,6 +17,7 @@ function reconnectDelay(attempt) {
 function useLiveQuestions() {
   const [round, setRound] = useStateLive({
     id: null,
+    roundId: null,
     questions: null,
     capability: null,
     lifecycle: null,
@@ -49,6 +50,7 @@ function useLiveQuestions() {
         }
         const next = {
           id: d.id ?? null,
+          roundId: d.roundId ?? null,
           questions: d.questions ?? null,
           capability: d.capability ?? null,
           lifecycle: d.lifecycle ?? null,

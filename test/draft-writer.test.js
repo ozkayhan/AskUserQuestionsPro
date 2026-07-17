@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDraftWriter, readPendingDraft, reconcileDraft } = require('../web/draft-writer.js');
+const { createDraftWriter, readPendingDraft, readLatestPendingDraft, reconcileDraft } = require('../web/draft-writer.js');
 
 function memoryStorage() {
   const values = new Map();
@@ -158,4 +158,18 @@ test('draft reconciliation preserves both versions until explicit choice', () =>
   assert.deepEqual(result.actions, ['keep-server', 'review-differences', 'discard-local-draft']);
   assert.deepEqual(result.serverDraft, { Q: { sel: [0] } });
   assert.deepEqual(result.localDraft, { Q: { sel: [1] } });
+});
+
+test('draft writer finds the newest local revision for conflict reconciliation', () => {
+  const entries = new Map([
+    ['askuserquestionspro:draft:r:1', JSON.stringify({ value: 'old' })],
+    ['askuserquestionspro:draft:r:4', JSON.stringify({ value: 'new' })],
+  ]);
+  const storage = {
+    get length() { return entries.size; },
+    key(index) { return [...entries.keys()][index] || null; },
+    getItem(key) { return entries.get(key) ?? null; },
+  };
+  const latest = readLatestPendingDraft('r', storage);
+  assert.deepEqual(latest, { revision: 4, draft: { value: 'new' } });
 });

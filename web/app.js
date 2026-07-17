@@ -20,8 +20,7 @@ const APP_SETTINGS = normalizeBootSettings();
 const currentAppSettings = () => window.__ASKUSER_SETTINGS__ || APP_SETTINGS;
 
 function App() {
-  const { id, questions, capability, revision, draftAnswers } = useLiveQuestions();
-  const roundId = id;
+  const { id, roundId: durableRoundId, questions, capability, revision, draftAnswers } = useLiveQuestions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recoverableRounds, setRecoverableRounds] = useState(null);
   const [recoveryError, setRecoveryError] = useState(null);
@@ -49,7 +48,8 @@ function App() {
       // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
       <Flow
         questions={questions}
-        roundId={roundId}
+        roundId={id}
+        durableRoundId={durableRoundId}
         capability={capability}
         revision={revision}
         draftAnswers={draftAnswers}
@@ -72,7 +72,7 @@ function App() {
   );
 }
 
-function Flow({ questions, roundId, capability, revision, draftAnswers }) {
+function Flow({ questions, roundId, durableRoundId, capability, revision, draftAnswers }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
   const draftWriterKey = `${roundId}:${capability || ''}`;
@@ -90,7 +90,10 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
         path: null,
       };
     });
-    const localDraft = DraftWriter.readPendingDraft(draftWriterKey, revision);
+    const pending = DraftWriter.readLatestPendingDraft
+      ? DraftWriter.readLatestPendingDraft(draftWriterKey)
+      : null;
+    const localDraft = pending?.draft || DraftWriter.readPendingDraft(draftWriterKey, revision);
     return {
       ...a,
       ...(draftAnswers && typeof draftAnswers === 'object' ? draftAnswers : {}),
@@ -122,6 +125,18 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
   const [submitted, setSubmitted] = useState(false);
   const [deliveryState, setDeliveryState] = useState('saved');
   const [closeDenied, setCloseDenied] = useState(false);
+  const [conflict, setConflict] = useState(null);
+  const [recoveryReview, setRecoveryReview] = useState(false);
+  useEffect(() => {
+    const local = DraftWriter.readLatestPendingDraft
+      ? DraftWriter.readLatestPendingDraft(draftWriterKey)
+      : null;
+    if (local && Number.isInteger(revision) && local.revision !== revision) {
+      setConflict(
+        DraftWriter.reconcileDraft(draftAnswers || {}, local.draft, revision, local.revision)
+      );
+    }
+  }, [draftAnswers, draftWriterKey, revision]);
   useEffect(() => {
     if (!Number.isInteger(draftRevision.current) || !capability || submitted) return undefined;
     // Initial hydration is already durable. Every later material edit starts a
@@ -377,7 +392,7 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
       .then(() => {
         inflight.current = false;
         if (typeof acknowledgeDelivery === 'function') {
-          return acknowledgeDelivery(roundId, capability)
+          return acknowledgeDelivery(durableRoundId, capability)
             .then(() => {
               setDeliveryState('delivered');
               if (currentAppSettings().closureMode === 'after-delivery' && typeof attemptClose === 'function') {
@@ -387,7 +402,6 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
             })
             .catch(() => {
               setDeliveryState('delivery-uncertain');
-              setSubmitted(false);
             });
         }
         setDeliveryState('delivered');
@@ -404,10 +418,27 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
       });
   }, [capability, mappedAnswers, roundId]);
 
+  const retryAcknowledgement = useCallback(() => {
+    if (!durableRoundId || !capability || inflight.current) return;
+    inflight.current = true;
+    setDeliveryState('delivery-pending');
+    acknowledgeDelivery(durableRoundId, capability)
+      .then(() => {
+        setDeliveryState('delivered');
+        if (currentAppSettings().closureMode === 'after-delivery' && typeof attemptClose === 'function') {
+          setCloseDenied(attemptClose().denied);
+        }
+      })
+      .catch(() => setDeliveryState('delivery-uncertain'))
+      .finally(() => {
+        inflight.current = false;
+      });
+  }, [capability, durableRoundId]);
+
   useEffect(() => {
     const onKey = (e) => {
       const R = ref.current;
-      if (R.popup || R.submitted) return;
+      if (R.popup || R.submitted || document.activeElement?.closest?.('[role="dialog"]')) return;
       // Metin alanında (input, textarea) tuş yönlendirmesi: sadece ok tuşlarını ve Escape'i engelle.
       const inTextField =
         document.activeElement &&
@@ -568,8 +599,38 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
       <DeliveryPanel
         state={deliveryState}
         closeDenied={closeDenied}
-        onRetry={() => submit()}
+        onRetry={retryAcknowledgement}
       />
+      {conflict && !recoveryReview && (
+        <ReconciliationPanel
+          conflict={conflict}
+          onKeepServer={() => {
+            setAnswers((prev) => ({ ...prev, ...(draftAnswers || {}) }));
+            setConflict(null);
+          }}
+          onReview={() => setRecoveryReview(true)}
+          onDiscard={() => {
+            setConflict(null);
+            draftWriter.current.writer.write(draftAnswers || {});
+          }}
+        />
+      )}
+      {conflict && recoveryReview && (
+        <ReconciliationPanel
+          conflict={conflict}
+          onKeepServer={() => {
+            setRecoveryReview(false);
+            setConflict(null);
+            setAnswers((prev) => ({ ...prev, ...(draftAnswers || {}) }));
+          }}
+          onReview={() => setRecoveryReview(false)}
+          onDiscard={() => {
+            setRecoveryReview(false);
+            setConflict(null);
+            draftWriter.current.writer.write(draftAnswers || {});
+          }}
+        />
+      )}
       {confirmArmed && (
         <div className="toast" role="status" aria-live="polite" aria-atomic="true">
           Press submit again to confirm.
