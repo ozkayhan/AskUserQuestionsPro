@@ -63,7 +63,7 @@ function App() {
       <SettingsButton buttonRef={settingsFabRef} onOpen={() => setSettingsOpen(true)} />
       {settingsOpen && <SettingsModal onClose={() => { setSettingsOpen(false); setTimeout(() => settingsFabRef.current?.focus(), 0); }} />}
       {id == null && recoverableRounds && recoverableRounds.length > 0 && !selectedRecovery && (
-        <RecoveryChooser rounds={recoverableRounds} error={recoveryError} onSelect={chooseRecovery} onRetry={() => {
+        <RecoveryChooser rounds={recoverableRounds} error={recoveryError} onSelect={chooseRecovery} onDismiss={() => setRecoverableRounds([])} onRetry={() => {
           setRecoveryError(null);
           getRecoverableRounds().then(setRecoverableRounds).catch((error) => setRecoveryError(error.message));
         }} />
@@ -127,6 +127,16 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
   const [closeDenied, setCloseDenied] = useState(false);
   const [conflict, setConflict] = useState(null);
   const [recoveryReview, setRecoveryReview] = useState(false);
+  const applyServerDraft = useCallback(
+    ({ clearLocal = false } = {}) => {
+      setAnswers((prev) => ({ ...prev, ...(draftAnswers || {}) }));
+      if (Number.isInteger(revision)) draftRevision.current = revision;
+      if (clearLocal && DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
+      setRecoveryReview(false);
+      setConflict(null);
+    },
+    [draftAnswers, draftWriterKey, revision]
+  );
   useEffect(() => {
     const local = DraftWriter.readLatestPendingDraft
       ? DraftWriter.readLatestPendingDraft(draftWriterKey)
@@ -384,6 +394,11 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
     setConfirmArmed(false);
     const mapped = mappedAnswers(ref.current.answers);
     if (Object.keys(mapped).length === 0) return; // boş submit guard (B8)
+    if (!durableRoundId) {
+      setSendError('server');
+      setDeliveryState('recovery-error');
+      return;
+    }
     setSendError(null);
     setSubmitted(true);
     setDeliveryState('delivery-pending');
@@ -416,7 +431,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           err && err.reason === 'stale_round' ? 'stale' : err && err.server ? 'server' : 'network'
         );
       });
-  }, [capability, mappedAnswers, roundId]);
+  }, [capability, durableRoundId, mappedAnswers, roundId]);
 
   const retryAcknowledgement = useCallback(() => {
     if (!durableRoundId || !capability || inflight.current) return;
@@ -604,31 +619,17 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
       {conflict && !recoveryReview && (
         <ReconciliationPanel
           conflict={conflict}
-          onKeepServer={() => {
-            setAnswers((prev) => ({ ...prev, ...(draftAnswers || {}) }));
-            setConflict(null);
-          }}
+          onKeepServer={() => applyServerDraft()}
           onReview={() => setRecoveryReview(true)}
-          onDiscard={() => {
-            setConflict(null);
-            draftWriter.current.writer.write(draftAnswers || {});
-          }}
+          onDiscard={() => applyServerDraft({ clearLocal: true })}
         />
       )}
       {conflict && recoveryReview && (
         <ReconciliationPanel
           conflict={conflict}
-          onKeepServer={() => {
-            setRecoveryReview(false);
-            setConflict(null);
-            setAnswers((prev) => ({ ...prev, ...(draftAnswers || {}) }));
-          }}
+          onKeepServer={() => applyServerDraft()}
           onReview={() => setRecoveryReview(false)}
-          onDiscard={() => {
-            setRecoveryReview(false);
-            setConflict(null);
-            draftWriter.current.writer.write(draftAnswers || {});
-          }}
+          onDiscard={() => applyServerDraft({ clearLocal: true })}
         />
       )}
       {confirmArmed && (

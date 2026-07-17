@@ -49,6 +49,21 @@
     return latest;
   }
 
+  function clearPendingDrafts(roundKey, storage = browserStorage()) {
+    if (!storage || typeof storage.length !== 'number') return;
+    const prefix = `${STORAGE_PREFIX}${roundKey}:`;
+    try {
+      const keys = [];
+      for (let i = 0; i < storage.length; i += 1) {
+        const key = storage.key(i);
+        if (key && key.startsWith(prefix)) keys.push(key);
+      }
+      keys.forEach((key) => storage.removeItem(key));
+    } catch {
+      // Browser storage is best-effort; the server remains authoritative.
+    }
+  }
+
   // Each material edit starts a request synchronously. Later edits wait behind
   // it so their expected revisions remain ordered instead of conflicting. The
   // local mirror is removed only by the matching server revision acknowledgement.
@@ -156,5 +171,5 @@
     };
   }
 
-  return { createDraftWriter, readPendingDraft, readLatestPendingDraft, reconcileDraft };
+  return { createDraftWriter, readPendingDraft, readLatestPendingDraft, clearPendingDrafts, reconcileDraft };
 });

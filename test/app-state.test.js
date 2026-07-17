@@ -24,4 +24,7 @@ test('app: recovery chooser and delivery surfaces are explicit and keyboard-owne
   assert.match(app, /getRecoverableRounds/);
   assert.match(app, /selectedRecovery/);
   assert.match(app, /delivery-pending|DeliveryPanel/);
+  assert.match(app, /durableRoundId/);
+  assert.match(app, /retryAcknowledgement/);
+  assert.match(app, /clearPendingDrafts/);
 });

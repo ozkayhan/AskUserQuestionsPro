@@ -7,14 +7,43 @@ const {
   useRef: useRefView,
 } = React;
 
-function RecoveryChooser({ rounds, onSelect, onRetry, error }) {
-  const titleRef = useRefView(null);
-  const returnFocusRef = useRefView(null);
+function useModalFocus(ref, onEscape) {
+  const restoreRef = useRefView(null);
   useEffectView(() => {
-    returnFocusRef.current = document.activeElement;
-    titleRef.current?.focus();
-    return () => returnFocusRef.current?.focus?.();
-  }, []);
+    restoreRef.current = document.activeElement;
+    ref.current?.focus();
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onEscape?.();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = ref.current?.closest?.('[role="dialog"]');
+      if (!dialog) return;
+      const focusable = [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      restoreRef.current?.focus?.();
+    };
+  }, [onEscape, ref]);
+}
+
+function RecoveryChooser({ rounds, onSelect, onRetry, onDismiss, error }) {
+  const titleRef = useRefView(null);
+  useModalFocus(titleRef, onDismiss);
   return (
     <div className="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="recovery-title" aria-describedby="recovery-description">
       <div className="recovery-panel">
@@ -30,6 +59,7 @@ function RecoveryChooser({ rounds, onSelect, onRetry, error }) {
           ))}
         </div>
         {onRetry && <button type="button" className="btn" onClick={onRetry}>Retry recovery</button>}
+        {onDismiss && <button type="button" className="btn" onClick={onDismiss}>Continue without recovery</button>}
       </div>
     </div>
   );
@@ -37,20 +67,7 @@ function RecoveryChooser({ rounds, onSelect, onRetry, error }) {
 
 function ReconciliationPanel({ conflict, onKeepServer, onReview, onDiscard }) {
   const titleRef = useRefView(null);
-  const returnFocusRef = useRefView(null);
-  useEffectView(() => {
-    if (!conflict) return undefined;
-    returnFocusRef.current = document.activeElement;
-    titleRef.current?.focus();
-    const onKey = (event) => {
-      if (event.key === 'Escape') onKeepServer();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      returnFocusRef.current?.focus?.();
-    };
-  }, [conflict, onKeepServer]);
+  useModalFocus(titleRef, onKeepServer);
   if (!conflict) return null;
   return (
     <div className="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="reconcile-title">
