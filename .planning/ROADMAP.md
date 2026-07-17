@@ -1,178 +1,126 @@
-# Roadmap: AskUserQuestionsPro Reliability and Documentation Overhaul
+# Roadmap: AskUserQuestionsPro Reliability, Extensibility, and Productization
 
 ## Completed Milestones
 
-- [x] **v1.0.0 — AskUserQuestionsPro Reliability and Documentation Overhaul** (2026-07-16) — 7 phases, 14 plans, 27 requirements complete. [Archived roadmap](milestones/v1.0.0-ROADMAP.md) · [Archived requirements](milestones/v1.0.0-REQUIREMENTS.md)
-
-The next milestone should be started with `$gsd-new-milestone`.
+- [x] **v1.0.0 — AskUserQuestionsPro Reliability and Documentation Overhaul** (2026-07-16) — Phases 1-7 complete. [Archived roadmap](milestones/v1.0.0-ROADMAP.md) · [Archived requirements](milestones/v1.0.0-REQUIREMENTS.md)
 
 ## Overview
 
-This milestone turns the observed Codex long-round timeout into a measurable, host-aware reliability contract, then hardens the shared bridge, browser, integrations, tooling, and documentation around that contract. The work proceeds as vertical MVP slices: each phase produces an observable improvement and regression evidence before the next layer is refactored.
+Sprint 2 turns the existing resumable bridge into a durable, user-visible recovery product. It first establishes a privacy-preserving lifecycle contract, then makes the Node bridge authoritative for recoverable rounds, exposes those guarantees through settings and accessible browser UX, and proves host compatibility through evidence rather than protocol assumptions. Claude Code and Codex are the Tier 1 baseline; every additional materially relevant host receives a dated Supported, Experimental, Researching, or Unsupported status only when the evidence supports it.
 
 ## Phases
 
-- [x] **Phase 1: Timeout Diagnosis & Observability** - Reproduce the early closure and identify the true lifecycle owner with redacted diagnostics. (completed 2026-07-16)
-- [x] **Phase 2: Host Lifecycle Fix** - Make Codex reliable and verify the equivalent Claude Code path and fallback behavior. (completed 2026-07-16)
-- [x] **Phase 3: Bridge & Server Round Reliability** - Harden ownership, cancellation, disconnect, stale-round, and daemon lifecycle contracts. (completed 2026-07-16)
-- [x] **Phase 4: Browser State & Recovery** - Make long-round browser state, SSE reconnects, errors, and accessibility behavior resilient. (completed 2026-07-16)
-- [x] **Phase 5: Tooling, Packaging & Release** - Audit CLI, installers, host detection, package boundaries, and quality gates. (completed 2026-07-16)
-- [x] **Phase 6: Documentation Consolidation** - Create a coherent maintained documentation set and evidence-preserving historical archive. (completed 2026-07-16)
-- [x] **Phase 7: Cross-Host Hardening & Acceptance** - Run full wire/host verification, close integration gaps, and lock the milestone contracts. (completed 2026-07-16)
+- [ ] **Phase 8: Lifecycle Contract & Observability** - Make every round transition, deadline owner, and terminal outcome explicit and safely observable.
+- [ ] **Phase 9: Durable Round Store & Recovery API** - Preserve authoritative rounds and immutable results through interruption, restart, and safe recovery.
+- [ ] **Phase 10: Settings v2** - Give users durable, validated controls for recovery, delivery, browser, and adapter behavior.
+- [ ] **Phase 11: Browser Recovery & Delivery UX** - Let users recover, understand, and safely complete rounds through an accessible browser flow.
+- [ ] **Phase 12: Adapter Contract & Tier 1 Acceptance** - Prove Claude Code and Codex work through distinct, evidence-backed lifecycle adapters.
+- [ ] **Phase 13: Evidence-Gated Host Expansion & Launch Hardening** - Evaluate the broader host landscape honestly and ship verified cross-platform documentation and release evidence.
 
 ## Phase Details
 
-### Phase 1: Timeout Diagnosis & Observability
+### Phase 8: Lifecycle Contract & Observability
 
-**Goal:** Determine exactly which host, transport, process, or application boundary ends a long question round and make that evidence available to maintainers.
-**Mode:** mvp
-**Depends on:** Nothing (first phase)
-**Requirements:** [TIME-03, TEST-01]
+**Goal**: Users can keep a long-running round recoverable because its state, timeout owner, and terminal outcome are explicit rather than silently lost.
+**Depends on**: Phase 7
+**Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04, LIFE-05
 **Success Criteria** (what must be TRUE):
-
-1. A repeatable 15-question test matrix records Codex and Claude outcomes at multiple idle durations, including at least one run beyond five minutes.
-2. Logs identify round registration, browser opening, answer, response close, abort, cancellation, timeout, and process-exit reasons without logging question contents or answers.
-3. The team can distinguish a host hard deadline from an application timeout, HTTP disconnect, SSE failure, or browser failure using automated evidence.
-4. Regression tests fail if a lifecycle terminal reason is collapsed into an untyped generic timeout.
-
-**Plans:** 2/2 plans complete
-
+  1. A user who loses a host attachment sees the round enter a distinct recoverable state instead of it appearing completed or disappearing.
+  2. Support diagnostics identify the responsible lifecycle boundary and terminal reason with opaque identifiers, without exposing question or answer content.
+  3. A stale, duplicate, delayed, or unauthorized operation cannot change another user's active or recovered round.
+  4. An unavoidable host deadline detaches a round with recovery guidance, while ordinary idle time does not end it.
+  5. Maintainers can repeat lifecycle races and deadline paths deterministically and observe the expected state for each.
+**Plans**: 5 plans
 Plans:
+- [ ] 08-01-PLAN.md — Define deterministic lifecycle states, deadlines, and ownership guards.
+- [ ] 08-02-PLAN.md — Project redacted lifecycle state and capability checks through HTTP/SSE.
+- [ ] 08-03-PLAN.md — Establish host deadline-owner seams and deterministic adapter tests.
+- [ ] 08-04-PLAN.md — Document the lifecycle contract and live-evidence procedure.
+- [ ] 08-05-PLAN.md — Verify real authenticated Claude Code and Codex lifecycle evidence.
+**Research flags**: Mandatory live, authenticated Claude Code and Codex runs must identify the version-pinned timeout/cancellation owner; validate filesystem sync and directory durability behavior on supported OSes before relying on it.
 
-- [x] 01-01: Add redacted lifecycle correlation and timeout diagnostics.
-- [x] 01-02: Build deterministic long-round, disconnect, and host-boundary regression harness.
+### Phase 9: Durable Round Store & Recovery API
 
-### Phase 2: Host Lifecycle Fix
-
-**Goal:** Prevent the host integration from prematurely destroying a usable long-running round, with Codex as the primary target and Claude behavior explicitly verified.
-**Mode:** mvp
-**Depends on:** Phase 1
-**Requirements:** [TIME-04, HOST-01, HOST-02, HOST-03]
+**Goal**: Users can reopen an exact saved round and safely retrieve its final answer after browser, host, or bridge interruption.
+**Depends on**: Phase 8
+**Requirements**: DUR-01, DUR-02, DUR-03, DUR-04, DUR-05, DUR-06
 **Success Criteria** (what must be TRUE):
+  1. Meaningful answer edits survive browser refresh, reconnect, closure, host detach, and bridge restart as revisions of the same round.
+  2. A user can choose a specific recoverable round rather than the product guessing a “latest” round.
+  3. A crash, partial write, or corrupt persisted record leaves recoverable records intact and presents a safe recovery error for the bad record.
+  4. A submitted answer cannot be changed by a retry, and result retrieval or delivery acknowledgement can be safely repeated.
+  5. Existing pre-v1.1 requests continue into the durable recovery model without cross-round loss.
+**Plans**: TBD
+**Research flags**: Validate crash recovery, restrictive file permissions, and retention/expiry behavior on macOS, Linux, and Windows; define and test the legacy request-ID to durable-round migration.
 
-1. A Codex user can complete a 15-question round after at least 10 minutes of idle time without the custom browser closing unexpectedly.
-2. The selected host-lifecycle strategy is tested against real JSON-RPC/MCP cancellation and response behavior, not only internal mocks.
-3. Claude Code either passes the equivalent long-round test or has a proven host-specific limitation with an explicit supported fallback.
-4. Host errors and fallback guidance identify the actionable cause instead of silently presenting a generic close.
+### Phase 10: Settings v2
 
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 02-01: Implement the evidence-backed Codex/Claude lifecycle fix and typed host errors.
-- [x] 02-02: Verify host cancellation, keepalive/progress or resumable fallback behavior end to end.
-
-### Phase 3: Bridge & Server Round Reliability
-
-**Goal:** Make round ownership and terminal-state behavior deterministic across HTTP, bridge, daemon, and stale/disconnected clients.
-**Mode:** mvp
-**Depends on:** Phase 2
-**Requirements:** [BRDG-01, BRDG-02, BRDG-03, BRDG-04, BRDG-05]
+**Goal**: Users can safely configure the recovery and delivery experience, and keep those choices intact across upgrades and supported clients.
+**Depends on**: Phase 9
+**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06
 **Success Criteria** (what must be TRUE):
+  1. Users can configure browser launch, bounded retention, autosave, recovery, diagnostics, delivery, post-submit closure, and adapter preferences from one validated settings contract.
+  2. Existing settings migrate once with a backup, while an unsupported future format is rejected without replacing the user's current configuration.
+  3. A user can preview a settings import, understand validation errors, and leave all current settings unchanged when the import cannot be applied safely.
+  4. Users can export settings, reset an individual settings namespace, and inspect effective non-sensitive settings in doctor output.
+  5. Settings controls remain keyboard-accessible and retain their persisted values after reload and upgrade.
+**Plans**: TBD
+**UI hint**: yes
+**Research flags**: Decide the v2 version boundary, precedence, and unknown-future-version policy against current settings fixtures before implementation; keep executable host commands and loopback binding outside user-importable settings.
 
-1. Resolve, cancel, disconnect, and reconnect operations require the correct request/round owner and are idempotent.
-2. A delayed close from an old `/ask` request cannot cancel or resolve a newer round.
-3. Stale answers, concurrent rounds, malformed bodies, and daemon startup races return deterministic safe responses.
-4. Process restart and server errors leave no silent orphan or cross-round answer path.
+### Phase 11: Browser Recovery & Delivery UX
 
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 03-01: Refactor bridge/server lifecycle state and ownership contracts.
-- [x] 03-02: Expand HTTP, concurrency, disconnect, and daemon regression coverage.
-
-### Phase 4: Browser State & Recovery
-
-**Goal:** Keep the full-screen UI correct and recoverable during long rounds, SSE reconnects, errors, navigation, and accessibility interactions.
-**Mode:** mvp
-**Depends on:** Phase 3
-**Requirements:** [WEB-01, WEB-02, WEB-03, WEB-04]
+**Goal**: Users can understand a round's recovery and delivery status, resume safely, and never have a tab close before delivery is durable.
+**Depends on**: Phase 10
+**Requirements**: WEB-05, WEB-06, WEB-07, WEB-08, WEB-09
 **Success Criteria** (what must be TRUE):
+  1. After refresh, reconnect, or browser-origin/session change, users see the server-authoritative draft and actionable reconciliation guidance.
+  2. Users can distinguish saved, delivery-pending, delivered, delivery-uncertain, cancelled, and recovery-error outcomes without guessing whether work was sent.
+  3. A browser tab attempts automatic closure only after durable delivery acknowledgement and otherwise leaves a safe, clear fallback.
+  4. Users can choose an opening strategy and receive actionable guidance when the preferred browser or profile cannot be opened.
+  5. Recovery, delivery, and settings flows retain accessible announcements, focus behavior, and keyboard navigation.
+**Plans**: TBD
+**UI hint**: yes
+**Research flags**: Exercise recovery in private browsing, under storage failure/quota, and after localhost port/origin drift; use manual browser verification alongside existing accessibility tests.
 
-1. Long-round navigation, review, back/jump behavior, and answer submission never use stale state.
-2. SSE reconnects are bounded and round-aware; a new round cannot inherit old answers.
-3. Timeout, disconnect, server conflict, and retry states are visibly distinct and actionable.
-4. Existing question types, keyboard shortcuts, focus management, and accessibility semantics remain verified.
+### Phase 12: Adapter Contract & Tier 1 Acceptance
 
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 04-01: Refactor live transport and browser round state around explicit lifecycle states.
-- [x] 04-02: Harden UI error/retry/accessibility behavior and browser-compatible tests.
-
-### Phase 5: Tooling, Packaging & Release
-
-**Goal:** Remove reliability and maintenance hazards in CLI, installers, host discovery, package metadata, and quality gates.
-**Mode:** mvp
-**Depends on:** Phase 3
-**Requirements:** [TEST-03, PKG-01, TOOL-01]
+**Goal**: Claude Code and Codex users can complete, recover, cancel, and receive long rounds through adapters whose host-specific behavior is proven rather than assumed.
+**Depends on**: Phase 11
+**Requirements**: ADP-01, ADP-02, ADP-03, ADP-04, ADP-05, ADP-06, HST-01
 **Success Criteria** (what must be TRUE):
+  1. Users of Claude Code and Codex can start, attach, detach, cancel, resume, check status, retrieve a result, and acknowledge delivery without another host's semantics leaking into their flow.
+  2. Each Tier 1 host has a capability card that records its version, transport, timeout, cancellation, approval, trust, configuration, installation, and current evidence state.
+  3. A fake-host conformance run proves lifecycle and idempotency behavior before an adapter is treated as usable.
+  4. Version-pinned, authenticated Claude Code and Codex acceptance runs cover idle rounds, reconnect, restart, cancellation, recovery, and delivery.
+  5. Install, doctor, upgrade, and uninstall affect only the intended host configuration and are safe to repeat.
+**Plans**: TBD
+**Research flags**: Mandatory live host/OS validation: run the actual installed, authenticated Claude Code and Codex versions, record host deadline and response-write semantics, and separately verify Claude hook fallback and Codex MCP behavior.
 
-1. CLI doctor, serve, mcp, install, uninstall, and reinstall report actionable failures and handle process/host errors safely.
-2. Node 18+, supported platform behavior, zero runtime dependencies, package allowlists, and version metadata are consistent and tested.
-3. Full automated tests, lint, formatting, shell checks, audit, and release checks pass from a clean checkout.
-4. Installer changes preserve idempotency, safe cleanup, and host registration boundaries.
+### Phase 13: Evidence-Gated Host Expansion & Launch Hardening
 
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 05-01: Audit and harden CLI/installers/host platform operations.
-- [x] 05-02: Align package/release metadata and run complete quality gates.
-
-### Phase 6: Documentation Consolidation
-
-**Goal:** Replace the scattered documentation system with verified current references, a timeout runbook, and an evidence-preserving historical archive.
-**Mode:** mvp
-**Depends on:** Phases 2, 3, 4, and 5
-**Requirements:** [DOC-01, DOC-02, DOC-03, DOC-04, DOC-05]
+**Goal**: Users can make informed host choices from evidence-backed compatibility states, and install a release whose recovery, privacy, and lifecycle guarantees are verified across supported platforms.
+**Depends on**: Phase 12
+**Requirements**: HST-02, HST-03, HST-04, HST-05, HST-06, QLT-01, QLT-02, QLT-03, DOC-06, DOC-07, DOC-08
 **Success Criteria** (what must be TRUE):
-
-1. The docs index has stable names, clear ownership, and no dead internal links.
-2. Architecture, API, backend, frontend, testing, host differences, timeout ownership, and recovery instructions match verified source behavior.
-3. Durable decisions and actionable findings from old audit/plan documents are extracted with provenance before cleanup.
-4. Empty, duplicate, obsolete, and misleading documents are archived or removed according to documented rules without deleting needed rationale.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 06-01: Consolidate current references and create the reliability troubleshooting/runbook document.
-- [x] 06-02: Classify, migrate, archive/remove historical documents and repair indexes/cross-links.
-
-### Phase 7: Cross-Host Hardening & Acceptance
-
-**Goal:** Prove the integrated system satisfies the core reliability invariant across supported hosts and lock the shared lifecycle contract for future work.
-**Mode:** mvp
-**Depends on:** Phases 1-6
-**Requirements:** [TIME-01, TIME-02, REF-01, TEST-02]
-**Success Criteria** (what must be TRUE):
-
-1. Codex and Claude end-to-end verification covers long idle rounds, host cancellation, browser reconnect, stale answers, and recovery.
-2. A real browser-to-server-to-host wire path passes with at least 15 questions and no unexplained early close.
-3. Lifecycle ownership, timeout policy, fallback behavior, and operational diagnostics are documented as one coherent contract.
-4. All phase regressions and quality gates pass together from a clean checkout.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 07-01: Run cross-host integration acceptance and close remaining contract gaps.
-- [x] 07-02: Final audit, verification evidence, and milestone handoff.
+  1. Cursor, GitHub Copilot CLI, Gemini CLI, Amazon Q Developer, Cline, Kiro, Kilo Code, Qwen Code, OpenCode, Roo Code, and Windsurf each have a dated, evidence-backed Supported, Experimental, Researching, or Unsupported status; Aider remains Unsupported unless a safe authoritative surface is proven.
+  2. Users can read a machine-readable and user-facing compatibility matrix with each host's version, transport, scenarios tested, limitations, evidence date, and a clear explanation for non-integrable hosts.
+  3. Every claimed Supported host has fresh-install, upgrade, uninstall, trust-policy, and configuration-scope evidence; other hosts are not promoted beyond their evidence state.
+  4. Durable recovery is verified on supported macOS, Linux, and Windows environments, and full tests, lint, formatting, shell, packaging, and release checks pass from a clean checkout.
+  5. Maintained documentation explains settings, recovery, timeout ownership, delivery acknowledgement, troubleshooting, local retention/privacy, and redacted support diagnostics.
+**Plans**: TBD
+**Research flags**: Mandatory per-candidate official-document refresh and installed-host/manual long-round validation before promotion; research Roo Code and Windsurf individually, and never infer support from MCP discoverability alone.
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
 
-| Phase                                | Plans Complete | Status   | Completed  |
-| ------------------------------------ | -------------- | -------- | ---------- |
-| 1. Timeout Diagnosis & Observability | 2/2            | Complete | 2026-07-16 |
-| 2. Host Lifecycle Fix                | 2/2            | Complete | 2026-07-16 |
-| 3. Bridge & Server Round Reliability | 2/2            | Complete | 2026-07-16 |
-| 4. Browser State & Recovery          | 2/2            | Complete | 2026-07-16 |
-| 5. Tooling, Packaging & Release      | 2/2            | Complete | 2026-07-16 |
-| 6. Documentation Consolidation       | 2/2            | Complete | 2026-07-16 |
-| 7. Cross-Host Hardening & Acceptance | 2/2            | Complete | 2026-07-16 |
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 8. Lifecycle Contract & Observability | 0/TBD | Not started | - |
+| 9. Durable Round Store & Recovery API | 0/TBD | Not started | - |
+| 10. Settings v2 | 0/TBD | Not started | - |
+| 11. Browser Recovery & Delivery UX | 0/TBD | Not started | - |
+| 12. Adapter Contract & Tier 1 Acceptance | 0/TBD | Not started | - |
+| 13. Evidence-Gated Host Expansion & Launch Hardening | 0/TBD | Not started | - |
