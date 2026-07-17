@@ -2,6 +2,26 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { Bridge, terminalReason } = require('../server/bridge.js');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
+const { RoundStore } = require('../lib/round-store.cjs');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+test('Bridge persists durable registration and immutable result replay', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-store-'));
+  const store = new RoundStore({ root });
+  const bridge = new Bridge({ store, detachedTtlMs: 1000 });
+  const pending = bridge.submitQuestions([{ question: 'durable' }], 'durable-request');
+  const current = bridge.peek('durable-request');
+  assert.match(current.roundId, /^round_/);
+  assert.equal(bridge.provideAnswers(current.id, { durable: 'answer' }, current.capability), true);
+  await pending;
+  const restarted = new Bridge({ store: new RoundStore({ root }) });
+  const result = restarted.getResult(current.roundId, current.capability);
+  assert.deepEqual(result.result, { durable: 'answer' });
+  assert.equal(restarted.confirmDelivery(current.roundId), true);
+  assert.equal(restarted.confirmDelivery(current.roundId), true);
+});
 
 function scheduler() {
   let now = 0;

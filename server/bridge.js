@@ -2,6 +2,7 @@
 
 const { randomBytes } = require('node:crypto');
 const { createRecord, transition, snapshot } = require('../lib/round-state.cjs');
+const Record = require('../lib/round-record.cjs');
 
 const CANCEL_REASON_MAP = new Map([
   ['client disconnected', 'host_disconnect'],
@@ -43,6 +44,7 @@ class Bridge {
     now = Date.now,
     setTimer = setTimeout,
     clearTimer = clearTimeout,
+    store = null,
   } = {}) {
     this._pending = null; // { id, questions, resolve, reject, waiters, detached }
     this._seq = 0;
@@ -55,6 +57,7 @@ class Bridge {
       : DEFAULT_DETACHED_TTL_MS;
     this._completed = new Map();
     this._deliveries = new Map();
+    this._store = store;
   }
 
   // Hook tarafı: soru setini kaydet, cevap promise'i al.
@@ -82,6 +85,21 @@ class Bridge {
           now: this._now(),
         }),
       };
+      if (this._store) {
+        const created = this._store.create({
+          questions,
+          requestId,
+          capability: this._pending.record.capability,
+          retentionMs: this._detachedTtlMs,
+          lifecycle: this._pending.record,
+        });
+        if (!created.ok) {
+          this._pending = null;
+          reject(Object.assign(new Error('durable round registration failed'), { code: created.code }));
+          return;
+        }
+        this._pending.durable = created.record;
+      }
     });
   }
 
@@ -101,6 +119,8 @@ class Bridge {
       id: this._pending.id,
       questions: this._pending.questions,
       capability: this._pending.record.capability,
+      roundId: this._pending.durable?.roundId,
+      revision: this._pending.durable?.revision,
       lifecycle: snapshot(this._pending.record),
     };
   }
@@ -110,6 +130,16 @@ class Bridge {
   }
 
   _transition(p, event, options) {
+    if (p.durable) {
+      const persisted = this._store.mutate(p.durable.roundId, (record, now) =>
+        Record.transition(record, event, record.revision, now, {
+          deadlineOwner: options?.deadlineOwner,
+          terminalReason: options?.reason,
+        })
+      );
+      if (!persisted.ok) return false;
+      p.durable = persisted.record;
+    }
     const result = transition(p.record, event, { now: this._now(), ...options });
     if (result.ok) p.record = result.record;
     return result.ok;
@@ -128,6 +158,13 @@ class Bridge {
   provideAnswers(id, answers, capability) {
     if (!this._owns(this._pending, id, capability)) return false;
     const p = this._pending;
+    if (p.durable) {
+      const persisted = this._store.mutate(p.durable.roundId, (record, now) =>
+        Record.finalize(record, answers, record.revision, now)
+      );
+      if (!persisted.ok) return false;
+      p.durable = persisted.record;
+    }
     if (!this._transition(p, 'answerAccepted')) return false;
     this._pending = null;
     if (p.detachTimer) this._clearTimer(p.detachTimer);
@@ -179,7 +216,7 @@ class Bridge {
       };
     }
 
-    const completed = this._findCompleted(requestId);
+    const completed = this._findCompleted(requestId) || this._findPersisted(requestId);
     if (!completed) {
       const error = new Error('no resumable question set');
       error.code = 'stale_round';
@@ -221,6 +258,10 @@ class Bridge {
   // Retain request-id results until a response has finished so a closed host stream
   // can be recovered by /resume instead of being reported as a false delivery.
   confirmDelivery(roundId) {
+    if (this._store && typeof roundId === 'string') {
+      const confirmed = this._store.mutate(roundId, (record, now) => Record.acknowledge(record, now));
+      return confirmed.ok;
+    }
     const delivery = this._deliveries.get(roundId);
     if (
       !delivery ||
@@ -235,6 +276,12 @@ class Bridge {
   }
 
   markDeliveryUncertain(roundId) {
+    if (this._store && typeof roundId === 'string') {
+      const uncertain = this._store.mutate(roundId, (record, now) =>
+        Record.transition(record, 'uncertain', record.revision, now, { deadlineOwner: 'host' })
+      );
+      return uncertain.ok;
+    }
     const delivery = this._deliveries.get(roundId);
     if (!delivery || !this._transition(delivery.p, 'uncertain', { deadlineOwner: 'host' }))
       return false;
@@ -255,6 +302,33 @@ class Bridge {
     let latest = null;
     for (const item of this._completed.values()) latest = item;
     return latest;
+  }
+
+  _findPersisted(requestId) {
+    if (!this._store || requestId == null) return null;
+    const found = this._store.findByRequestId(requestId);
+    if (!found.ok || !found.record.answers || found.record.expiresAt <= this._now()) return null;
+    return { answers: found.record.answers, roundId: found.record.roundId, expiresAt: found.record.expiresAt };
+  }
+
+  listRecoverable() {
+    return this._store ? this._store.list() : [];
+  }
+
+  getDurable(roundId) {
+    if (!this._store) return { ok: false, code: 'not_found' };
+    const found = this._store.get(roundId);
+    if (!found.ok) return found;
+    if (found.record.expiresAt <= this._now()) return { ok: false, code: 'expired' };
+    return found;
+  }
+
+  getResult(roundId, capability) {
+    const found = this.getDurable(roundId);
+    if (!found.ok) return found;
+    if (found.record.capability !== capability) return { ok: false, code: 'ownership_conflict' };
+    if (!found.record.answers) return { ok: false, code: 'result_not_ready' };
+    return { ok: true, result: found.record.answers, record: found.record };
   }
 
   // Timeout/iptal. Contract R: expectedId verilmis ve eslesmiyorsa hicbir sey yapma.
