@@ -23,16 +23,18 @@ stat -f '%Lp' "$EVIDENCE_XDG/askuserquestionspro/rounds"
 stat -f '%Lp' "$EVIDENCE_XDG/askuserquestionspro/rounds/<opaque-round>.json"
 ```
 
-The focused suites cover normal atomic write/reload behavior, an ordinary
-unwritable-target cleanup path, fail-closed stale/live lock ownership and a
+The focused suites cover normal atomic write/reload behavior, deterministic
+injection of open, write, file-sync, close, rename, and directory-creation
+failures while preserving an existing healthy snapshot and cleaning temporary
+and lock artifacts. They also cover crash-created dead-lock recovery by an
+inode-linked, PID-checked claim, fail-closed live/uncertain lock ownership, and a
 deterministic contender interleaving that leaves a newly acquired lock intact,
 individual corrupt-sibling quarantine, startup expiry cleanup, existing
 directory permission tightening, exact selection, immutable result replay,
-idempotent immediate draft saves across an edit/unmount/reload boundary, and
+an aborted immediate draft request followed by reload/replay (with the local
+mirror cleared only after the server revision acknowledgement), and
 repeated bridge restart recovery from detached through reconnecting `/resume`.
-They do not inject write, sync, close,
-rename, or directory-creation failures. The observed store-directory mode was
-`700`; the snapshot-file mode was `600`.
+The observed store-directory mode was `700`; the snapshot-file mode was `600`.
 
 ## Boundaries
 

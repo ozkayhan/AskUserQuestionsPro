@@ -35,6 +35,27 @@ test('store tightens existing round and quarantine directories', () => {
   assert.equal(fs.statSync(path.join(root, 'quarantine')).mode & 0o777, 0o700);
 });
 
+test('injected mkdir failure preserves existing healthy snapshots for a later reload', () => {
+  const { root, store } = fixture();
+  const created = store.create({
+    questions: [{ question: 'healthy?' }],
+    capability: 'healthy-cap',
+    retentionMs: 1000,
+  });
+  assert.equal(created.ok, true);
+  const fsImpl = new Proxy(fs, {
+    get(target, property) {
+      if (property !== 'mkdirSync') return target[property];
+      return () => {
+        throw Object.assign(new Error('injected mkdir'), { code: 'EIO' });
+      };
+    },
+  });
+  assert.throws(() => new RoundStore({ root, fsImpl }), /injected mkdir/);
+  const reloaded = new RoundStore({ root, now: () => 100 });
+  assert.equal(reloaded.get(created.record.roundId).ok, true);
+});
+
 test('bad records are quarantined individually while healthy siblings remain', () => {
   const { root, store } = fixture();
   const created = store.create({

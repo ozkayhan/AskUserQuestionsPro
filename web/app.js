@@ -38,6 +38,7 @@ function App() {
 function Flow({ questions, roundId, capability, revision, draftAnswers }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
+  const draftWriterKey = `${roundId}:${capability || ''}`;
 
   // answers[question] = { sel:number[], confirmed, customText, value, order, path }
   const [answers, setAnswers] = useState(() => {
@@ -52,11 +53,15 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
         path: null,
       };
     });
-    return draftAnswers && typeof draftAnswers === 'object' ? { ...a, ...draftAnswers } : a;
+    const localDraft = DraftWriter.readPendingDraft(draftWriterKey, revision);
+    return {
+      ...a,
+      ...(draftAnswers && typeof draftAnswers === 'object' ? draftAnswers : {}),
+      ...(localDraft && typeof localDraft === 'object' ? localDraft : {}),
+    };
   });
   const draftRevision = useRef(revision);
   const draftWriter = useRef(null);
-  const draftWriterKey = `${roundId}:${capability || ''}`;
   if (draftWriter.current?.key !== draftWriterKey) {
     draftWriter.current = {
       key: draftWriterKey,
@@ -66,6 +71,7 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
         setRevision: (nextRevision) => {
           draftRevision.current = nextRevision;
         },
+        roundKey: draftWriterKey,
       }),
     };
   }
@@ -83,6 +89,7 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
     // save immediately and is deliberately not cancelled on unmount/reload.
     if (!draftReady.current) {
       draftReady.current = true;
+      draftWriter.current.writer.replay();
       return undefined;
     }
     draftWriter.current.writer.write(answers);

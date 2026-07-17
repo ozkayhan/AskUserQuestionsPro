@@ -65,6 +65,12 @@ private (0600) and store directories are private (0700). The implemented
 baseline is same-directory temp-file write, file sync, close, and rename; a
 corrupt named record is quarantined individually without hiding valid siblings.
 
+Browser draft delivery keeps a non-authoritative local mirror keyed by round,
+capability, and expected revision until the matching server acknowledgement; it
+replays a rejected or teardown-aborted request without bypassing revision or
+capability checks. Atomic writers recover only a confirmed-dead owner after an
+inode-linked lock claim; malformed, live, or uncertain locks fail closed.
+
 The initial expiry for recoverable rounds and finalized-result replay is the
 resolved detached-round TTL: a valid `ASKUSER_DETACHED_ROUND_TTL_MS`, otherwise
 `DEFAULT_DETACHED_TTL_MS`. Settings v2 is the sole future user-facing retention

@@ -440,25 +440,22 @@ test('writeFileAtomic: başarılı yazımdan sonra kilit bırakılır (tekrar ya
   }
 });
 
-test('writeFileAtomic: stale lock fails closed and is left for explicit recovery', () => {
+test('writeFileAtomic: crash-created dead-owner lock is recovered for the next write', () => {
   const { writeFileAtomic } = require('../lib/atomic-write.cjs');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-lock3-'));
   try {
     const file = path.join(dir, 'test.json');
     const lock = file + '.lock';
-    // Stale ownership cannot be safely transferred with check-then-unlink.
     fs.writeFileSync(lock, '99999999:crashed-writer', { flag: 'wx' });
-    // Even an old, dead-owner lock remains untouched by an automatic writer.
-    const old = Date.now() / 1000 - 60;
-    fs.utimesSync(lock, old, old);
-    assert.throws(() => writeFileAtomic(file, '{"ok":true}'), /concurrent write lock/);
-    assert.strictEqual(fs.readFileSync(lock, 'utf8'), '99999999:crashed-writer');
+    writeFileAtomic(file, '{"ok":true}');
+    assert.strictEqual(fs.readFileSync(file, 'utf8'), '{"ok":true}');
+    assert.ok(!fs.existsSync(lock), 'recovered writer releases its own replacement lock');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('writeFileAtomic: a contender never removes a newly acquired lock during stale takeover', () => {
+test('writeFileAtomic: uncertain concurrent takeover never removes a newly acquired lock', () => {
   const { acquireLock } = require('../lib/atomic-write.cjs');
   const lock = '/virtual/round.json.lock';
   let contents = '99999999:dead-owner';
@@ -514,3 +511,41 @@ test('writeFileAtomic: hedef yazılamaz → throw eder, .tmp temizlenir', () => 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+for (const operation of ['openSync', 'writeFileSync', 'fsyncSync', 'closeSync', 'renameSync']) {
+  test(`writeFileAtomic: injected ${operation} failure preserves target and cleans tmp/lock`, () => {
+    const { writeFileAtomic } = require('../lib/atomic-write.cjs');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-aw-fault-'));
+    const file = path.join(dir, 'test.json');
+    fs.writeFileSync(file, '{"healthy":true}');
+    const fsImpl = new Proxy(fs, {
+      get(target, property) {
+        if (property !== operation) return target[property];
+        if (operation === 'writeFileSync') {
+          return (targetFile, ...args) => {
+            if (typeof targetFile === 'number') throw Object.assign(new Error('injected write'), { code: 'EIO' });
+            return target.writeFileSync(targetFile, ...args);
+          };
+        }
+        if (operation === 'closeSync') {
+          return (handle) => {
+            target.closeSync(handle);
+            throw Object.assign(new Error('injected close'), { code: 'EIO' });
+          };
+        }
+        return () => {
+          throw Object.assign(new Error(`injected ${operation}`), { code: 'EIO' });
+        };
+      },
+    });
+    try {
+      assert.throws(() => writeFileAtomic(file, '{"new":true}', { fsImpl }), /injected/);
+      assert.equal(fs.readFileSync(file, 'utf8'), '{"healthy":true}');
+      const entries = fs.readdirSync(dir);
+      assert.ok(!entries.some((entry) => entry.includes('.tmp.')), 'tmp is cleaned');
+      assert.ok(!entries.some((entry) => entry.endsWith('.lock')), 'lock is cleaned');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}

@@ -118,10 +118,16 @@ async function postAnswers(id, answers, capability) {
 }
 
 async function postDraft(id, answers, capability, revision) {
+  const body = JSON.stringify({ id, answers, capability, revision });
+  // Fetch keepalive lets a small in-flight draft survive page teardown in
+  // supporting browsers. Larger payloads retain the local replay mirror,
+  // because browsers commonly reject keepalive bodies above their quota.
+  const keepalive = body.length <= 60 * 1024;
   const r = await fetch('/draft', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, answers, capability, revision }),
+    body,
+    keepalive,
   });
   if (!r.ok) throw await responseError('/draft', r);
   return r.json();

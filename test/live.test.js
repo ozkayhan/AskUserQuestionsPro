@@ -3,7 +3,7 @@
 // timeout abort ve yeniden bağlanma backoff'u (jitter + tavan).
 const test = require('node:test');
 const assert = require('node:assert');
-const { postAnswers, cancelRound, reconnectDelay } = require('../web/live.js');
+const { postAnswers, postDraft, cancelRound, reconnectDelay } = require('../web/live.js');
 
 // fetch'i mock'la, t.after ile geri yükle (DOM/global kirliliği bırakma — Contract T ruhu).
 function withFetch(t, impl) {
@@ -29,6 +29,18 @@ test('postAnswers Contract R: body {id,answers,capability} gönderir ve JSON dö
   });
   assert.strictEqual(seen.hasSignal, true); // AbortController bağlı
   assert.deepStrictEqual(res, { ok: true });
+});
+
+test('postDraft küçük payload için unload-safe keepalive kullanır', async (t) => {
+  let seen;
+  withFetch(t, async (url, opts) => {
+    seen = { url, keepalive: opts.keepalive, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ ok: true, revision: 2 }) };
+  });
+  await postDraft(9, { Q: 'A' }, 'cap-9', 1);
+  assert.equal(seen.url, '/draft');
+  assert.equal(seen.keepalive, true);
+  assert.deepEqual(seen.body, { id: 9, answers: { Q: 'A' }, capability: 'cap-9', revision: 1 });
 });
 
 test('postAnswers HTTP !ok → err.server=true (sunucu hatası, kurtarılamaz)', async (t) => {
