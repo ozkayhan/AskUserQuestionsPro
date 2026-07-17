@@ -440,24 +440,46 @@ test('writeFileAtomic: başarılı yazımdan sonra kilit bırakılır (tekrar ya
   }
 });
 
-test('writeFileAtomic: bayat kilit (>10sn) devralınır', () => {
+test('writeFileAtomic: stale lock fails closed and is left for explicit recovery', () => {
   const { writeFileAtomic } = require('../lib/atomic-write.cjs');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-lock3-'));
   try {
     const file = path.join(dir, 'test.json');
     const lock = file + '.lock';
-    // A non-existent owner is recoverable; a merely old live owner is not.
+    // Stale ownership cannot be safely transferred with check-then-unlink.
     fs.writeFileSync(lock, '99999999:crashed-writer', { flag: 'wx' });
-    // mtime'ı 1 dakika geriye al → bayat say.
+    // Even an old, dead-owner lock remains untouched by an automatic writer.
     const old = Date.now() / 1000 - 60;
     fs.utimesSync(lock, old, old);
-    // Bayat kilit devralınmalı → yazım başarılı.
-    writeFileAtomic(file, '{"ok":true}');
-    assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).ok, true);
-    assert.ok(!fs.existsSync(lock), 'devralınan kilit yazım sonunda bırakılmalı');
+    assert.throws(() => writeFileAtomic(file, '{"ok":true}'), /concurrent write lock/);
+    assert.strictEqual(fs.readFileSync(lock, 'utf8'), '99999999:crashed-writer');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('writeFileAtomic: a contender never removes a newly acquired lock during stale takeover', () => {
+  const { acquireLock } = require('../lib/atomic-write.cjs');
+  const lock = '/virtual/round.json.lock';
+  let contents = '99999999:dead-owner';
+  let unlinked = false;
+  const fsImpl = {
+    writeFileSync(_path, _data, options) {
+      if (options.flag !== 'wx') throw new Error('unexpected write mode');
+      // This represents the interleaving that used to occur between token
+      // verification and unlink: a different writer now owns the pathname.
+      contents = 'new-owner';
+      const error = Object.assign(new Error('exists'), { code: 'EEXIST' });
+      throw error;
+    },
+    unlinkSync() {
+      unlinked = true;
+      contents = null;
+    },
+  };
+  assert.equal(acquireLock(lock, fsImpl), null);
+  assert.equal(unlinked, false);
+  assert.equal(contents, 'new-owner');
 });
 
 test('writeFileAtomic: old lock owned by a live writer is never reclaimed', () => {

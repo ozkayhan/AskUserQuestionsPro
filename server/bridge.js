@@ -81,7 +81,10 @@ class Bridge {
       resolve() {},
       reject() {},
       waiters: [],
-      detached: record.lifecycle.state === 'detached',
+      // A recovered browser round remains resumable until it reaches a terminal
+      // lifecycle. In particular, a restart can happen after /resume persisted
+      // `reconnecting`; treating that as host-owned would strand the browser.
+      detached: ['drafting', 'detached', 'reconnecting'].includes(record.lifecycle.state),
       detachTimer: null,
       record: record.lifecycle,
       durable: record,

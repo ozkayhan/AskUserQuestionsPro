@@ -53,6 +53,36 @@ test('Bridge hydrates one detached draft after restart with its durable identity
   owner.catch(() => {});
 });
 
+test('Bridge resumes a reconnecting browser round after a second bridge restart', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-reconnecting-restart-'));
+  const first = new Bridge({ store: new RoundStore({ root }), detachedTtlMs: 1000 });
+  const owner = first.submitQuestions([{ question: 'resume twice' }], 'resume-twice');
+  const original = first.peek('resume-twice');
+  assert.equal(first.detach('host disconnected', original.id, original.capability), true);
+
+  const resumedOnce = new Bridge({ store: new RoundStore({ root }), detachedTtlMs: 1000 });
+  const firstResume = resumedOnce.waitForAnswers({
+    requestId: 'resume-twice',
+    roundId: original.roundId,
+  });
+  assert.equal(resumedOnce.peek('resume-twice').lifecycle.state, 'reconnecting');
+
+  const restartedAgain = new Bridge({ store: new RoundStore({ root }), detachedTtlMs: 1000 });
+  const recovered = restartedAgain.peek('resume-twice');
+  assert.equal(recovered.lifecycle.state, 'reconnecting');
+  const secondResume = restartedAgain.waitForAnswers({
+    requestId: 'resume-twice',
+    roundId: original.roundId,
+  });
+  assert.equal(
+    restartedAgain.provideAnswers(recovered.id, { 'resume twice': 'A' }, recovered.capability),
+    true
+  );
+  assert.deepEqual(await secondResume.promise, { 'resume twice': 'A' });
+  firstResume.cancel();
+  owner.catch(() => {});
+});
+
 test('Bridge draft saves are capability/revision guarded, idempotent, and reloadable', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-draft-'));
   const bridge = new Bridge({ store: new RoundStore({ root }) });

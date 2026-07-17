@@ -24,11 +24,13 @@ stat -f '%Lp' "$EVIDENCE_XDG/askuserquestionspro/rounds/<opaque-round>.json"
 ```
 
 The focused suites cover normal atomic write/reload behavior, an ordinary
-unwritable-target cleanup path, stale/dead versus stale/live lock ownership,
+unwritable-target cleanup path, fail-closed stale/live lock ownership and a
+deterministic contender interleaving that leaves a newly acquired lock intact,
 individual corrupt-sibling quarantine, startup expiry cleanup, existing
 directory permission tightening, exact selection, immutable result replay,
-idempotent draft saves, and a real HTTP-server restart that hydrates a detached
-draft for `/current` and `/resume`. They do not inject write, sync, close,
+idempotent immediate draft saves across an edit/unmount/reload boundary, and
+repeated bridge restart recovery from detached through reconnecting `/resume`.
+They do not inject write, sync, close,
 rename, or directory-creation failures. The observed store-directory mode was
 `700`; the snapshot-file mode was `600`.
 

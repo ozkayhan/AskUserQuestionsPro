@@ -1,4 +1,4 @@
-/* global React, ReactDOM, AnswerMap, useLiveQuestions, postAnswers, postDraft, fullOptions,
+/* global React, ReactDOM, AnswerMap, DraftWriter, useLiveQuestions, postAnswers, postDraft, fullOptions,
    Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary,
    SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
@@ -55,7 +55,21 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
     return draftAnswers && typeof draftAnswers === 'object' ? { ...a, ...draftAnswers } : a;
   });
   const draftRevision = useRef(revision);
-  const draftTimer = useRef(null);
+  const draftWriter = useRef(null);
+  const draftWriterKey = `${roundId}:${capability || ''}`;
+  if (draftWriter.current?.key !== draftWriterKey) {
+    draftWriter.current = {
+      key: draftWriterKey,
+      writer: DraftWriter.createDraftWriter({
+        save: (draft, expectedRevision) => postDraft(roundId, draft, capability, expectedRevision),
+        getRevision: () => draftRevision.current,
+        setRevision: (nextRevision) => {
+          draftRevision.current = nextRevision;
+        },
+      }),
+    };
+  }
+  const draftReady = useRef(false);
   useEffect(() => {
     if (Number.isInteger(revision)) draftRevision.current = revision;
   }, [revision]);
@@ -65,16 +79,14 @@ function Flow({ questions, roundId, capability, revision, draftAnswers }) {
   const [submitted, setSubmitted] = useState(false);
   useEffect(() => {
     if (!Number.isInteger(draftRevision.current) || !capability || submitted) return undefined;
-    clearTimeout(draftTimer.current);
-    const draft = answers;
-    draftTimer.current = setTimeout(() => {
-      postDraft(roundId, draft, capability, draftRevision.current)
-        .then((saved) => {
-          if (Number.isInteger(saved.revision)) draftRevision.current = saved.revision;
-        })
-        .catch(() => {}); // The final submission remains authoritative; SSE will retry on the next edit.
-    }, 250);
-    return () => clearTimeout(draftTimer.current);
+    // Initial hydration is already durable. Every later material edit starts a
+    // save immediately and is deliberately not cancelled on unmount/reload.
+    if (!draftReady.current) {
+      draftReady.current = true;
+      return undefined;
+    }
+    draftWriter.current.writer.write(answers);
+    return undefined;
   }, [answers, capability, roundId, submitted]);
   // sendError: null | 'network' | 'server' | 'stale' (yalnızca network retry edilebilir).
   const [sendError, setSendError] = useState(null);
