@@ -211,7 +211,8 @@ function serveStatic(req, res) {
 }
 
 function sendIndex(res, baseHtml) {
-  const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(readSettings())}</script>`;
+  const legacy = Settings.read();
+  const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(legacy)}</script><script>window.__ASKUSER_SETTINGS_V2__=${JSON.stringify(readSettings())}</script>`;
   const html = baseHtml.replace('</head>', tag + '</head>');
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end(html);

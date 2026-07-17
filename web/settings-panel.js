@@ -4,9 +4,21 @@
 const { useState: useStateSet, useEffect: useEffectSet, useRef: useRefSet } = React;
 
 function currentSettings() {
-  return (
-    (typeof window !== 'undefined' && window.__ASKUSER_SETTINGS__) || Settings_Schema.defaults()
-  );
+  const value = typeof window !== 'undefined' && (window.__ASKUSER_SETTINGS_V2__ || window.__ASKUSER_SETTINGS__);
+  if (value && value._v === 2 && value.browser) {
+    return Object.assign({}, Settings_Schema.defaults(), value.browser, {
+      qtypeBinary: value.browser.questionTypes.binary,
+      qtypeScale: value.browser.questionTypes.scale,
+      qtypeRanking: value.browser.questionTypes.ranking,
+      qtypeTree: value.browser.questionTypes.tree,
+      autoAdvance: value.browser.behavior.autoAdvance,
+      confirmSubmit: value.browser.behavior.confirmSubmit,
+      showKeyHints: value.browser.interface.showKeyHints,
+      showCounter: value.browser.interface.showCounter,
+      focusMode: value.browser.interface.focusMode,
+    });
+  }
+  return value || Settings_Schema.defaults();
 }
 
 /* Sol-alt sabit ayar (dişli) butonu — her ekranda görünür. */
@@ -165,7 +177,9 @@ function SettingsModal({ onClose }) {
         if (e.target === e.currentTarget) cancel();
       }}
     >
-      <div className="settings">
+      <div className="settings" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description">
+        <h2 id="settings-title" className="sr-only">Settings</h2>
+        <p id="settings-description" className="sr-only">Review and save your AskUserQuestionsPro settings.</p>
         <div className="settings__chip">Settings</div>
         {groups.map((g) => (
           <div key={g} className="settings__group">
