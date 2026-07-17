@@ -4,15 +4,15 @@ milestone: v1.1
 milestone_name: Sprint 2
 current_phase: 10
 current_phase_name: Settings v2
-status: planning
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-07-17T13:57:44.831Z"
+status: verifying
+stopped_at: Completed 10-04-GAP-PLAN.md
+last_updated: "2026-07-17T14:19:01.179Z"
 last_activity: 2026-07-17
-last_activity_desc: Phase 9 complete, transitioned to Phase 10
+last_activity_desc: Phase 10 Settings v2 execution complete
 progress:
   total_phases: 3
-  completed_phases: 3
-  total_plans: 12
+  completed_phases: 2
+  total_plans: 13
   completed_plans: 12
 ---
 
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 10 of 13 (Settings v2)
 Plan: 3 of 3 (10-03-PLAN.md)
-Status: Complete
+Status: Phase complete — ready for verification
 Last activity: 2026-07-17 — Phase 10 Settings v2 execution complete
 
-Progress: [██████████] 100%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100%
 | Phase 09 P03 | 1m | 2 tasks | 6 files |
 | Phase 09 P04 | 1m | 2 tasks | 3 files |
 | Phase 10 P3 | 26m | 6 tasks | 15 files |
+| Phase 10 P04 | 35m | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 9]: Durable per-round snapshots use private modes, per-record quarantine, and detached-TTL-derived retention.
 - [Phase ?]: Settings v2 keeps flat v1 wrappers while introducing a complete versioned envelope and revision-aware CAS APIs.
 - [Phase ?]: Preview operations are in-memory, bounded, one-time, and revision checked.
+- [Phase ?]: Legacy settings migration uses an exclusive fsynced deterministic sibling backup and preserves source bytes on all failure paths.
+- [Phase ?]: Import apply validates preview token, exact payload, and baseline revision before CAS persistence; doctor emits an allowlisted redacted projection.
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-17T13:57:44.822Z
-Stopped at: Completed 10-03-PLAN.md
+Last session: 2026-07-17T14:18:53.374Z
+Stopped at: Completed 10-04-GAP-PLAN.md
 Resume file: None
