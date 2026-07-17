@@ -8,6 +8,31 @@ const assert = require('node:assert');
 // settings-schema.js is a UMD module that requires themes.js.
 const Schema = require('../web/settings-schema.js');
 
+test('v2 envelope exposes exact namespaces and bounded matrix metadata', () => {
+  assert.deepStrictEqual(Object.keys(Schema.envelopeDefaults()), ['_v', 'browser', 'recovery', 'autosave', 'diagnostics', 'delivery', 'closure', 'adapters']);
+  assert.strictEqual(Schema.envelopeDefaults()._v, 2);
+  for (const field of Schema.matrix()) {
+    assert.ok(field.path && field.type && 'default' in field && field.effect && field.owner);
+    assert.strictEqual(field.sensitive, false);
+  }
+});
+
+test('v2 migration maps legacy keys and rejects future versions', () => {
+  const migrated = Schema.inspectEnvelope({ _v: 1, theme: 'paper', qtypeBinary: false, autoAdvance: true });
+  assert.strictEqual(migrated.status, 'legacy');
+  assert.strictEqual(migrated.envelope.browser.theme, 'paper');
+  assert.strictEqual(migrated.envelope.browser.questionTypes.binary, false);
+  assert.strictEqual(migrated.envelope.browser.behavior.autoAdvance, true);
+  assert.strictEqual(Schema.inspectEnvelope({ _v: 99 }).status, 'unsupported-future');
+});
+
+test('v2 validation applies bounds and ignores unknown values', () => {
+  const result = Schema.validateEnvelope({ _v: 2, recovery: { retentionMs: 1 }, autosave: { debounceMs: 999999 }, diagnostics: { enabled: true } });
+  assert.strictEqual(result.recovery.retentionMs, 3600000);
+  assert.strictEqual(result.autosave.debounceMs, 750);
+  assert.strictEqual(result.diagnostics.enabled, true);
+});
+
 // ── applyAll: console.warn on browser-side apply() error ─────────────────────
 // Finding [LOW] web/settings-schema.js:168-172: catch was empty; browser apply
 // failures were silently swallowed. Fix: console.warn when typeof document !== 'undefined'.
