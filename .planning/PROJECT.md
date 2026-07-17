@@ -1,27 +1,36 @@
-# AskUserQuestionsPro Reliability and Documentation Overhaul
+# AskUserQuestionsPro Reliability, Extensibility, and Productization
 
 ## What This Is
 
-AskUserQuestionsPro is a local browser-based question interface that replaces cramped terminal prompts for Claude Code and Codex. Host adapters submit a question round to a single-user localhost bridge, the browser collects rich answers, and the result is returned to the originating host. This milestone hardens the whole system, with special focus on long-running rounds that currently close unexpectedly in Codex and may also fail in Claude Code.
+AskUserQuestionsPro is a local browser-based question interface that replaces cramped terminal prompts for AI coding agents and IDEs. Host adapters submit a question round to a single-user localhost bridge, the browser collects rich answers, and the result is returned to the originating host. The product is evolving from a reliable Claude Code/Codex integration into a durable, configurable, adapter-driven question platform that can be safely extended to new AI coding hosts.
+
+## Current Milestone: v1.1 Sprint 2
+
+**Goal:** Make the product feel complete and production-ready for a broad Product Hunt audience: no lost work during long rounds, a substantially more capable settings system, and a rigorously researched workflow for supporting every compatible AI coding IDE/agent.
+
+**Target features:**
+
+- Durable answer drafts, recovery, resume, and delivery confirmation so browser/host interruptions cannot discard completed work.
+- An explicit no-surprise lifecycle contract covering timeout ownership, reconnects, cancellation, browser selection, and safe post-submit tab closure.
+- A redesigned, extensible settings system with comprehensive user controls, validation, persistence, migration, and reliable UI behavior.
+- A documented adapter capability model and repeatable evidence-based onboarding workflow for new AI coding IDEs/agents.
+- Research-backed integrations for the broadest practical set of AI coding IDEs/agents, with clear unsupported-status explanations where a host cannot safely integrate.
+- Cross-host compatibility, reliability, accessibility, packaging, and release verification suitable for public launch.
 
 ## Current State
 
 Milestone v1.0.0 shipped on 2026-07-16 and is archived. Codex detach/resume, bridge ownership, browser recovery, packaging, and documentation contracts are implemented and verified. The current checkout passes 397 tests, lint, and formatting checks. A full authenticated Claude model-session acceptance run remains a manual follow-up because the local CLI was unauthenticated during verification.
 
-## Next Milestone Goals
-
-Start with `$gsd-new-milestone` to define the next scope. Candidate v2 work includes durable resumable tickets, cross-process resume semantics, and any product expansion that deliberately changes the local single-user model.
-
 ## Core Value
 
-Users must be able to complete a long, multi-question round at their own pace without the bridge, browser, or host integration timing out or losing their answers.
+Users must be able to complete and safely deliver a long, multi-question round at their own pace without losing answers, regardless of which supported AI coding host initiated it.
 
 ## Business Context
 
 - **Customer**: Developers using Claude Code, Codex, and compatible MCP clients
 - **Revenue model**: Open-source/npm-distributed developer tool
-- **Success metric**: Long rounds complete reliably across supported hosts, with no unexplained early timeout or lost answer
-- **Strategy notes**: Reliability and maintainability are the priority before adding new product capabilities
+- **Success metric**: Public users complete long rounds across supported hosts with zero unexplained early closures or lost answers, and new host adapters can be added from documented evidence without bespoke guesswork
+- **Strategy notes**: Quality, reliability, and maintainability take priority over breadth claims; unsupported hosts must be reported honestly
 
 ## Requirements
 
@@ -36,31 +45,32 @@ Users must be able to complete a long, multi-question round at their own pace wi
 - ✓ Lifecycle events can correlate round boundaries and terminal reasons without logging question/answer payloads — Phase 1
 - ✓ Automated coverage protects 15-question idle rounds and delayed stale-owner close behavior — Phase 1
 
-### Active (historical v1 scope)
+### Active
 
-- [ ] Identify and eliminate the root cause of premature timeout/closure during long question rounds in Codex.
-- [ ] Determine whether the same failure exists in Claude Code and harden both host paths against equivalent lifecycle, transport, abort, and disconnect failures.
-- [ ] Make timeout ownership and cancellation semantics explicit and observable across host adapters, bridge client, HTTP server, SSE, browser, and MCP.
-- [ ] Audit and refactor all major layers: bridge/server coordination, browser state and accessibility, host integrations/installers/CLI, tests, packaging, and release workflow.
-- [ ] Preserve the single-user localhost safety model, supported host compatibility, Node.js 18+ support, and zero-runtime-dependency invariant unless a deliberate decision changes them.
-- [ ] Establish deterministic regression coverage for long rounds, idle user time, at least 15 questions, host disconnects, browser reconnects, cancellation, and stale rounds.
-- [ ] Reorganize project documentation into a coherent maintained set with reliable names, indexes, and cross-links.
-- [ ] Extract still-valid architecture decisions, constraints, and actionable findings from old plans/audits into current documentation.
-- [ ] Archive or remove obsolete, duplicated, misleading, or empty planning documents after their durable knowledge has been recovered.
-- [ ] Keep README, API/backend/frontend/testing/architecture documentation, release metadata, and implementation behavior consistent.
+- [ ] Preserve every answer draft through browser refresh, reconnect, accidental closure, host disconnect, process restart, and resumable recovery within the supported retention window.
+- [ ] Ensure every boundary has explicit timeout/cancellation semantics; eliminate avoidable timeouts and provide safe recovery when an unavoidable host deadline exists.
+- [ ] Verify delivery end to end before marking a round complete or closing its browser tab.
+- [ ] Rebuild settings as a validated, extensible system with broad controls, durable persistence, migrations, reset/export/import behavior, and regression coverage.
+- [ ] Define an adapter contract and IDE-support workflow covering official documentation research, capability discovery, installation/manual verification, compatibility tests, security review, and release evidence.
+- [ ] Support every AI coding IDE/agent that can integrate safely with the local product, prioritizing the most widely used hosts discovered by research and explicitly documenting non-integrable hosts.
+- [ ] Make browser-launch selection, lifecycle UX, reconnect/recovery states, and post-submit tab cleanup configurable and reliable.
+- [ ] Preserve accessible question flows, supported platforms, Node.js 18+, localhost-only safety, zero runtime dependencies, and packaging compatibility unless a documented decision changes them.
+- [ ] Publish maintained documentation for settings, recovery, adapter onboarding, compatibility status, troubleshooting, and release verification.
 
 ### Out of Scope
 
 - A remote multi-user service, authentication system, database, or cloud persistence — the current product is intentionally a local single-user bridge.
-- New question types or major product features unrelated to reliability and maintainability — stabilize the existing contract first.
-- Replacing the zero-build, vendored-browser-asset distribution model without evidence that it is required to solve the reliability problem.
-- Deleting historical documents solely because they are old — historical material is retained when it contains a decision, finding, or rationale that cannot be reconstructed safely.
+- Claiming support for a host whose documented or tested integration surface cannot safely preserve the product’s lifecycle and delivery guarantees — it receives an explicit unsupported explanation instead.
+- Replacing the zero-build, vendored-browser-asset distribution model unless research demonstrates it is required for a specific supported-host capability.
+- New question types unrelated to reliability, configurability, or host extensibility — the existing question contract remains the compatibility baseline.
+- Deleting historical documents solely because they are old — durable rationale and evidence must be preserved before cleanup.
 
 ## Context
 
-- The codebase is brownfield and already has a codebase map under `.planning/codebase/`.
+- The codebase is brownfield and already has a codebase map under `.planning/codebase/`; v1.0.0 shipped on 2026-07-16 with 397 tests, lint, and formatting passing.
 - The current architecture is a local single-process bridge: Claude hook and MCP adapters share `lib/bridge-client.mjs`; `server/bridge.js` owns a single pending round; `server/server.js` exposes localhost HTTP/SSE; the browser owns transient answer state.
-- The observed failure is in Codex: while a user is answering a long round (for example, around question four of fifteen), the browser closes after an uncertain but possibly approximately five-minute interval. The user does not see a useful diagnostic message. Claude Code behavior is currently unknown and must be tested rather than assumed.
+- v1.0.0 added detach/resume and browser recovery, but the next milestone must turn those mechanisms into durable, user-visible guarantees rather than relying on transient process memory alone.
+- The target audience may include large numbers of Product Hunt users, so settings migrations, compatibility claims, recovery semantics, installer behavior, and documentation must be treated as public product contracts.
 - Current code comments and tests indicate a one-hour client-side round timeout and `server.requestTimeout = 0`; a five-minute host/process/transport deadline, disconnect, abort propagation issue, or another lifecycle boundary therefore remains a leading hypothesis.
 - Existing documents include maintained architecture/API/frontend/backend/testing references and an older `docs/old/` collection containing audit reports, plans, and historical decisions. The documentation work must recover durable knowledge before cleanup.
 - Known fragile areas include round identity and single-flight coordination, module-load environment handling, browser state transitions, installer trust boundaries, mixed CommonJS/ESM modules, and release metadata drift.
@@ -73,6 +83,7 @@ Users must be able to complete a long, multi-question round at their own pace wi
 - **Safety**: Keep the bridge bound to `127.0.0.1` and unauthenticated only within that local single-user model — exposing it remotely would change the threat model.
 - **Verification**: Every reliability change must have automated regression coverage and, where it crosses the browser/host boundary, a manual or integration-level verification path.
 - **Documentation**: Preserve meaningful historical rationale and architecture decisions while removing stale duplication — cleanup must not erase project knowledge.
+- **Quality**: Research official host documentation and install/test each candidate integration where feasible; do not infer compatibility from branding or protocol similarity alone.
 
 ## Key Decisions
 
@@ -85,6 +96,9 @@ Users must be able to complete a long, multi-question round at their own pace wi
 | Make timeout/cancellation ownership explicit across boundaries                | A timeout reported by the browser may originate in the host, HTTP request, process, or bridge | — Pending |
 | Use existing plans/audits as evidence, not as unquestioned scope              | Old documents may contain valuable decisions mixed with stale or duplicate work               | — Pending |
 | Retain the local single-user, zero-runtime-dependency architecture by default | These are established product constraints and should only change with explicit evidence       | — Pending |
+| Treat host integrations as capability adapters with evidence gates            | Different AI coding hosts expose different lifecycle, transport, and installation contracts  | — Pending |
+| Prefer durable local recovery over optimistic timeout removal                  | A host or OS boundary can remain outside the bridge’s control; user work must still survive   | — Pending |
+| Make settings schema/versioning a public contract                              | A larger user base makes silent reset or migration failure unacceptable                       | — Pending |
 
 ## Evolution
 
@@ -107,4 +121,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-07-17 after v1.0.0 completion_
+_Last updated: 2026-07-17 after v1.1 Sprint 2 scope approval_
