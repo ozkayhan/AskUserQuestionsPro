@@ -17,6 +17,7 @@ const { RoundStore } = require('../lib/round-store.cjs');
 let base;
 test.before(async () => {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  assert.equal(server.address().address, '127.0.0.1');
   base = `http://127.0.0.1:${server.address().port}`;
 });
 test.after(async () => {

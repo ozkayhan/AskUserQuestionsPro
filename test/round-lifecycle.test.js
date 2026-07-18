@@ -124,6 +124,41 @@ test('lifecycle diagnostics allowlist boundary and deadline owner without payloa
   assert.equal(JSON.stringify(seen).includes('secret'), false);
 });
 
+test('lifecycle redaction drops nested unknown values, secrets, commands, and paths', () => {
+  const seen = [];
+  const lifecycle = createLifecycle({
+    adapter: 'mcp',
+    requestId: 'opaque-request',
+    roundId: 9,
+    logger: (_scope, detail) => seen.push(JSON.parse(detail)),
+  });
+
+  lifecycle.event('host_detached', {
+    boundary: 'stdio',
+    deadlineOwner: 'transport',
+    nested: {
+      question: 'synthetic-question',
+      answer: 'synthetic-answer',
+      token: 'synthetic-token',
+      secret: 'synthetic-secret',
+      command: 'rm -rf /tmp/unrelated',
+      path: '/Users/example/private/settings.json',
+    },
+  });
+
+  assert.deepEqual(seen[1], {
+    event: 'host_detached',
+    adapter: 'mcp',
+    requestId: 'opaque-request',
+    roundId: 9,
+    pid: process.pid,
+    elapsedMs: 0,
+    boundary: 'stdio',
+    deadlineOwner: 'transport',
+  });
+  assert.doesNotMatch(JSON.stringify(seen), /synthetic-|rm -rf|\/Users\/example/);
+});
+
 test('lifecycle records delivery uncertainty without answer payloads', () => {
   const seen = [];
   const lifecycle = createLifecycle({ logger: (_scope, detail) => seen.push(JSON.parse(detail)) });
