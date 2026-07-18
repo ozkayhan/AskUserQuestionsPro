@@ -63,6 +63,6 @@ test('published evidence corpus is redacted', () => {
   roots.forEach(visit);
   for (const file of files) {
     const raw = fs.readFileSync(file, 'utf8');
-    assert.doesNotMatch(raw, /synthetic-(question|answer)|password|secret|token\s*[:=]|(?:^|[\s(])(?:\/Users\/oka|\/home\/[^\/\s]+)/i, file);
+    assert.doesNotMatch(raw, /synthetic-(question|answer)|password|secret|token\s*[:=]|(?:^|[\s(])(?:\/Users\/oka|\/home\/[^/\s]+)/i, file);
   }
 });

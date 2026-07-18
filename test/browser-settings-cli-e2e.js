@@ -33,7 +33,7 @@ async function main() {
   server.stderr.on('data', (chunk) => { stderr += chunk; });
   try {
     for (let i = 0; i < 40; i += 1) {
-      try { if ((await fetch(`http://127.0.0.1:${port}/health`)).ok) break; } catch {}
+      try { if ((await fetch(`http://127.0.0.1:${port}/health`)).ok) break; } catch (error) { /* server is still starting */ }
       await new Promise((resolve) => setTimeout(resolve, 50));
       if (i === 39) throw new Error(`server did not start: ${stderr}`);
     }
@@ -73,9 +73,9 @@ async function main() {
     cli('close');
     fs.writeFileSync(logPath, `${commands.join('\n')}\n\nASSERTIONS: PASS\n`);
   } catch (error) {
-    try { cli('screenshot', path.join(shotDir, 'failure.png')); } catch {}
+    try { cli('screenshot', path.join(shotDir, 'failure.png')); } catch (error) { /* preserve the original failure */ }
     fs.writeFileSync(logPath, `${commands.join('\n')}\n\nASSERTIONS: FAIL\n${error.stack}\n`);
     throw error;
-  } finally { try { cli('close'); } catch {} server.kill(); fs.rmSync(config, { recursive: true, force: true }); }
+  } finally { try { cli('close'); } catch (error) { /* session cleanup is best effort */ } server.kill(); fs.rmSync(config, { recursive: true, force: true }); }
 }
 main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
