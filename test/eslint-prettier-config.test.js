@@ -64,10 +64,63 @@ describe('ESLint + Prettier kurulumu', () => {
     }
   });
 
+  it('format:check maintained scope is explicit and covers application roots', () => {
+    const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+    const script = pkg.scripts?.['format:check'];
+    for (const scope of [
+      'bin',
+      'hooks',
+      'lib',
+      'mcp-server',
+      'server',
+      'test',
+      'web',
+      'docs',
+      'package.json',
+      'eslint.config.js',
+      '.prettierrc.json',
+      'README.md',
+      '*.sh',
+    ]) {
+      assert.match(script, new RegExp(`(?:^|\\s)${scope.replace('.', '\\.')}(?:\\s|$)`));
+    }
+    assert.doesNotMatch(script, /\.github/);
+  });
+
+  it('format policy documents intentional vendor, generated, and historical exclusions', () => {
+    const ignore = readFileSync(path.join(root, '.prettierignore'), 'utf8');
+    for (const pattern of [
+      'web/vendor',
+      'node_modules',
+      'package-lock.json',
+      '.context',
+      '.codex',
+      '.omo',
+      '.planning/research/.cache',
+      '.planning/phases',
+      '.planning/debug',
+      '.planning/milestones',
+      'docs/archive',
+    ]) {
+      assert.match(ignore, new RegExp(pattern.replace(/[./]/g, '\\$&')), `${pattern} exclusion missing`);
+    }
+    for (const sourceRoot of ['bin', 'hooks', 'lib', 'mcp-server', 'server', 'test', 'web']) {
+      assert.doesNotMatch(ignore, new RegExp(`^${sourceRoot}/\\*\\*`, 'm'), `${sourceRoot} must remain covered`);
+    }
+    assert.match(ignore, /\.github.*outside|outside.*\.github|\.github.*non-Prettier/i);
+  });
+
+  it('format policy keeps workflow YAML as a separately tested non-Prettier surface', () => {
+    const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+    const ignore = readFileSync(path.join(root, '.prettierignore'), 'utf8');
+    assert.doesNotMatch(pkg.scripts?.['format:check'], /\.github/);
+    assert.match(ignore, /\.github.*non-Prettier|non-Prettier.*\.github/i);
+  });
+
   it('package.json scripts: lint, format, format:check', () => {
     const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
     assert.equal(pkg.scripts?.lint, 'eslint .');
     assert.equal(pkg.scripts?.format, 'prettier --write .');
-    assert.equal(pkg.scripts?.['format:check'], 'prettier --check .');
+    assert.match(pkg.scripts?.['format:check'], /^prettier --check /);
   });
 });
