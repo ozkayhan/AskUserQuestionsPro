@@ -4,17 +4,17 @@ milestone: v1.1.1
 milestone_name: Release Hardening
 current_phase: 14
 current_phase_name: Static Quality & Reproducibility
-status: executing
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-07-18T10:31:52.225Z"
+status: verifying
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-07-18T10:40:14.445Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 14 execution started
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 17
 ---
 
 # Project State
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 
 Phase: 14 (Static Quality & Reproducibility) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-18 — Phase 14 execution started
 
 ## Performance Metrics
@@ -65,6 +65,7 @@ Last activity: 2026-07-18 — Phase 14 execution started
 | Phase 11 P3 | 30m | 6 tasks | 12 files |
 | Phase 12 P4 | 30 | 8 tasks | 12 files |
 | Phase 14 P01 | 9m | 2 tasks | 5 files |
+| Phase 14 P02 | 22m | 2 tasks | 70 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 12 uses local Node fake-host and integration evidence; authenticated Claude/Codex rows remain unavailable until version-pinned manual runs.
 - [Phase ?]: Phase 14 Plan 01 removed pure unused policy reads and kept policy consumers in the owning bridge flow.
 - [Phase ?]: Phase 14 Plan 01 used globalThis at Playwright page-evaluation boundaries to preserve no-undef.
+- [Phase ?]: Plan 14-02 uses explicit maintained Prettier roots with documented vendor, historical, generated, and workflow exclusions.
+- [Phase ?]: Plan 14-02 records Node 22 locally and hands Node 18/20 evidence to the existing CI matrix.
 
 ### Pending Todos
 
@@ -106,8 +109,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-18T10:31:52.220Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-07-18T10:40:14.438Z
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

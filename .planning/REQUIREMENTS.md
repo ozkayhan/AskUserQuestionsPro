@@ -9,8 +9,8 @@
 ### Static Quality and Reproducibility
 
 - [x] **QUAL-01**: `npm run lint` completes with zero errors using the declared development toolchain.
-- [ ] **QUAL-02**: `npm run format:check` completes with zero differences under an explicit, reviewable scope that does not hide application source.
-- [ ] **QUAL-03**: A clean `npm ci` install on the supported Node baseline reproduces the test, lint, format, package, and audit command entry points without adding production dependencies.
+- [x] **QUAL-02**: `npm run format:check` completes with zero differences under an explicit, reviewable scope that does not hide application source.
+- [x] **QUAL-03**: A clean `npm ci` install on the supported Node baseline reproduces the test, lint, format, package, and audit command entry points without adding production dependencies.
 
 ### Browser and UAT Confidence
 
@@ -54,8 +54,8 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | QUAL-01 | Phase 14 | Complete |
-| QUAL-02 | Phase 14 | Pending |
-| QUAL-03 | Phase 14 | Pending |
+| QUAL-02 | Phase 14 | Complete |
+| QUAL-03 | Phase 14 | Complete |
 | UI-01 | Phase 15 | Pending |
 | UI-02 | Phase 15 | Pending |
 | UAT-01 | Phase 16 | Pending |
