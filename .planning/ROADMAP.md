@@ -117,7 +117,7 @@ Plans:
   3. Historical v1.0.0/v1.1 rationale and archived evidence remain discoverable; cleanup removes duplication only where the source of truth is preserved.
   4. Windows and authenticated Claude/Codex work are explicitly labeled external handoff and are not presented as completed evidence.
 
-**Plans**: 1/3 plans executed
+**Plans**: 2/3 plans executed
 
 Plans:
 
