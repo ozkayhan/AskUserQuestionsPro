@@ -1,15 +1,15 @@
 # AskUserQuestionsPro Reliability, Extensibility, and Productization
 
-## Current Milestone: v1.1.1 Release Hardening (prepared)
+## Current Milestone: v1.2 Multilingual, Responsive, and Branching Question Experience
 
-**Goal:** Release the hardened v1.1 checkout through the repository's authenticated Changesets workflow while keeping unavailable external evidence explicit.
+**Goal:** Make question rounds usable in the user's language, responsive across devices, visually refreshed, and expressive enough for host-defined story metadata and conditional question trees.
 
 **Target features:**
 
-- Clean ESLint and Prettier gates without broad unreviewed formatting churn.
-- Browser-based visual/accessibility review for settings, recovery, and delivery flows.
-- Reconciled UAT, security, documentation, packaging, and release evidence.
-- Explicit handoff records for unavailable Windows and authenticated Claude/Codex validation.
+- Localized browser UI labels, controls, question text, and answer presentation without changing the English structured host contract or skill metadata.
+- A responsive visual redesign with refreshed tokens, typography, layout, settings presentation, and accessibility-preserving interaction behavior.
+- Visible story-type metadata, architecture pros/cons capture, and an explicit agent-decision answer option.
+- A declarative, host-provided question tree whose answers can control later question visibility and option sets while keeping AI out of the browser UI.
 
 ## What This Is
 
@@ -68,9 +68,12 @@ Users must be able to complete and safely deliver a long, multi-question round a
 - ✓ Preserve accessibility, Node.js 18+, localhost-only safety, zero production dependencies, and packaging compatibility — Phases 8–13.
 - ✓ Publish maintained settings, recovery, adapter, compatibility, troubleshooting, privacy, and release documentation — Phases 10–13.
 
-### Next Milestone Goals
+### Active in v1.2
 
-After v1.1.1 publication, consume the archived evidence handoff for authenticated Claude/Codex runs, native Linux/Windows runs, and remaining browser/AT scenarios before promoting additional hosts or claiming broader platform support.
+- Support user-facing browser UI and question content in the user's selected or detected language, with a safe fallback and no localization of structured internal metadata.
+- Refresh the browser design system and responsive layouts while preserving current round lifecycle, settings, recovery, delivery, and host integration behavior.
+- Render a story type for every question, support architecture-specific pros/cons capture, and let the agent provide a clearly labeled decision option.
+- Represent the full conditional question tree in the host-provided round contract so answers can gate questions and option sets without browser-side AI or hidden network calls.
 
 ### Out of Scope
 
@@ -136,4 +139,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-07-18 after v1.1.1 release-hardening closeout_
+_Last updated: 2026-07-18 after v1.2 milestone definition_

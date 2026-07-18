@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1.1
-milestone_name: Release Hardening
-current_phase: none
-current_phase_name: Final Release Readiness & Ship Gates
-status: milestone_complete
-stopped_at: v1.1.1 release-hardening archive — publication delegated to Changesets workflow
-last_updated: "2026-07-18T15:10:00.000Z"
+milestone: v1.2
+milestone_name: Multilingual, Responsive, and Branching Question Experience
+status: planning
+last_updated: "2026-07-18T17:20:22.944Z"
 last_activity: 2026-07-18
-last_activity_desc: Phase 18 documentation and release evidence sync completed
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 
 ## Current Position
 
-Phase: v1.1.1 milestone closed with override closeout
-Plan: Release preparation complete; generated Version Packages PR remains post-merge
-Status: All locally executable gates pass. External validation and npm publication remain explicit handoffs.
-Last activity: 2026-07-18 — v1.1.1 release-hardening archive prepared
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-18 — Milestone v1.2 started
 
 ## Performance Metrics
 
