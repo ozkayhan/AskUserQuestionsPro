@@ -63,9 +63,10 @@
 
 | Requirement | Phase | Evidence |
 |---|---:|---|
-| LOC-01–LOC-06 | TBD | TBD |
-| UX-01–UX-05 | TBD | TBD |
-| STORY-01–STORY-04 | TBD | TBD |
-| TREE-01–TREE-07 | TBD | TBD |
-| COMPAT-01–COMPAT-02 | TBD | TBD |
-| VERIFY-01–VERIFY-02 | TBD | TBD |
+| LOC-01–LOC-05 | 20 | Locale/host contract fixtures and skill guidance |
+| STORY-01–STORY-04 | 21 | Story contract, answer-map tests, and UI fixtures |
+| TREE-01–TREE-06 | 21 | Tree schema, deterministic evaluator, and validation tests |
+| UX-01–UX-04 | 22 | Token source, responsive browser evidence, accessibility tests |
+| LOC-06 | 23 | Multilingual/RTL/long-content browser evidence |
+| TREE-07 | 23 | Expanded-tree host fixtures and language guidance |
+| UX-05, COMPAT-01–02, VERIFY-01–02 | 24 | Audit report, integration run, regression suite, and release gates |

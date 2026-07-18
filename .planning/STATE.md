@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Users must be able to complete and safely deliver a long, multi-question round without losing answers, regardless of which supported AI coding host initiated it.
-**Current focus:** Phase 19 — Final Release Readiness & Ship Gates
+**Current focus:** Phase 20 — Language and Presentation Contract Foundations
 
 ## Current Position
 
 Phase: Not started (defining requirements)
 Plan: —
 Status: Defining requirements
-Last activity: 2026-07-18 — Milestone v1.2 started
+Last activity: 2026-07-18 — v1.2 requirements and roadmap defined
 
 ## Performance Metrics
 

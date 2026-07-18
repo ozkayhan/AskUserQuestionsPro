@@ -1,5 +1,13 @@
 # Milestones
 
+## v1.2 Multilingual, Responsive, and Branching Question Experience (Started: 2026-07-18)
+
+**Goal:** Make the browser question experience usable in the user’s language, responsive and visually refreshed, and able to render host-defined story metadata and conditional question trees without browser-side AI.
+
+**Planned phases:** 20–24
+
+**Scope boundaries:** Structured English metadata, Claude/Codex/MCP host contracts, localhost-only bridge behavior, existing lifecycle semantics, and zero-production-dependency packaging remain stable.
+
 ## v1.1.1 Release Hardening (Prepared: 2026-07-18)
 
 **Closeout:** Override closeout; local release gates pass, while package publication/tag and external validation remain explicit handoffs.
