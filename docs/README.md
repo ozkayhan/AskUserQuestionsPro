@@ -33,6 +33,7 @@ bridge, and the browser UI.
 - [testing.md](testing.md) — test suite layout and how to run it
 - [hardening.md](hardening.md) — 5-theme systemic hardening sprint: what was changed, why, and the CI guards
 - [maintenance.md](maintenance.md) — documentation ownership, naming, archive, and verification rules
+- [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md) — current bounded UAT, security, quality, and external-release evidence
 - [archive/README.md](archive/README.md) — historical reports and plans retained for provenance
 
 ## Note on existing in-repo docs

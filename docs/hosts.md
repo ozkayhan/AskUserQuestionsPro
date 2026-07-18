@@ -51,7 +51,12 @@ native fallback behavior.
 
 # Host acceptance and support evidence
 
-Claude Code and Codex are Tier 1 adapters with separate framing and fallback semantics. Local fake-host and bridge integration evidence does not establish authenticated live-host support. The current environment has no authenticated, version-pinned acceptance sessions; live rows remain `Unavailable`.
+Claude Code and Codex are Tier 1 adapters with separate framing and fallback semantics. Local fake-host and bridge integration evidence does not establish authenticated live-host support. The current environment has no authenticated, version-pinned acceptance sessions; live rows remain `UNAVAILABLE` in the [release handoff](evidence/v1.1.1-release-handoff.md).
+
+The current route and wiring are authoritative: browser recovery uses `POST /resume`
+with an exact round selector. Older Phase 11 wording describing a different
+route is historical and superseded; the archived artifact remains unchanged.
+See [decisions](decisions.md) and the [v1.1 integration check](../.planning/milestones/v1.1-INTEGRATION-CHECK.md).
 
 ## Authenticated acceptance procedure
 

@@ -27,6 +27,16 @@ and require native macOS, Linux, and Windows rows plus isolated
 install/upgrade/uninstall/trust/scope evidence for any `Supported` host.
 Keep absent hosts `Researching`/`Unavailable` and Aider `Unsupported`.
 
+The current release evidence is indexed in the
+[v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md), with source links
+to the Phase 14–17 artifacts. Phase 19 owns complete clean-install, upgrade,
+uninstall, and final ship-gate proof; this page and the handoff must not imply
+that those lifecycle gates are already complete.
+
+Durable rationale remains in [decisions.md](decisions.md), the [timeout
+runbook](timeout-runbook.md), and the v1.1 milestone [audit](../.planning/milestones/v1.1-MILESTONE-AUDIT.md)
+and [integration check](../.planning/milestones/v1.1-INTEGRATION-CHECK.md).
+
 Add a link to `docs/README.md` for every new maintained document. Prefer updating
 the existing owner over creating a second document with overlapping scope.
 

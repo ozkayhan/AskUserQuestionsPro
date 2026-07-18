@@ -22,7 +22,7 @@ const git = (args) => run('git', args).trim();
 const paths = (args) => git(args).split('\n').filter(Boolean);
 const status = () => git(['status', '--porcelain=v1', '--untracked-files=all']);
 
-export function redact(text) {
+export function redact(_text) {
   const home = homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const fragments = [String.raw`(?:password|secret|token|credential|authorization|bearer)\s*[:=]\s*[^\s]+`, String.raw`(?:/Users/|/home/|[A-Za-z]:\\Users\\)[^\s)]+`, String.raw`opaque\s+capabilit(?:y|ies)`, String.raw`raw\s+host\s+stderr`, String.raw`${home}(?:[/\\]|$)`];
   return new RegExp(fragments.join('|'), 'i');

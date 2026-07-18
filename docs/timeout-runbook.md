@@ -107,3 +107,8 @@ despite `tool_timeout_sec = 3600`. In the verified run the lifecycle recorded
 `round_finished(reason=completed)`. The detached/resume path is the supported
 mitigation for that host boundary, while the one-hour TTL remains the local
 application deadline.
+
+For the current evidence boundary and owner/environment/next-gate fields, see
+the [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md). Historical
+timeout rationale is retained in [decisions.md](decisions.md) and the archived
+v1.1 milestone sources.
