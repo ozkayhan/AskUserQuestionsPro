@@ -35,9 +35,22 @@ function runProcess(entryPoint, input, env = {}, timeoutMs = 5000) {
 
 function redact(value) {
   const allowed = new Set([
-    'event', 'adapter', 'requestId', 'roundId', 'elapsedMs', 'boundary',
-    'deadlineOwner', 'reason', 'state', 'status', 'code', 'signal',
-    'permissionDecision', 'permissionDecisionReason', 'hookEventName', 'suppressOutput',
+    'event',
+    'adapter',
+    'requestId',
+    'roundId',
+    'elapsedMs',
+    'boundary',
+    'deadlineOwner',
+    'reason',
+    'state',
+    'status',
+    'code',
+    'signal',
+    'permissionDecision',
+    'permissionDecisionReason',
+    'hookEventName',
+    'suppressOutput',
   ]);
   const sanitize = (value) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -52,7 +65,9 @@ function redact(value) {
       try {
         const parsed = JSON.parse(json);
         const safe = sanitize(parsed);
-        return safe && Object.keys(safe).length ? `${prefix}${JSON.stringify(safe)}` : '[redacted-output]';
+        return safe && Object.keys(safe).length
+          ? `${prefix}${JSON.stringify(safe)}`
+          : '[redacted-output]';
       } catch {
         return '[redacted-output]';
       }

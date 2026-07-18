@@ -11,6 +11,10 @@ test('install gate is no-install and records unavailable hosts honestly', () => 
 });
 test('future promotion requires complete isolated lifecycle evidence', () => {
   const required = ['version', 'configScope', 'scenarios', 'installScope', 'nextGate'];
-  for (const h of ledger.hosts.filter((h) => h.status === 'Supported')) for (const key of required) assert.ok(h[key]);
-  assert.match(fs.readFileSync('docs/host-research/README.md', 'utf8'), /install, upgrade, uninstall, trust, scope/);
+  for (const h of ledger.hosts.filter((h) => h.status === 'Supported'))
+    for (const key of required) assert.ok(h[key]);
+  assert.match(
+    fs.readFileSync('docs/host-research/README.md', 'utf8'),
+    /install, upgrade, uninstall, trust, scope/
+  );
 });

@@ -2,12 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  STATES,
-  createRecord,
-  transition,
-  snapshot,
-} = require('../lib/round-state.cjs');
+const { STATES, createRecord, transition, snapshot } = require('../lib/round-state.cjs');
 
 test('round-state represents every Phase 8 lifecycle state without payload content', () => {
   const expected = [

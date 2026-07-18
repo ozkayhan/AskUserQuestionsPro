@@ -122,24 +122,37 @@ test('delivery.mode confirm retires a successfully delivered host response', asy
   const childBase = `http://127.0.0.1:${port}`;
   try {
     await waitForCondition(async () => {
-      try { return (await fetch(`${childBase}/health`)).ok; } catch { return false; }
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
     });
     const ask = fetch(`${childBase}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: 'confirm-delivery', questions: [{ question: 'CONFIRM?', options: [{ label: 'A' }] }] }),
+      body: JSON.stringify({
+        requestId: 'confirm-delivery',
+        questions: [{ question: 'CONFIRM?', options: [{ label: 'A' }] }],
+      }),
     });
     let current;
     await waitForCondition(async () => {
       try {
         current = await (await fetch(`${childBase}/current`)).json();
         return !!current.questions;
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     });
     await fetch(`${childBase}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: current.id, capability: current.capability, answers: { 'CONFIRM?': 'A' } }),
+      body: JSON.stringify({
+        id: current.id,
+        capability: current.capability,
+        answers: { 'CONFIRM?': 'A' },
+      }),
     });
     assert.deepEqual((await (await ask).json()).answers, { 'CONFIRM?': 'A' });
     await waitForCondition(async () => {
@@ -961,7 +974,10 @@ test('settings recovery endpoints expose redacted doctor data and CAS-protected 
     baselineRevision: afterApply.revision,
   });
   assert.strictEqual(resetResponse.status, 200);
-  assert.equal((await resetResponse.json()).settings.browser.theme, Schema.namespaceDefaults().browser.theme);
+  assert.equal(
+    (await resetResponse.json()).settings.browser.theme,
+    Schema.namespaceDefaults().browser.theme
+  );
 });
 
 test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir) — poll, sleep degil', async () => {

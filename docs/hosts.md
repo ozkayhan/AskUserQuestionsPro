@@ -48,6 +48,7 @@ native fallback behavior.
 | `application_timeout`                    | The bridge's configured one-hour deadline elapsed. | Inspect lifecycle timing and retry; this is not a host deadline.  |
 | `bridge_error`                           | HTTP, validation, startup, or protocol failure.    | Read the typed error and fix the reported boundary.               |
 | `browser_disconnect` / `host_disconnect` | A client connection ended before completion.       | Reopen the round; investigate the first terminal lifecycle event. |
+
 # Host acceptance and support evidence
 
 Claude Code and Codex are Tier 1 adapters with separate framing and fallback semantics. Local fake-host and bridge integration evidence does not establish authenticated live-host support. The current environment has no authenticated, version-pinned acceptance sessions; live rows remain `Unavailable`.

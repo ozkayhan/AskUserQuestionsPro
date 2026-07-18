@@ -158,8 +158,19 @@
   }
 
   function reconcileDraft(serverDraft, localDraft, serverRevision, localRevision) {
-    if (!localDraft || localRevision == null || serverRevision == null || localRevision === serverRevision) {
-      return { state: 'aligned', serverDraft, localDraft: localDraft || null, serverRevision, localRevision };
+    if (
+      !localDraft ||
+      localRevision == null ||
+      serverRevision == null ||
+      localRevision === serverRevision
+    ) {
+      return {
+        state: 'aligned',
+        serverDraft,
+        localDraft: localDraft || null,
+        serverRevision,
+        localRevision,
+      };
     }
     return {
       state: 'conflict',
@@ -171,5 +182,11 @@
     };
   }
 
-  return { createDraftWriter, readPendingDraft, readLatestPendingDraft, clearPendingDrafts, reconcileDraft };
+  return {
+    createDraftWriter,
+    readPendingDraft,
+    readLatestPendingDraft,
+    clearPendingDrafts,
+    reconcileDraft,
+  };
 });

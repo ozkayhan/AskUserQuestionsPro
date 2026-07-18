@@ -12,16 +12,16 @@ This document is the host-neutral lifecycle contract for the local, loopback-onl
 
 ## Operations
 
-| Operation | Owner / selector | Response and idempotency |
-|---|---|---|
-| start | Adapter submits questions with `requestId`; bridge creates one round | One active round; duplicate request is rejected or safely replayed |
-| attach | Browser/adapter uses exact `roundId` + `capability` | Exact selector required; stale capability is rejected |
-| detach | Host transport closes with exact `requestId`/round identity | Marks recoverable detached state; repeated detach is harmless |
-| cancel | Adapter submits exact round identity and capability | Terminal cancellation; repeated cancel is a stable terminal response |
-| resume | New adapter process selects exact `requestId`/round | Reattaches only the matching detached round; stale/cross-round selection rejected |
-| status | Client requests exact round/status projection | Returns redacted lifecycle metadata; does not expose payloads |
-| result | Client requests exact completed round | Immutable result; repeated reads are identical |
-| delivery acknowledgement | Client acknowledges exact result/round | Idempotent; retries do not change the result or close an unrelated round |
+| Operation                | Owner / selector                                                     | Response and idempotency                                                          |
+| ------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| start                    | Adapter submits questions with `requestId`; bridge creates one round | One active round; duplicate request is rejected or safely replayed                |
+| attach                   | Browser/adapter uses exact `roundId` + `capability`                  | Exact selector required; stale capability is rejected                             |
+| detach                   | Host transport closes with exact `requestId`/round identity          | Marks recoverable detached state; repeated detach is harmless                     |
+| cancel                   | Adapter submits exact round identity and capability                  | Terminal cancellation; repeated cancel is a stable terminal response              |
+| resume                   | New adapter process selects exact `requestId`/round                  | Reattaches only the matching detached round; stale/cross-round selection rejected |
+| status                   | Client requests exact round/status projection                        | Returns redacted lifecycle metadata; does not expose payloads                     |
+| result                   | Client requests exact completed round                                | Immutable result; repeated reads are identical                                    |
+| delivery acknowledgement | Client acknowledges exact result/round                               | Idempotent; retries do not change the result or close an unrelated round          |
 
 ## Adapter boundaries
 

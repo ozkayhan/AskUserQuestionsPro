@@ -17,19 +17,19 @@ test('fake Claude host drives the real hook process and preserves native fallbac
 });
 
 test('fake Claude host captures empty-input fallback without payload leakage', async () => {
-  const result = await runProcess(
-    HOOK,
-    JSON.stringify({ tool_input: {} }),
-    {}
-  );
+  const result = await runProcess(HOOK, JSON.stringify({ tool_input: {} }), {});
   assert.equal(result.code, 0);
   assert.equal(result.stdout, '');
   assert.doesNotMatch(result.stdout, /synthetic-question|synthetic-answer/);
 });
 
 test('fake host redaction is stable for replayed lifecycle metadata', () => {
-  const first = redact(JSON.stringify({ roundId: 'round-7', answer: 'secret answer', state: 'complete' }));
-  const replay = redact(JSON.stringify({ roundId: 'round-7', answer: 'secret answer', state: 'complete' }));
+  const first = redact(
+    JSON.stringify({ roundId: 'round-7', answer: 'secret answer', state: 'complete' })
+  );
+  const replay = redact(
+    JSON.stringify({ roundId: 'round-7', answer: 'secret answer', state: 'complete' })
+  );
   assert.equal(first, replay);
   assert.match(first, /roundId/);
   assert.match(first, /state/);
@@ -37,7 +37,9 @@ test('fake host redaction is stable for replayed lifecycle metadata', () => {
 });
 
 test('fake host redaction removes arbitrary question, answer, and secret fields', () => {
-  const captured = redact(JSON.stringify({ question: 'What is your SSN?', answer: '123-45-6789', token: 'secret-token' }));
+  const captured = redact(
+    JSON.stringify({ question: 'What is your SSN?', answer: '123-45-6789', token: 'secret-token' })
+  );
   assert.equal(captured, '[redacted-output]');
   assert.doesNotMatch(captured, /SSN|123-45|secret-token/);
 });
@@ -60,7 +62,9 @@ test('fake Codex host launches the real MCP process boundary', async () => {
     });
     child.on('error', reject);
   });
-  child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'fake-codex', version: 'test' } } })}\n`);
+  child.stdin.write(
+    `${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'fake-codex', version: 'test' } } })}\n`
+  );
   const result = await response;
   assert.equal(result.id, 1);
   assert.equal(result.result.serverInfo.name, 'askuserquestionspro');

@@ -35,7 +35,14 @@ function createAnswerState(questions, draft) {
 }
 
 function App() {
-  const { id, roundId: durableRoundId, questions, capability, revision, draftAnswers } = useLiveQuestions();
+  const {
+    id,
+    roundId: durableRoundId,
+    questions,
+    capability,
+    revision,
+    draftAnswers,
+  } = useLiveQuestions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recoverableRounds, setRecoverableRounds] = useState(null);
   const [recoveryError, setRecoveryError] = useState(null);
@@ -44,7 +51,9 @@ function App() {
 
   useEffect(() => {
     if (id != null || typeof getRecoverableRounds !== 'function') return undefined;
-    getRecoverableRounds().then(setRecoverableRounds).catch((error) => setRecoveryError(error.message));
+    getRecoverableRounds()
+      .then(setRecoverableRounds)
+      .catch((error) => setRecoveryError(error.message));
     return undefined;
   }, [id]);
 
@@ -76,12 +85,27 @@ function App() {
     <React.Fragment>
       {screen}
       <SettingsButton buttonRef={settingsFabRef} onOpen={() => setSettingsOpen(true)} />
-      {settingsOpen && <SettingsModal onClose={() => { setSettingsOpen(false); setTimeout(() => settingsFabRef.current?.focus(), 0); }} />}
+      {settingsOpen && (
+        <SettingsModal
+          onClose={() => {
+            setSettingsOpen(false);
+            setTimeout(() => settingsFabRef.current?.focus(), 0);
+          }}
+        />
+      )}
       {id == null && recoverableRounds && recoverableRounds.length > 0 && !selectedRecovery && (
-        <RecoveryChooser rounds={recoverableRounds} error={recoveryError} onSelect={chooseRecovery} onDismiss={() => setRecoverableRounds([])} onRetry={() => {
-          setRecoveryError(null);
-          getRecoverableRounds().then(setRecoverableRounds).catch((error) => setRecoveryError(error.message));
-        }} />
+        <RecoveryChooser
+          rounds={recoverableRounds}
+          error={recoveryError}
+          onSelect={chooseRecovery}
+          onDismiss={() => setRecoverableRounds([])}
+          onRetry={() => {
+            setRecoveryError(null);
+            getRecoverableRounds()
+              .then(setRecoverableRounds)
+              .catch((error) => setRecoveryError(error.message));
+          }}
+        />
       )}
     </React.Fragment>
   );
@@ -128,17 +152,15 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
   const [conflict, setConflict] = useState(null);
   const [recoveryReview, setRecoveryReview] = useState(false);
   const resolvedConflictKey = useRef(null);
-  const applyServerDraft = useCallback(
-    () => {
-      if (conflict) resolvedConflictKey.current = `${conflict.serverRevision}:${conflict.localRevision}`;
-      setAnswers(() => createAnswerState(QUESTIONS, draftAnswers));
-      if (Number.isInteger(revision)) draftRevision.current = revision;
-      if (DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
-      setRecoveryReview(false);
-      setConflict(null);
-    },
-    [QUESTIONS, conflict, draftAnswers, draftWriterKey, revision]
-  );
+  const applyServerDraft = useCallback(() => {
+    if (conflict)
+      resolvedConflictKey.current = `${conflict.serverRevision}:${conflict.localRevision}`;
+    setAnswers(() => createAnswerState(QUESTIONS, draftAnswers));
+    if (Number.isInteger(revision)) draftRevision.current = revision;
+    if (DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
+    setRecoveryReview(false);
+    setConflict(null);
+  }, [QUESTIONS, conflict, draftAnswers, draftWriterKey, revision]);
   useEffect(() => {
     const local = DraftWriter.readLatestPendingDraft
       ? DraftWriter.readLatestPendingDraft(draftWriterKey)
@@ -146,7 +168,9 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
     if (local && Number.isInteger(revision) && local.revision !== revision) {
       const key = `${revision}:${local.revision}`;
       if (key !== resolvedConflictKey.current) {
-        setConflict(DraftWriter.reconcileDraft(draftAnswers || {}, local.draft, revision, local.revision));
+        setConflict(
+          DraftWriter.reconcileDraft(draftAnswers || {}, local.draft, revision, local.revision)
+        );
       }
     }
   }, [draftAnswers, draftWriterKey, revision]);
@@ -413,7 +437,10 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           return acknowledgeDelivery(durableRoundId, capability)
             .then(() => {
               setDeliveryState('delivered');
-              if (currentAppSettings().closureMode === 'after-delivery' && typeof attemptClose === 'function') {
+              if (
+                currentAppSettings().closureMode === 'after-delivery' &&
+                typeof attemptClose === 'function'
+              ) {
                 const result = attemptClose();
                 setCloseDenied(result.denied);
               }
@@ -443,7 +470,10 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
     acknowledgeDelivery(durableRoundId, capability)
       .then(() => {
         setDeliveryState('delivered');
-        if (currentAppSettings().closureMode === 'after-delivery' && typeof attemptClose === 'function') {
+        if (
+          currentAppSettings().closureMode === 'after-delivery' &&
+          typeof attemptClose === 'function'
+        ) {
           setCloseDenied(attemptClose().denied);
         }
       })

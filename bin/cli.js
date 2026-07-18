@@ -344,20 +344,55 @@ function cmdSettings(sub, key, val) {
   }
   if (sub === 'import-preview') {
     let raw;
-    try { raw = key === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(key, 'utf8'); } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 64; return; }
-    if (Buffer.byteLength(raw) > 8e6) { process.stderr.write('Import too large\n'); process.exitCode = 2; return; }
+    try {
+      raw = key === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(key, 'utf8');
+    } catch (error) {
+      process.stderr.write(`${error.message}\n`);
+      process.exitCode = 64;
+      return;
+    }
+    if (Buffer.byteLength(raw) > 8e6) {
+      process.stderr.write('Import too large\n');
+      process.exitCode = 2;
+      return;
+    }
     let parsed;
-    try { parsed = JSON.parse(raw); } catch { process.stderr.write('Invalid JSON\n'); process.exitCode = 2; return; }
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      process.stderr.write('Invalid JSON\n');
+      process.exitCode = 2;
+      return;
+    }
     const result = Schema.inspectEnvelope(parsed);
-    process.stdout.write(JSON.stringify({ status: result.status, valid: result.valid, migration: result.migrated, ignored: result.ignored || { count: 0, truncated: false }, canApply: result.valid && result.status !== 'unsupported-future' }) + '\n');
+    process.stdout.write(
+      JSON.stringify({
+        status: result.status,
+        valid: result.valid,
+        migration: result.migrated,
+        ignored: result.ignored || { count: 0, truncated: false },
+        canApply: result.valid && result.status !== 'unsupported-future',
+      }) + '\n'
+    );
     process.exitCode = result.valid && result.status !== 'unsupported-future' ? 0 : 2;
     return;
   }
   if (sub === 'reset') {
     const defaults = Schema.namespaceDefaults();
-    if (!Object.prototype.hasOwnProperty.call(defaults, key)) { process.stderr.write(`Unknown namespace: ${key}\n`); process.exitCode = 64; return; }
-    const result = Settings.mutateCompareAndSwap(Settings.inspect().revision, (current) => ({ ...current, [key]: defaults[key] }));
-    if (!result.ok) { process.stderr.write(`${result.code}\n`); process.exitCode = 2; return; }
+    if (!Object.prototype.hasOwnProperty.call(defaults, key)) {
+      process.stderr.write(`Unknown namespace: ${key}\n`);
+      process.exitCode = 64;
+      return;
+    }
+    const result = Settings.mutateCompareAndSwap(Settings.inspect().revision, (current) => ({
+      ...current,
+      [key]: defaults[key],
+    }));
+    if (!result.ok) {
+      process.stderr.write(`${result.code}\n`);
+      process.exitCode = 2;
+      return;
+    }
     process.stdout.write(JSON.stringify({ ok: true, namespace: key }) + '\n');
     return;
   }
@@ -537,12 +572,18 @@ async function cmdDoctor(argv) {
   try {
     const p = Settings.getPath();
     if (fs.existsSync(p)) {
-      process.stdout.write(`✓ Ayar dosyası durumu: ${JSON.stringify(Settings.doctorProjection(Settings.inspectReadOnly()))}\n`);
+      process.stdout.write(
+        `✓ Ayar dosyası durumu: ${JSON.stringify(Settings.doctorProjection(Settings.inspectReadOnly()))}\n`
+      );
     } else {
-      process.stdout.write(`· Ayar dosyası yok — varsayılanlar: ${JSON.stringify(Settings.doctorProjection(Settings.inspectReadOnly()))}\n`);
+      process.stdout.write(
+        `· Ayar dosyası yok — varsayılanlar: ${JSON.stringify(Settings.doctorProjection(Settings.inspectReadOnly()))}\n`
+      );
     }
   } catch (e) {
-      process.stdout.write(`· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.doctorProjection(Settings.inspectReadOnly()))}\n`);
+    process.stdout.write(
+      `· Ayar dosyası okunamadı/bozuk — varsayılanlara düşülür: ${JSON.stringify(Settings.doctorProjection(Settings.inspectReadOnly()))}\n`
+    );
   }
   if (!ok) process.exitCode = 1;
 }

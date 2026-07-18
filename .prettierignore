@@ -1,3 +1,6 @@
+# Prettier owns maintained runtime, browser, tests, docs, and root config files
+# through the explicit format:check globs in package.json. These paths are
+# intentionally outside that maintained formatting surface.
 web/vendor/**
 node_modules/**
 package-lock.json
@@ -9,6 +12,12 @@ package-lock.json
 .codex/**
 # Research cache files are generated JSON blobs, not maintained project docs.
 .planning/research/.cache/**
+# Historical planning/debug/research artifacts are evidence, not maintained docs.
+.planning/phases/**
+.planning/debug/**
+.planning/milestones/**
 # Historical archive includes a JavaScript workflow specimen, not application source.
 docs/archive/**
+# GitHub workflows are maintained YAML, but workflow tests own this non-Prettier surface.
+.github/**
 .omo/**

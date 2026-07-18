@@ -195,7 +195,13 @@ function formatAnswers(answers) {
 
 // 'ask' aracı çağrısını işle.
 async function handleAsk(args, signal, { progressToken } = {}) {
-  if (!adapterEnabled('codex')) return { content: [{ type: 'text', text: 'AskUserQuestionsPro Codex adapter is disabled in settings.' }], isError: true };
+  if (!adapterEnabled('codex'))
+    return {
+      content: [
+        { type: 'text', text: 'AskUserQuestionsPro Codex adapter is disabled in settings.' },
+      ],
+      isError: true,
+    };
   if (!Array.isArray(args?.questions) || args.questions.length === 0) {
     return {
       content: [{ type: 'text', text: "Invalid input: 'questions' must be a non-empty array." }],

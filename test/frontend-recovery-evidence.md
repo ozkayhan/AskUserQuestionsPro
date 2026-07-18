@@ -34,15 +34,15 @@ and failure-injection paths.
 
 ## Scenario matrix and limitations
 
-| Scenario | Evidence | Limitation |
-|---|---|---|
-| Exact round selection / no latest fallback | local chooser smoke + automated contract + `getRecoverableRounds` test | External-host selection remains out of scope |
-| Revision conflict and storage failure preservation | local conflict smoke + draft-writer tests + typed recovery errors | Quota/private-mode injection not run |
-| Pending → acknowledged delivery | local submit/ack smoke + server ack contract | External host delivery remains out of scope |
-| Uncertain delivery / denied close | transition and `attemptClose` tests | Browser ownership denial not forced in this smoke |
-| Origin/port drift and opening fallback | typed opening result and recovery error seams | External opener/profile failure not launch-tested |
-| Keyboard focus, Escape, live announcements | local focus/Tab/Escape smoke + mounted-source contracts | Screen reader still needs manual AT |
-| Narrow viewport / reduced motion | responsive CSS and existing settings evidence | No new narrow-viewport screenshot captured |
+| Scenario                                           | Evidence                                                               | Limitation                                        |
+| -------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------- |
+| Exact round selection / no latest fallback         | local chooser smoke + automated contract + `getRecoverableRounds` test | External-host selection remains out of scope      |
+| Revision conflict and storage failure preservation | local conflict smoke + draft-writer tests + typed recovery errors      | Quota/private-mode injection not run              |
+| Pending → acknowledged delivery                    | local submit/ack smoke + server ack contract                           | External host delivery remains out of scope       |
+| Uncertain delivery / denied close                  | transition and `attemptClose` tests                                    | Browser ownership denial not forced in this smoke |
+| Origin/port drift and opening fallback             | typed opening result and recovery error seams                          | External opener/profile failure not launch-tested |
+| Keyboard focus, Escape, live announcements         | local focus/Tab/Escape smoke + mounted-source contracts                | Screen reader still needs manual AT               |
+| Narrow viewport / reduced motion                   | responsive CSS and existing settings evidence                          | No new narrow-viewport screenshot captured        |
 
 No question or answer payload is included in evidence, diagnostics, or recovery
 metadata.

@@ -21,9 +21,9 @@ const bridge = new Bridge({
     ? configuredSettings.recovery.retentionMs
     : Number.isFinite(configuredDetachedTtl)
       ? configuredDetachedTtl
-    : DEFAULT_DETACHED_TTL_MS,
-    store: new RoundStore(),
-    settings: configuredSettings,
+      : DEFAULT_DETACHED_TTL_MS,
+  store: new RoundStore(),
+  settings: configuredSettings,
 });
 // Retention is enforced both before recovery hydration and periodically while
 // the daemon is idle. The interval is bounded and unref'd so it never keeps a
@@ -155,7 +155,10 @@ let settingsCache = null;
 const settingsPreviews = new Map();
 function readSettings() {
   const status = Settings.inspect();
-  if (settingsCache === null || settingsCacheRevision !== status.revision) { settingsCache = status.effective; settingsCacheRevision = status.revision; }
+  if (settingsCache === null || settingsCacheRevision !== status.revision) {
+    settingsCache = status.effective;
+    settingsCacheRevision = status.revision;
+  }
   return settingsCache;
 }
 let settingsCacheRevision = null;
@@ -218,9 +221,10 @@ function serveStatic(req, res) {
 
 function sendIndex(res, baseHtml) {
   const status = Settings.inspect();
-  const legacy = status.status === 'current'
-    ? require('../web/settings-schema.js').browserToLegacy(status.effective.browser)
-    : Settings.read();
+  const legacy =
+    status.status === 'current'
+      ? require('../web/settings-schema.js').browserToLegacy(status.effective.browser)
+      : Settings.read();
   const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(legacy)}</script><script>window.__ASKUSER_SETTINGS_V2__=${JSON.stringify(readSettings())}</script>`;
   const html = baseHtml.replace('</head>', tag + '</head>');
   res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -591,27 +595,39 @@ async function handleRequest(req, res) {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch))
       return sendJson(res, 400, { error: 'invalid settings' });
     const current = Settings.inspect();
-    const r = current.status === 'current'
-      ? Settings.mutateCompareAndSwap(undefined, (envelope) => ({
-        ...envelope,
-        browser: require('../web/settings-schema.js').mergeBrowserLegacy(envelope.browser, patch),
-      }))
-      : Settings.write(patch);
+    const r =
+      current.status === 'current'
+        ? Settings.mutateCompareAndSwap(undefined, (envelope) => ({
+            ...envelope,
+            browser: require('../web/settings-schema.js').mergeBrowserLegacy(
+              envelope.browser,
+              patch
+            ),
+          }))
+        : Settings.write(patch);
     if (!r.ok)
       return sendJson(res, r.code === 'STALE_REVISION' ? 409 : 500, {
         error: (r.error && r.error.message) || r.code || 'settings write failed',
       });
     invalidateSettings(r.value); // bellek cache'i taze değerle güncelle.
-    const clientSettings = r.value._v === 2
-      ? require('../web/settings-schema.js').browserToLegacy(r.value.browser)
-      : (() => { const { _v, ...legacy } = r.value; return legacy; })();
+    const clientSettings =
+      r.value._v === 2
+        ? require('../web/settings-schema.js').browserToLegacy(r.value.browser)
+        : (() => {
+            const { _v, ...legacy } = r.value;
+            return legacy;
+          })();
     return sendJson(res, 200, { ok: true, settings: clientSettings });
   }
 
   if (req.method === 'GET' && url === '/settings/export') {
     const status = Settings.inspect();
     const body = JSON.stringify(status.effective, null, 2) + '\n';
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="askuserquestionspro-settings-v2.json"', 'Cache-Control': 'no-store' });
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="askuserquestionspro-settings-v2.json"',
+      'Cache-Control': 'no-store',
+    });
     return res.end(body);
   }
   if (req.method === 'GET' && url === '/settings/doctor') {
@@ -620,40 +636,85 @@ async function handleRequest(req, res) {
     // the CLI's redacted doctor output.
     return sendJson(res, 200, Settings.doctorProjection(Settings.inspectReadOnly()));
   }
-  if (req.method === 'POST' && (url === '/settings/preview' || url === '/settings/apply' || url === '/settings/reset')) {
+  if (
+    req.method === 'POST' &&
+    (url === '/settings/preview' || url === '/settings/apply' || url === '/settings/reset')
+  ) {
     let payload;
-    try { payload = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    try {
+      payload = JSON.parse(await readBody(req));
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
     const status = Settings.inspect();
     if (url === '/settings/preview') {
-      if (!payload || typeof payload !== 'object' || !payload.payload || payload.baselineRevision === undefined) {
+      if (
+        !payload ||
+        typeof payload !== 'object' ||
+        !payload.payload ||
+        payload.baselineRevision === undefined
+      ) {
         return sendJson(res, 400, { error: 'payload and baselineRevision are required' });
       }
       const candidate = payload.payload;
       const checked = require('../web/settings-schema.js').inspectEnvelope(candidate);
       const details = checked.valid ? [] : [{ field: '_v', error: checked.status }];
       const id = require('node:crypto').randomBytes(12).toString('hex');
-      if (payload.baselineRevision !== status.revision) return sendJson(res, 409, { error: 'baseline changed', baselineRevision: status.revision });
-      settingsPreviews.set(id, { revision: status.revision, candidate: checked.envelope, payload: candidate, expiresAt: Date.now() + 10 * 60 * 1000 });
-      return sendJson(res, 200, { previewId: id, baselineRevision: status.revision, status: checked.status, valid: checked.valid, errors: details, migration: checked.migrated, ignored: checked.ignored || { count: 0, truncated: false }, canApply: checked.valid && checked.status !== 'unsupported-future' });
+      if (payload.baselineRevision !== status.revision)
+        return sendJson(res, 409, { error: 'baseline changed', baselineRevision: status.revision });
+      settingsPreviews.set(id, {
+        revision: status.revision,
+        candidate: checked.envelope,
+        payload: candidate,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+      return sendJson(res, 200, {
+        previewId: id,
+        baselineRevision: status.revision,
+        status: checked.status,
+        valid: checked.valid,
+        errors: details,
+        migration: checked.migrated,
+        ignored: checked.ignored || { count: 0, truncated: false },
+        canApply: checked.valid && checked.status !== 'unsupported-future',
+      });
     }
     if (url === '/settings/reset') {
       const namespace = payload.namespace;
       const defaults = require('../web/settings-schema.js').namespaceDefaults();
-      if (!Object.prototype.hasOwnProperty.call(defaults, namespace)) return sendJson(res, 400, { error: 'invalid namespace' });
-      const result = Settings.mutateCompareAndSwap(payload.baselineRevision, (current) => ({ ...current, [namespace]: defaults[namespace] }));
+      if (!Object.prototype.hasOwnProperty.call(defaults, namespace))
+        return sendJson(res, 400, { error: 'invalid namespace' });
+      const result = Settings.mutateCompareAndSwap(payload.baselineRevision, (current) => ({
+        ...current,
+        [namespace]: defaults[namespace],
+      }));
       if (!result.ok) return sendJson(res, 409, { error: result.code });
-      invalidateSettings(result.value); return sendJson(res, 200, { ok: true, settings: result.value });
+      invalidateSettings(result.value);
+      return sendJson(res, 200, { ok: true, settings: result.value });
     }
-    if (!payload || typeof payload.previewId !== 'string' || !payload.payload || payload.baselineRevision === undefined) return sendJson(res, 400, { error: 'previewId, payload and baselineRevision are required' });
+    if (
+      !payload ||
+      typeof payload.previewId !== 'string' ||
+      !payload.payload ||
+      payload.baselineRevision === undefined
+    )
+      return sendJson(res, 400, { error: 'previewId, payload and baselineRevision are required' });
     const preview = settingsPreviews.get(payload.previewId);
-    if (!preview || preview.expiresAt < Date.now()) return sendJson(res, 409, { error: 'preview expired' });
-    if (payload.baselineRevision !== preview.revision || JSON.stringify(payload.payload) !== JSON.stringify(preview.payload)) return sendJson(res, 409, { error: 'preview payload mismatch' });
+    if (!preview || preview.expiresAt < Date.now())
+      return sendJson(res, 409, { error: 'preview expired' });
+    if (
+      payload.baselineRevision !== preview.revision ||
+      JSON.stringify(payload.payload) !== JSON.stringify(preview.payload)
+    )
+      return sendJson(res, 409, { error: 'preview payload mismatch' });
     const checked = require('../web/settings-schema.js').inspectEnvelope(payload.payload);
-    if (!checked.valid || checked.status === 'unsupported-future') return sendJson(res, 400, { error: 'invalid import', status: checked.status });
+    if (!checked.valid || checked.status === 'unsupported-future')
+      return sendJson(res, 400, { error: 'invalid import', status: checked.status });
     const result = Settings.mutateCompareAndSwap(preview.revision, () => checked.envelope);
     if (!result.ok) return sendJson(res, 409, { error: result.code });
     settingsPreviews.delete(payload.previewId);
-    invalidateSettings(result.value); return sendJson(res, 200, { ok: true, settings: result.value });
+    invalidateSettings(result.value);
+    return sendJson(res, 200, { ok: true, settings: result.value });
   }
 
   if (req.method === 'GET') return serveStatic(req, res);

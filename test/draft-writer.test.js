@@ -2,7 +2,13 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDraftWriter, readPendingDraft, readLatestPendingDraft, clearPendingDrafts, reconcileDraft } = require('../web/draft-writer.js');
+const {
+  createDraftWriter,
+  readPendingDraft,
+  readLatestPendingDraft,
+  clearPendingDrafts,
+  reconcileDraft,
+} = require('../web/draft-writer.js');
 
 function memoryStorage() {
   const values = new Map();
@@ -166,9 +172,15 @@ test('draft writer finds the newest local revision for conflict reconciliation',
     ['askuserquestionspro:draft:r:4', JSON.stringify({ value: 'new' })],
   ]);
   const storage = {
-    get length() { return entries.size; },
-    key(index) { return [...entries.keys()][index] || null; },
-    getItem(key) { return entries.get(key) ?? null; },
+    get length() {
+      return entries.size;
+    },
+    key(index) {
+      return [...entries.keys()][index] || null;
+    },
+    getItem(key) {
+      return entries.get(key) ?? null;
+    },
   };
   const latest = readLatestPendingDraft('r', storage);
   assert.deepEqual(latest, { revision: 4, draft: { value: 'new' } });
@@ -181,9 +193,15 @@ test('draft writer clears all obsolete local revisions after server selection', 
     ['unrelated', 'keep'],
   ]);
   const storage = {
-    get length() { return entries.size; },
-    key(index) { return [...entries.keys()][index] || null; },
-    removeItem(key) { entries.delete(key); },
+    get length() {
+      return entries.size;
+    },
+    key(index) {
+      return [...entries.keys()][index] || null;
+    },
+    removeItem(key) {
+      entries.delete(key);
+    },
   };
   clearPendingDrafts('r', storage);
   assert.deepEqual([...entries.keys()], ['unrelated']);

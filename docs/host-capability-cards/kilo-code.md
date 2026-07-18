@@ -1,4 +1,5 @@
 # Kilo Code
+
 - Evidence date: 2026-07-17
 - Version: unavailable
 - Evidence class: source-gap

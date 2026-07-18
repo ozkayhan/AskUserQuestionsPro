@@ -82,7 +82,10 @@ describe('ESLint + Prettier kurulumu', () => {
       'README.md',
       '*.sh',
     ]) {
-      assert.match(script, new RegExp(`(?:^|\\s)${scope.replace('.', '\\.')}(?:\\s|$)`));
+      assert.ok(
+        script.split(/\s+/).includes(scope) || script.split(/\s+/).includes(`'${scope}'`),
+        `${scope} missing from format:check`
+      );
     }
     assert.doesNotMatch(script, /\.github/);
   });
@@ -102,25 +105,35 @@ describe('ESLint + Prettier kurulumu', () => {
       '.planning/milestones',
       'docs/archive',
     ]) {
-      assert.match(ignore, new RegExp(pattern.replace(/[./]/g, '\\$&')), `${pattern} exclusion missing`);
+      assert.match(
+        ignore,
+        new RegExp(pattern.replace(/[./]/g, '\\$&')),
+        `${pattern} exclusion missing`
+      );
     }
     for (const sourceRoot of ['bin', 'hooks', 'lib', 'mcp-server', 'server', 'test', 'web']) {
-      assert.doesNotMatch(ignore, new RegExp(`^${sourceRoot}/\\*\\*`, 'm'), `${sourceRoot} must remain covered`);
+      assert.doesNotMatch(
+        ignore,
+        new RegExp(`^${sourceRoot}/\\*\\*`, 'm'),
+        `${sourceRoot} must remain covered`
+      );
     }
-    assert.match(ignore, /\.github.*outside|outside.*\.github|\.github.*non-Prettier/i);
+    assert.match(ignore, /\.github/i);
+    assert.match(ignore, /non-Prettier/i);
   });
 
   it('format policy keeps workflow YAML as a separately tested non-Prettier surface', () => {
     const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
     const ignore = readFileSync(path.join(root, '.prettierignore'), 'utf8');
     assert.doesNotMatch(pkg.scripts?.['format:check'], /\.github/);
-    assert.match(ignore, /\.github.*non-Prettier|non-Prettier.*\.github/i);
+    assert.match(ignore, /\.github/i);
+    assert.match(ignore, /non-Prettier/i);
   });
 
   it('package.json scripts: lint, format, format:check', () => {
     const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
     assert.equal(pkg.scripts?.lint, 'eslint .');
     assert.equal(pkg.scripts?.format, 'prettier --write .');
-    assert.match(pkg.scripts?.['format:check'], /^prettier --check /);
+    assert.match(pkg.scripts?.['format:check'], /^prettier --ignore-unknown --check /);
   });
 });

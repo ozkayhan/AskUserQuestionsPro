@@ -21,7 +21,11 @@ function useModalFocus(ref, onEscape) {
       if (event.key !== 'Tab') return;
       const dialog = ref.current?.closest?.('[role="dialog"]');
       if (!dialog) return;
-      const focusable = [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      const focusable = [
+        ...dialog.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ),
+      ];
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -45,21 +49,46 @@ function RecoveryChooser({ rounds, onSelect, onRetry, onDismiss, error }) {
   const titleRef = useRefView(null);
   useModalFocus(titleRef, onDismiss);
   return (
-    <div className="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="recovery-title" aria-describedby="recovery-description">
+    <div
+      className="recovery-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="recovery-title"
+      aria-describedby="recovery-description"
+    >
       <div className="recovery-panel">
-        <h2 id="recovery-title" tabIndex="-1" ref={titleRef}>Choose a round to recover</h2>
-        <p id="recovery-description">Select the exact saved round. The newest round is never selected automatically.</p>
+        <h2 id="recovery-title" tabIndex="-1" ref={titleRef}>
+          Choose a round to recover
+        </h2>
+        <p id="recovery-description">
+          Select the exact saved round. The newest round is never selected automatically.
+        </p>
         {error && <p role="alert">{error}</p>}
         <div className="recovery-list">
           {(rounds || []).map((round) => (
-            <button type="button" className="recovery-choice" key={round.roundId || round.requestId} onClick={() => onSelect(round)}>
+            <button
+              type="button"
+              className="recovery-choice"
+              key={round.roundId || round.requestId}
+              onClick={() => onSelect(round)}
+            >
               <strong>{round.state || 'Saved round'}</strong>
-              <span>{round.updatedAt || 'Saved locally'} · {round.questionCount ?? '?'} questions</span>
+              <span>
+                {round.updatedAt || 'Saved locally'} · {round.questionCount ?? '?'} questions
+              </span>
             </button>
           ))}
         </div>
-        {onRetry && <button type="button" className="btn" onClick={onRetry}>Retry recovery</button>}
-        {onDismiss && <button type="button" className="btn" onClick={onDismiss}>Continue without recovery</button>}
+        {onRetry && (
+          <button type="button" className="btn" onClick={onRetry}>
+            Retry recovery
+          </button>
+        )}
+        {onDismiss && (
+          <button type="button" className="btn" onClick={onDismiss}>
+            Continue without recovery
+          </button>
+        )}
       </div>
     </div>
   );
@@ -70,15 +99,30 @@ function ReconciliationPanel({ conflict, onKeepServer, onReview, onDiscard }) {
   useModalFocus(titleRef, onKeepServer);
   if (!conflict) return null;
   return (
-    <div className="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="reconcile-title">
+    <div
+      className="recovery-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reconcile-title"
+    >
       <div className="recovery-panel">
-        <h2 id="reconcile-title" tabIndex="-1" ref={titleRef}>Saved round changed</h2>
+        <h2 id="reconcile-title" tabIndex="-1" ref={titleRef}>
+          Saved round changed
+        </h2>
         <p>Your local draft and the server have different revisions. Nothing was overwritten.</p>
-        <p role="status">Server revision {conflict.serverRevision}; local revision {conflict.localRevision}.</p>
+        <p role="status">
+          Server revision {conflict.serverRevision}; local revision {conflict.localRevision}.
+        </p>
         <div className="recovery-actions">
-          <button type="button" className="btn btn--primary" onClick={onKeepServer}>Keep server</button>
-          <button type="button" className="btn" onClick={onReview}>Review differences</button>
-          <button type="button" className="btn btn--danger" onClick={onDiscard}>Discard local draft</button>
+          <button type="button" className="btn btn--primary" onClick={onKeepServer}>
+            Keep server
+          </button>
+          <button type="button" className="btn" onClick={onReview}>
+            Review differences
+          </button>
+          <button type="button" className="btn btn--danger" onClick={onDiscard}>
+            Discard local draft
+          </button>
         </div>
       </div>
     </div>
@@ -90,20 +134,56 @@ function DeliveryPanel({ state = 'saved', onRetry, onAcknowledge, closeDenied, o
     saved: ['Saved locally on the bridge.', 'Continue editing or submit'],
     'delivery-pending': ['Saving your answer for delivery…', 'Wait; duplicate submit is disabled'],
     delivered: ['Delivered to the host.', 'Close when allowed; reopen result'],
-    'delivery-uncertain': ['Delivery status is uncertain. Your answer is preserved.', 'Check status, retry acknowledgement, or recover exact round'],
+    'delivery-uncertain': [
+      'Delivery status is uncertain. Your answer is preserved.',
+      'Check status, retry acknowledgement, or recover exact round',
+    ],
     cancelled: ['This round was cancelled.', 'Start a new round or view retained record'],
-    'recovery-error': ['This round could not be recovered safely. Your current work was not replaced.', 'Retry, choose another round, or copy support-safe diagnostics'],
+    'recovery-error': [
+      'This round could not be recovered safely. Your current work was not replaced.',
+      'Retry, choose another round, or copy support-safe diagnostics',
+    ],
   }[state] || ['Saved locally on the bridge.', 'Continue editing or submit'];
   return (
     <section className="delivery-panel" aria-labelledby="delivery-title">
       <h2 id="delivery-title">Delivery status</h2>
-      <p role="status" aria-live="polite">{copy[0]}</p>
+      <p role="status" aria-live="polite">
+        {copy[0]}
+      </p>
       <p>{copy[1]}</p>
-      {state === 'delivery-pending' && <button type="button" disabled>Saving…</button>}
-      {state === 'delivery-uncertain' && <button type="button" onClick={onRetry}>Retry acknowledgement</button>}
-      {state === 'delivered' && onAcknowledge && <button type="button" onClick={onAcknowledge}>Reopen result</button>}
-      {closeDenied && <p role="alert">The browser did not allow automatic close. You may safely close this tab now; your result remains available.</p>}
-      {opening?.failed && <div className="opening-fallback"><p>Browser opening failed for {opening.strategy || 'the configured strategy'}.</p><input readOnly value={opening.url || ''} aria-label="Local URL" onFocus={(e) => e.target.select()} /><p>Copy the localhost URL and open it manually.</p></div>}
+      {state === 'delivery-pending' && (
+        <button type="button" disabled>
+          Saving…
+        </button>
+      )}
+      {state === 'delivery-uncertain' && (
+        <button type="button" onClick={onRetry}>
+          Retry acknowledgement
+        </button>
+      )}
+      {state === 'delivered' && onAcknowledge && (
+        <button type="button" onClick={onAcknowledge}>
+          Reopen result
+        </button>
+      )}
+      {closeDenied && (
+        <p role="alert">
+          The browser did not allow automatic close. You may safely close this tab now; your result
+          remains available.
+        </p>
+      )}
+      {opening?.failed && (
+        <div className="opening-fallback">
+          <p>Browser opening failed for {opening.strategy || 'the configured strategy'}.</p>
+          <input
+            readOnly
+            value={opening.url || ''}
+            aria-label="Local URL"
+            onFocus={(e) => e.target.select()}
+          />
+          <p>Copy the localhost URL and open it manually.</p>
+        </div>
+      )}
     </section>
   );
 }

@@ -11,9 +11,24 @@ const scenarios = ['idle', 'reconnect', 'restart', 'cancel', 'recovery', 'result
 function rows() {
   return evidence
     .split('\n')
-    .filter((line) => line.startsWith('| ') && !line.startsWith('| Host ') && !line.startsWith('|---'))
-    .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()))
-    .map(([host, version, transport, scenario, command, result, limitation]) => ({ host, version, transport, scenario, command, result, limitation }));
+    .filter(
+      (line) => line.startsWith('| ') && !line.startsWith('| Host ') && !line.startsWith('|---')
+    )
+    .map((line) =>
+      line
+        .split('|')
+        .slice(1, -1)
+        .map((cell) => cell.trim())
+    )
+    .map(([host, version, transport, scenario, command, result, limitation]) => ({
+      host,
+      version,
+      transport,
+      scenario,
+      command,
+      result,
+      limitation,
+    }));
 }
 
 test('Tier 1 matrix enumerates every scenario for both adapters', () => {
@@ -45,12 +60,20 @@ test('authenticated live prerequisites are explicitly unavailable, never passed'
 });
 
 test('every unique local evidence command actually executes successfully', () => {
-  const commands = new Set(rows().filter((row) => row.result === 'Automated pass').map((row) => row.command.replaceAll('`', '')));
+  const commands = new Set(
+    rows()
+      .filter((row) => row.result === 'Automated pass')
+      .map((row) => row.command.replaceAll('`', ''))
+  );
   for (const command of commands) {
     const parts = command.trim().split(/\s+/);
     assert.equal(parts.shift(), 'node');
     assert.equal(parts.shift(), '--test');
-    const result = spawnSync(process.execPath, ['--test', ...parts], { cwd: process.cwd(), encoding: 'utf8', timeout: 30_000 });
+    const result = spawnSync(process.execPath, ['--test', ...parts], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
     assert.equal(result.status, 0, `${command}\n${result.stdout}\n${result.stderr}`);
   }
 });

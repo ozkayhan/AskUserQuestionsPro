@@ -172,7 +172,11 @@ test('resumeBridge() host kopmasindan sonra ayni round cevaplarini alir', async 
   await fetch(`${base}/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: current.id, capability: current.capability, answers: { Resume: 'A' } }),
+    body: JSON.stringify({
+      id: current.id,
+      capability: current.capability,
+      answers: { Resume: 'A' },
+    }),
   });
   assert.deepStrictEqual(await resumed, { Resume: 'A' });
 });

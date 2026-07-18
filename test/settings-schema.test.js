@@ -9,7 +9,16 @@ const assert = require('node:assert');
 const Schema = require('../web/settings-schema.js');
 
 test('v2 envelope exposes exact namespaces and bounded matrix metadata', () => {
-  assert.deepStrictEqual(Object.keys(Schema.envelopeDefaults()), ['_v', 'browser', 'recovery', 'autosave', 'diagnostics', 'delivery', 'closure', 'adapters']);
+  assert.deepStrictEqual(Object.keys(Schema.envelopeDefaults()), [
+    '_v',
+    'browser',
+    'recovery',
+    'autosave',
+    'diagnostics',
+    'delivery',
+    'closure',
+    'adapters',
+  ]);
   assert.strictEqual(Schema.envelopeDefaults()._v, 2);
   for (const field of Schema.matrix()) {
     assert.ok(field.path && field.type && 'default' in field && field.effect && field.owner);
@@ -18,7 +27,12 @@ test('v2 envelope exposes exact namespaces and bounded matrix metadata', () => {
 });
 
 test('v2 migration maps legacy keys and rejects future versions', () => {
-  const migrated = Schema.inspectEnvelope({ _v: 1, theme: 'paper', qtypeBinary: false, autoAdvance: true });
+  const migrated = Schema.inspectEnvelope({
+    _v: 1,
+    theme: 'paper',
+    qtypeBinary: false,
+    autoAdvance: true,
+  });
   assert.strictEqual(migrated.status, 'legacy');
   assert.strictEqual(migrated.envelope.browser.theme, 'paper');
   assert.strictEqual(migrated.envelope.browser.questionTypes.binary, false);
@@ -27,7 +41,12 @@ test('v2 migration maps legacy keys and rejects future versions', () => {
 });
 
 test('v2 validation applies bounds and ignores unknown values', () => {
-  const result = Schema.validateEnvelope({ _v: 2, recovery: { retentionMs: 1 }, autosave: { debounceMs: 999999 }, diagnostics: { enabled: true } });
+  const result = Schema.validateEnvelope({
+    _v: 2,
+    recovery: { retentionMs: 1 },
+    autosave: { debounceMs: 999999 },
+    diagnostics: { enabled: true },
+  });
   assert.strictEqual(result.recovery.retentionMs, 3600000);
   assert.strictEqual(result.autosave.debounceMs, 750);
   assert.strictEqual(result.diagnostics.enabled, true);

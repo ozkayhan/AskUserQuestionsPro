@@ -1,5 +1,5 @@
 {
   "theme": "paper",
   "reduceMotion": true,
-  "unknown": {"secret": "redacted"}
+  "unknown": { "secret": "redacted" }
 }
