@@ -96,9 +96,15 @@ Fix unused values by removing dead assignments when they have no side effect, or
 
 Use a named set of root globs in `package.json`, for example separate runtime/browser/test/docs/config groups, and invoke Prettier with those paths from `format:check`; keep `.prettierignore` for vendor/generated/cache exclusions. Prettier supports multiple CLI patterns and negated patterns, and `.prettierignore` uses gitignore syntax. [CITED: https://prettier.io/docs/ignore] A test should assert every required maintained root is present and every intentional exclusion is represented, preventing future silent source omission.
 
+### Resolved scope and baseline decisions
+
+- `deliveryPolicy` and `closurePolicy` are pure transformations over `runtimeSettings(source)` in `lib/runtime-settings.cjs`; their assigned results in `lib/bridge-client.mjs` `askBridge` and `server/server.js` are unused and have no side effect. The live consumers remain `waitForPending`/the delivery flow and `server/bridge.js`. Plan 14-01 removes only the duplicate unused reads/imports and keeps bridge-owned policy reads intact. [VERIFIED: source and runtime-settings tests]
+- `.github/workflows/*.yml` is maintained repository policy but is outside the Phase 14 Prettier-owned set. CI already validates workflow structure through dedicated tests, so workflow formatting is not silently claimed by this gate. [VERIFIED: `.github/workflows/ci.yml`, `docs/testing.md`, workflow tests]
+- The supported Node baseline is the CI matrix `[18, 20, 22]`. This workspace has Node `v22.23.1`/npm `10.9.8`; Node 18 and 20 are not locally available. The phase records local Node 22 evidence and an explicit external handoff for Node 18/20; CI remains executable evidence for those baselines. [VERIFIED: CI, package.json, shell]
+
 ### Recommended project scope
 
-Include: `bin/`, `hooks/`, `lib/`, `mcp-server/`, `server/`, `web/` excluding `web/vendor/`, `test/`, maintained `docs/`, and root maintained config/docs such as `package.json`, `eslint.config.js`, `.prettierrc.json`, `README.md`, and shell scripts. Include `.github/` workflow YAML only if the chosen Prettier scope is intended to own CI formatting; otherwise document it as a separate non-Prettier YAML surface. [ASSUMED: policy decision for planner]
+Include: `bin/`, `hooks/`, `lib/`, `mcp-server/`, `server/`, `web/` excluding `web/vendor/`, `test/`, maintained `docs/`, and root maintained config/docs such as `package.json`, `eslint.config.js`, `.prettierrc.json`, `README.md`, and shell scripts. Exclude `.github/` workflow YAML from the Prettier command and document it as a separate maintained, non-Prettier YAML surface. [RESOLVED: repository CI/workflow ownership]
 
 Exclude: `node_modules/`, `package-lock.json` (already excluded), `web/vendor/`, `.context/`, `.codex/`, `.omo/`, `.planning/research/.cache/`, `docs/archive/`, and historical `.planning/` milestone/debug/research artifacts. The last group is required by the out-of-scope requirement against blindly formatting historical artifacts. [VERIFIED: .prettierignore; .planning/REQUIREMENTS.md]
 
@@ -223,22 +229,16 @@ Not a rename/refactor/migration phase. No runtime-state migration is required. [
 |---|-------|---------|---------------|
 | A1 | Local browser globals should be declared narrowly around evaluated callbacks. | Architecture Patterns | A declaration could be placed incorrectly and mask a real test defect. |
 | A2 | The final Prettier command should use explicit maintained roots rather than only a larger ignore list. | Architecture Patterns / Code Examples | The command may need adjustment for cross-platform shell/glob behavior. |
-| A3 | `.github/` YAML ownership is a planner decision rather than an existing Prettier contract. | Recommended project scope | CI workflow files could remain inconsistently formatted unless explicitly assigned. |
-| A4 | `deliveryPolicy`/`closurePolicy` reads have no required side effect. | Common Pitfalls | Removing them could change runtime settings semantics if hidden side effects exist. |
+| A3 | `.github/` YAML is a maintained non-Prettier surface covered by workflow tests. | Resolved scope | Workflow formatting remains outside this phase’s ownership. |
+| A4 | `deliveryPolicy`/`closurePolicy` duplicate reads are pure and unused; bridge-owned reads remain required. | Resolved policy decision | Source and runtime-settings tests establish the distinction. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Are the policy reads intentionally side-effectful?**
-   - What we know: ESLint reports their assigned values unused; `rg` found no later references in the inspected functions/module scope. [VERIFIED: lint; rg]
-   - What’s unclear: whether policy functions intentionally validate or snapshot settings through side effects.
-   - Recommendation: inspect `lib/runtime-settings.cjs` and relevant tests before deleting; prefer removal only if pure.
-2. **Should maintained `.github/` YAML be formatted by this gate?**
-   - What we know: CI/release workflows are maintained and already contain quality commands. [VERIFIED: .github/workflows; docs/testing.md]
-   - What’s unclear: whether project formatting policy claims YAML ownership.
-   - Recommendation: choose and document one scope; do not leave it implicit.
-3. **Node baseline evidence**
+1. **Policy reads — resolved:** Direct source inspection shows the helpers are pure; remove unused duplicate reads, while `server/bridge.js` retains the policy values it stores and uses. [VERIFIED: source and runtime-settings tests]
+2. **`.github/` formatting — resolved:** Workflows are maintained but outside the Prettier gate; workflow-specific tests remain their validation surface. [VERIFIED: CI and workflow test inventory]
+3. **Node baseline evidence — resolved:** Run and record the full clean sequence under local Node 22; cite CI matrix jobs for Node 18/20 and explicitly mark those local baselines unavailable. [VERIFIED: CI and current shell]
    - What we know: package and CI declare Node 18/20/22; this workspace proves Node 22 only. [VERIFIED: package.json; CI; shell]
-   - Recommendation: run the exact clean sequence under Node 18/20/22 in CI or record unavailable local evidence.
+   - Evidence action: record local-versus-CI status in `14-QUAL-03-EVIDENCE.md`; never claim unavailable local success.
 
 ## Environment Availability
 
