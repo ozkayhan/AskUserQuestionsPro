@@ -104,6 +104,9 @@ button {
   border-right: none;
   border-left: 1px solid var(--border-faint);
 }
+.app--waiting {
+  grid-template-columns: 1fr;
+}
 
 /* faint grid texture, very subtle */
 .app::before {

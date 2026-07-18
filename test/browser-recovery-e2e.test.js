@@ -16,3 +16,17 @@ test('browser recovery integration contract keeps recovery surfaces redacted and
   assert.match(live, /attemptClose/);
   assert.doesNotMatch(views, /questionText|answerPayload|answers.*roundId/);
 });
+
+test('waiting shell uses one column while active rounds retain the two-column shell', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'web', 'styles.css'), 'utf8');
+
+  assert.match(app, /<div className="app app--waiting"[^>]*>\s*<Waiting \/>/);
+  assert.match(app, /<div className="app" data-panel="left" data-align="center">\s*<Sidebar/);
+  assert.match(styles, /\.app--waiting\s*\{[^}]*grid-template-columns:\s*1fr/s);
+  assert.match(styles, /\.app\s*\{[^}]*grid-template-columns:\s*clamp\(330px, 24vw, 416px\) 1fr/s);
+  assert.match(
+    styles,
+    /@media \(max-width: 760px\)\s*\{[\s\S]*?\.app,[\s\S]*?grid-template-columns:\s*1fr/
+  );
+});

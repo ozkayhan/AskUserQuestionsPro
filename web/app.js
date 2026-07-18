@@ -65,7 +65,7 @@ function App() {
 
   const screen =
     !questions || questions.length === 0 ? (
-      <div className="app">
+      <div className="app app--waiting">
         <Waiting />
       </div>
     ) : (
