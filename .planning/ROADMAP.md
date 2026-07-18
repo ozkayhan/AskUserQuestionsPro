@@ -57,7 +57,12 @@ Plans:
   3. Keyboard navigation, focus ownership, dialog semantics, and live announcements are verified in the available browser path, with screen-reader and other unavailable AT evidence clearly marked external.
   4. Browser-origin drift, private-mode/quota, opener failure, and ownership-denied `window.close()` are either evidenced in an available environment or recorded as external handoff items rather than implied as passed.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 15-01-PLAN.md — Fix the waiting-shell empty grid column and add focused UI regression coverage
+- [ ] 15-02-PLAN.md — Run browser visual/accessibility QA and retain evidence or explicit external gaps
 **UI hint**: yes
 
 ### Phase 16: Cross-Phase UAT & Full Verification
