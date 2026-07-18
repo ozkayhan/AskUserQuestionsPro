@@ -117,10 +117,11 @@ Plans:
   3. Historical v1.0.0/v1.1 rationale and archived evidence remain discoverable; cleanup removes duplication only where the source of truth is preserved.
   4. Windows and authenticated Claude/Codex work are explicitly labeled external handoff and are not presented as completed evidence.
 
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 
 Plans:
-- [ ] 18-00-PLAN.md — Implement and smoke-test the executable Phase 18 validator preflight
+
+- [x] 18-00-PLAN.md — Implement and smoke-test the executable Phase 18 validator preflight
 - [ ] 18-01-PLAN.md — Synchronize maintained docs and current planning metadata with Phase 14–17 evidence
 - [ ] 18-02-PLAN.md — Publish the v1.1.1 release-evidence handoff and documentation validation manifest
 
@@ -149,7 +150,7 @@ Plans:
 | 15. Browser Visual & Accessibility QA | 2/2 | In Progress|  |
 | 16. Cross-Phase UAT & Full Verification | 3/3 | Complete| 2026-07-18 |
 | 17. Security & Privacy Audit | 2/2 | Complete| 2026-07-18 |
-| 18. Documentation & Release Evidence Sync | 0/TBD | Not started | - |
+| 18. Documentation & Release Evidence Sync | 1/3 | In Progress|  |
 | 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
 
 ## Requirement Coverage
