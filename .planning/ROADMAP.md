@@ -98,12 +98,12 @@ Plans:
   3. The published package contains only the intended boundary, retains zero production dependencies, and does not expose question/answer payloads through diagnostics or evidence artifacts.
   4. Unsupported or unavailable host evidence cannot promote a capability to Supported, and the external Windows/authenticated Claude/Codex handoff remains fail-closed.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 
 Plans:
 
 - [x] 17-01-PLAN.md — Audit and close only confirmed security, privacy, and installer regression gaps
-- [ ] 17-02-PLAN.md — Run deterministic security/package/evidence gates and publish bounded results
+- [x] 17-02-PLAN.md — Run deterministic security/package/evidence gates and publish bounded results
 
 ### Phase 18: Documentation & Release Evidence Sync
 
@@ -143,7 +143,7 @@ Plans:
 | 14. Static Quality & Reproducibility | 2/2 | Complete | 2026-07-18 |
 | 15. Browser Visual & Accessibility QA | 2/2 | In Progress|  |
 | 16. Cross-Phase UAT & Full Verification | 2/3 | In Progress|  |
-| 17. Security & Privacy Audit | 1/2 | In Progress|  |
+| 17. Security & Privacy Audit | 2/2 | In Progress|  |
 | 18. Documentation & Release Evidence Sync | 0/TBD | Not started | - |
 | 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
 

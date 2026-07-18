@@ -5,16 +5,16 @@ milestone_name: Release Hardening
 current_phase: 17
 current_phase_name: Security & Privacy Audit
 status: executing
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-07-18T12:41:14.780Z"
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-07-18T12:48:30.938Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 16 verification completed
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
-  percent: 50
+  completed_plans: 9
+  percent: 67
 ---
 
 # Project State
@@ -70,6 +70,7 @@ Last activity: 2026-07-18 — Phase 16 verification completed
 | Phase 16 P01 | 10m | 2 tasks | 2 files |
 | Phase 16 P02 | 1m | 3 tasks | 3 files |
 | Phase 17 P1 | 8m | 2 tasks | 3 files |
+| Phase 17 P02 | 1m | 3 tasks tasks | 7 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Keep archived reports immutable and label historical counts/tool gaps as snapshots or superseded evidence.
 - [Phase ?]: Do not promote local fake-host, MCP, source-contract, or browser-smoke evidence to authenticated host, native OS, full browser-runtime, or AT proof.
 - [Phase ?]: Phase 17 Plan 01 preserved existing security/privacy/installer behavior and added only runtime loopback and nested lifecycle redaction assertions.
+- [Phase ?]: Phase 17 Plan 02 keeps authenticated Claude/Codex and native Windows/Linux lanes UNAVAILABLE until owner-supplied evidence exists.
 
 ### Pending Todos
 
@@ -116,8 +118,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-18T12:41:14.772Z
-Stopped at: Completed 17-01-PLAN.md
+Last session: 2026-07-18T12:48:30.930Z
+Stopped at: Completed 17-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
