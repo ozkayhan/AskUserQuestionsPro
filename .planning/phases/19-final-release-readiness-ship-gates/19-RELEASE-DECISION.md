@@ -1,7 +1,7 @@
 ---
 phase: 19-final-release-readiness-ship-gates
 status: BLOCKED
-candidate_sha: 5db6be8b1b188df69888188ea869cb36bf3ce286
+candidate_sha: 5491cf0f40bfe5a25e19348d57494d0fcd8e1eb9
 date: 2026-07-18
 ---
 
