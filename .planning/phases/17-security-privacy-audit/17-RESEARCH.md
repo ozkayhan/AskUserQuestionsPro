@@ -213,16 +213,16 @@ The focused security/privacy pattern run completed with 90 passing tests, 0 fail
 
 All phase-specific factual claims above are grounded in codebase inspection or the recorded command run; no `[ASSUMED]` implementation claim is required. The remaining external-runtime limitations are stated as unavailable rather than assumed passed.
 
-## Open Questions
+## Open Questions and Explicit Dispositions
 
-1. **Does the published package preserve file permissions and installer behavior on native Windows?**
+1. **Published-package permissions and installer behavior on native Windows — explicitly bounded residual/external gap.**
    - What we know: macOS/local tests cover package boundary and shell/isolated config paths; Windows evidence is explicitly unavailable. [VERIFIED: codebase grep]
    - What's unclear: native filesystem/host CLI semantics.
-   - Recommendation: retain as external handoff; do not promote SEC-02 beyond locally testable scope.
-2. **Is the current evidence redaction resilient to future nested schema fields?**
+   - Owner/environment/next evidence: release maintainer on a native Windows 10/11 CI runner with the packaged tarball; run package dry-run plus install/uninstall/upgrade against isolated native host roots, compare unrelated configuration byte-for-byte, and attach the labeled report before release promotion.
+2. **Future nested schema-field redaction — explicitly resolved for the current contract, with bounded residual.**
    - What we know: current lifecycle, doctor, fake-host, and corpus tests use allowlists/forbidden-pattern scans. [VERIFIED: codebase grep]
    - What's unclear: whether future fields could be introduced without a corresponding negative test.
-   - Recommendation: add a direct unknown-nested-field regression if implementation changes are needed; otherwise record as a residual test gap.
+   - Owner/environment/next evidence: repository maintainer in the next schema/API change; extend the focused regression and rerun `17-run-audit.sh` plus `17-validate-audit.mjs` whenever a projected field or evidence producer changes.
 
 ## Environment Availability
 

@@ -21,6 +21,12 @@ This manifest is the executable contract for SEC-01 and SEC-02. It is intentiona
 | `promotion-fail-closed` | `node --test test/host-evidence-matrix.test.js test/host-install-gates.test.js` | Exit 0; unavailable/unsupported rows cannot promote |
 | `protected-file-snapshot/comparison` | baseline-relative `git diff --`, cached diff, `git hash-object`, `git ls-files -s`, status, then `cmp`/`diff` | Exit 0 for each protected file; unchanged and not staged |
 
+## Helper preflight and deterministic record contract
+
+Plan 02 Task 1 is a Wave 0 preflight for all gates below. It creates executable `17-run-audit.sh` and `17-validate-audit.mjs`, captures complete baselines for `.planning/config.json` and `.planning/ui-reviews/.gitignore`, and smoke-tests both helpers before invoking any audit command. The smoke test proves one known label parses and a duplicate or omitted field fails. No test, package, shell, or validator invocation may precede this preflight.
+
+`17-run-audit.sh` emits exactly one record per manifest label in manifest order with `command:`, `status:`, `output/summary:`, and `interpretation:` fields. Status values are `PASS`, `FAIL`, or `UNAVAILABLE`; unavailable records include owner, environment, reason, and next evidence. The validator rejects duplicate, unknown, missing, or reordered labels and checks protected-file baseline equality plus unstaged status.
+
 ## Protected and external evidence rules
 
 Before execution capture complete baseline records for `.planning/config.json` and `.planning/ui-reviews/.gitignore`; after execution compare each record to its baseline. Do not compare these intentional dirty files to `origin/main`. Preserve all archives and source files.
@@ -31,4 +37,4 @@ Authenticated Claude/Codex sessions and native Windows/Linux execution are unava
 
 ## Plan-owned executables
 
-Plan 02 owns `17-run-audit.sh` and `17-validate-audit.mjs` as deterministic helpers created during execution. They write only Phase 17 evidence artifacts and temporary files.
+Plan 02 owns `17-run-audit.sh` and `17-validate-audit.mjs` as deterministic helpers created and smoke-tested in its first task before use. They write only Phase 17 evidence artifacts, the protected baseline record, and temporary files; they must not modify app source, v1.1 archives, or pre-existing dirty user files.
