@@ -1,9 +1,9 @@
 ---
-status: complete
+status: partial
 phase: 10-settings-v2
 source: 10-01-SUMMARY.md, 10-02-SUMMARY.md, 10-03-SUMMARY.md, 10-04-SUMMARY.md
 started: 2026-07-17T16:01:44Z
-updated: 2026-07-17T16:32:37Z
+updated: 2026-07-18
 ---
 
 ## Current Test
@@ -77,4 +77,6 @@ skipped: 0
 
 ## Gaps
 
-[none yet]
+- Browser CLI assertions pass, but screenshots were not materialized for visual inspection.
+- Playwright Node package, authenticated host runs, assistive-technology and cross-platform checks remain unavailable.
+- `eslint` and `prettier` are unavailable locally.
