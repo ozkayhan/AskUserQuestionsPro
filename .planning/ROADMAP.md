@@ -17,7 +17,7 @@ Phases 8–13 delivered the lifecycle contract, durable round store and recovery
 
 ## Phases
 
-- [ ] **Phase 14: Static Quality & Reproducibility** - Close lint/format gaps and prove a clean `npm ci` reproduces the declared quality gates without production dependency changes.
+- [x] **Phase 14: Static Quality & Reproducibility** - Close lint/format gaps and prove a clean `npm ci` reproduces the declared quality gates without production dependency changes.
 - [ ] **Phase 15: Browser Visual & Accessibility QA** - Reconcile current browser behavior with visual, keyboard, focus, and accessibility evidence for settings, recovery, and delivery.
 - [ ] **Phase 16: Cross-Phase UAT & Full Verification** - Reconcile archived phase evidence and rerun the complete release-critical verification surface without diagnosing an untracked application issue.
 - [ ] **Phase 17: Security & Privacy Audit** - Recheck local-only boundaries, capability ownership, redaction, settings/package safety, and fail-closed promotion behavior.
@@ -123,7 +123,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 14. Static Quality & Reproducibility | 2/2 | In Progress|  |
+| 14. Static Quality & Reproducibility | 2/2 | Complete | 2026-07-18 |
 | 15. Browser Visual & Accessibility QA | 0/TBD | Not started | - |
 | 16. Cross-Phase UAT & Full Verification | 0/TBD | Not started | - |
 | 17. Security & Privacy Audit | 0/TBD | Not started | - |
@@ -134,9 +134,9 @@ Plans:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| QUAL-01 | Phase 14 | Pending |
-| QUAL-02 | Phase 14 | Pending |
-| QUAL-03 | Phase 14 | Pending |
+| QUAL-01 | Phase 14 | Complete |
+| QUAL-02 | Phase 14 | Complete |
+| QUAL-03 | Phase 14 | Complete |
 | UI-01 | Phase 15 | Pending |
 | UI-02 | Phase 15 | Pending |
 | UAT-01 | Phase 16 | Pending |
