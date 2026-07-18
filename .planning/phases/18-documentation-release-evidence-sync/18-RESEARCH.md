@@ -199,15 +199,22 @@ Security enforcement is enabled at ASVS level 1. [VERIFIED: codebase grep — `.
 
 No `[ASSUMED]` claims are required for this research. All substantive claims are grounded in repository files, current phase artifacts, or the user’s explicit scope. [VERIFIED: research session]
 
-## Open Questions
+## Open Questions — Resolved and Bounded
 
-1. **Which maintained document should own the v1.1.1 release index?**
-   - What we know: `docs/README.md`, `docs/maintenance.md`, and `README.md` are maintained entry points; no single final index exists. [VERIFIED: codebase grep]
-   - Recommendation: planner should choose one canonical maintained index and make other entry points link to it, avoiding duplicate status tables.
+1. **Canonical v1.1.1 release index — RESOLVED.**
+   - Decision: `docs/evidence/v1.1.1-release-handoff.md` is the sole canonical release index; `docs/README.md`, `README.md`, and `docs/maintenance.md` may link to it but must not duplicate its status matrix.
+   - Owner/environment: Phase 18 documentation executor in the repository checkout; no external service is required.
+   - Next evidence: Plan 02 must run the maintained-link and handoff-schema commands in `18-VALIDATION.md`, including `node --test test/docs-integrity.test.js` and the required-field parser.
 
-2. **Should stale planning metadata be changed in Phase 18 or via a separate supported transition?**
-   - What we know: Phase 16/17 verification explicitly identifies ROADMAP/STATE contradictions, while the user forbids unrelated dirty-file edits. [VERIFIED: codebase grep]
-   - Recommendation: include only scoped metadata synchronization required for DOC-01/DOC-02 and verify protected paths before/after.
+2. **Planning metadata transition — RESOLVED.**
+   - Decision: Plan 01 owns only the scoped ROADMAP/STATE/REQUIREMENTS reconciliation needed for DOC-01/DOC-02; it must preserve the legacy STATE schema and leave protected dirty files untouched. DOC-01/DOC-02 remain pending until execution completes.
+   - Owner/environment: Plan 01 executor in the current worktree; `.planning/config.json` and `.planning/ui-reviews/.gitignore` are pre-existing dirty state and are not owned by Phase 18.
+   - Next evidence: Plan 02 must run the metadata/requirement/roadmap consistency command plus the baseline-relative protected-file commands and record their exit status in `18-VALIDATION.md`.
+
+3. **External evidence lanes — BOUNDED.**
+   - No authenticated Claude/Codex session or native Windows/Linux environment is available in this checkout. These lanes remain `UNAVAILABLE`, with owner, environment, reason, and next evidence command; no local substitute can promote them.
+   - Owner/environment: future maintainer with authenticated host sessions and native OS runners.
+   - Next evidence: execute the host-specific commands named in the handoff on those environments and replace only the corresponding bounded row.
 
 ## Sources
 
