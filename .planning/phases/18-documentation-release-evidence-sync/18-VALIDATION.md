@@ -1,6 +1,6 @@
 # Phase 18 Validation Manifest
 
-The complete gate command is `node .planning/phases/18-documentation-release-evidence-sync/18-validate.mjs`. It is the only command executors use for plan-level validation. Before any Phase 18 edit, capture the existing worktree/index/untracked state with `node .planning/phases/18-documentation-release-evidence-sync/18-validate.mjs --capture-baseline`; this preserves intentional Phase 17 changes as baseline state rather than treating them as Phase 18 edits.
+The executable validator is `18-validate.mjs`, created by Wave 0. The complete gate command is `node .planning/phases/18-documentation-release-evidence-sync/18-validate.mjs`; `--capture-baseline` writes `.planning/phases/18-documentation-release-evidence-sync/18-baseline.json` without reset, checkout, clean, or other destructive operation. It is the only command executors use for plan-level validation. Before any Phase 18 edit, capture the existing worktree/index/untracked state; this preserves intentional Phase 17 changes as baseline state rather than treating them as Phase 18 edits.
 
 This manifest is the executable contract for DOC-01 and DOC-02. It permits maintained-document and planning-metadata edits explicitly listed by the Phase 18 plans; application source, Phase 8–13 archives, protected dirty files, and unrelated worktree content are outside scope and must remain unchanged.
 
@@ -23,6 +23,8 @@ This manifest is the executable contract for DOC-01 and DOC-02. It permits maint
 ## Gate order
 
 Run `node .planning/phases/18-documentation-release-evidence-sync/18-validate.mjs` in this order: maintained-doc-integrity and handoff-link-scan; handoff-schema and redaction-scan; metadata-consistency; archive-immutability and protected-file-comparison; source-edit-policy; lint, format, diff-check, and integrity. The command runs every gate and exits nonzero on any failure.
+
+The smoke contract is `node --test .planning/phases/18-documentation-release-evidence-sync/18-validator-smoke-fixture.mjs` followed by `node .planning/phases/18-documentation-release-evidence-sync/18-validate.mjs --smoke`. Smoke mode dispatches every gate against deterministic fixtures and never writes the repository baseline. The validator exports the manifest, redaction, link, schema, metadata, protected, archive, source-policy, and smoke hooks so the fixture can assert both positive and negative behavior without changing application source, archives, protected files, or `.playwright-cli`.
 
 ## Evidence rules
 
