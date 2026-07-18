@@ -1,5 +1,19 @@
 # Milestones
 
+## v1.1.1 Release Hardening (Prepared: 2026-07-18)
+
+**Closeout:** Override closeout; local release gates pass, while package publication/tag and external validation remain explicit handoffs.
+
+**Phases completed:** 6 phases, 15 plans planned.
+
+**Delivered:** Clean lint/format policy, reproducible installs, current browser/UAT evidence, security/privacy checks, documentation/release handoff, package gates, and isolated macOS installer lifecycle evidence.
+
+**Release path:** `.changeset/steady-v11-hardening.md` is prepared. After the release PR merges, GitHub Actions creates the Version Packages PR; merging it bumps 1.1.1, publishes to npm with `NPM_TOKEN`, and creates the release tag.
+
+**Known gaps:** Authenticated Claude/Codex, native Windows/Linux, and exhaustive browser/AT lanes require external environments.
+
+---
+
 ## v1.1 Reliability, Extensibility, and Productization (Shipped: 2026-07-17)
 
 **Phases completed:** 6 phases, 26 plans, 3 tasks

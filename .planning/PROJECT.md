@@ -1,8 +1,8 @@
 # AskUserQuestionsPro Reliability, Extensibility, and Productization
 
-## Current Milestone: v1.1.1 Release Hardening
+## Current Milestone: v1.1.1 Release Hardening (prepared)
 
-**Goal:** Turn the shipped v1.1 implementation into a clean, reproducible, release-ready checkout by closing lint/format gaps, re-running UI/UAT/security/docs gates, and recording unavailable external evidence without overclaiming support.
+**Goal:** Release the hardened v1.1 checkout through the repository's authenticated Changesets workflow while keeping unavailable external evidence explicit.
 
 **Target features:**
 
@@ -30,7 +30,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 
 ## Current State
 
-Milestone v1.0.0 shipped on 2026-07-16 and v1.1 shipped on 2026-07-17; both are archived. The v1.1 implementation passes 500 tests with 1 expected Playwright skip and 0 failures, plus package, audit, shell, release, and local browser evidence gates. The v1.1.1 hardening cycle is now active because installing the declared development tools exposed 17 ESLint errors and 137 Prettier differences. Authenticated host runs, native Linux/Windows runs, and some browser/AT scenarios remain explicitly documented evidence gaps; unsupported hosts are not promoted.
+Milestone v1.0.0 shipped on 2026-07-16 and v1.1 shipped on 2026-07-17. v1.1.1 release hardening closed the local lint/format, test, browser-smoke, security, package, installer, and documentation gates. A patch changeset is prepared; merge of the release PR followed by the generated Version Packages PR will update metadata to 1.1.1 and publish through `NPM_TOKEN`. Authenticated host runs, native Linux/Windows runs, and some browser/AT scenarios remain explicit evidence handoffs.
 
 ## Core Value
 
@@ -70,7 +70,7 @@ Users must be able to complete and safely deliver a long, multi-question round a
 
 ### Next Milestone Goals
 
-After v1.1.1, consume the archived evidence handoff for authenticated Claude/Codex runs, native Linux/Windows runs, and the remaining browser/AT scenarios before promoting additional hosts or claiming broader platform support.
+After v1.1.1 publication, consume the archived evidence handoff for authenticated Claude/Codex runs, native Linux/Windows runs, and remaining browser/AT scenarios before promoting additional hosts or claiming broader platform support.
 
 ### Out of Scope
 
@@ -136,4 +136,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-07-18 after v1.1.1 milestone start_
+_Last updated: 2026-07-18 after v1.1.1 release-hardening closeout_

@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1.1
 milestone_name: Release Hardening
-current_phase: 19
+current_phase: none
 current_phase_name: Final Release Readiness & Ship Gates
-status: blocked
-stopped_at: 19-03-PLAN.md — explicit release-owner version decision required
-last_updated: "2026-07-18T14:30:00.000Z"
+status: milestone_complete
+stopped_at: v1.1.1 release-hardening archive — publication delegated to Changesets workflow
+last_updated: "2026-07-18T15:10:00.000Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 18 documentation and release evidence sync completed
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 6
   total_plans: 15
-  completed_plans: 14
-  percent: 83
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 
 ## Current Position
 
-Phase: 19 (Final Release Readiness & Ship Gates) — BLOCKED at release-owner decision
-Plan: 03 — BLOCKED pending explicit package-version choice
-Status: All locally executable gates pass; package version and unavailable external lanes remain explicitly blocked.
-Last activity: 2026-07-18 — final release gate manifest passed; shipment decision recorded as blocked
+Phase: v1.1.1 milestone closed with override closeout
+Plan: Release preparation complete; generated Version Packages PR remains post-merge
+Status: All locally executable gates pass. External validation and npm publication remain explicit handoffs.
+Last activity: 2026-07-18 — v1.1.1 release-hardening archive prepared
 
 ## Performance Metrics
 
@@ -121,6 +121,10 @@ None yet.
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
 | Architecture | Resumable hard-deadline ticket protocol | Deferred to v2 unless Phase 8 proves a hard host wall-clock limit | 2026-07-16 |
+| Verification | Phase 15 runtime accessibility, ownership, and external browser lanes | Human/external validation required; retained as bounded handoff | 2026-07-18 |
+| Verification | Authenticated Claude/Codex and native Windows/Linux acceptance | Owner environment unavailable in this Mac workspace | 2026-07-18 |
+| Release | npm publication, package metadata bump, and v1.1.1 tag | GitHub Changesets workflow after merge; local npm auth unavailable | 2026-07-18 |
+| Evidence | Historical Phase 16 duplicate roadmap status and Phase 17 trailing whitespace | Preserved as historical evidence; current validators pass | 2026-07-18 |
 
 ## Session Continuity
 
@@ -130,4 +134,5 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Merge the release PR, then merge the generated Version Packages PR to publish v1.1.1.
+- Start the next milestone with /gsd-new-milestone after publication.
