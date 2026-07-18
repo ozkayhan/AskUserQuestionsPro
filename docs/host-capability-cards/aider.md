@@ -1,0 +1,13 @@
+# Aider
+
+- Evidence date: 2026-07-17
+- Version: unavailable
+- Evidence class: official-doc-no-safe-surface
+- Transport: No proven safe MCP host surface
+- Timeout/deadline owner: Unavailable
+- Cancellation/disconnect: Unavailable
+- Approval/trust: Not applicable
+- Configuration: Not applicable
+- Installation/upgrade/uninstall: Not run
+- Evidence state: `Unsupported`
+- Limitations: A safe authoritative integration lifecycle is not proven.

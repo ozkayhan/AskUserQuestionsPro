@@ -159,3 +159,11 @@ test('needsReload sticky simulation: reload-type setting change survives second 
   needsReload = needsReload || reloadChanged2;
   assert.ok(needsReload, 'after save2 (sticky), needsReload must remain true');
 });
+
+test('[HIGH] save synchronizes the v2 envelope used by the next modal session', () => {
+  const saveIdx = src.indexOf('function save(');
+  const saveEndIdx = src.indexOf('\n  function adoptEnvelope', saveIdx);
+  const saveBody = src.slice(saveIdx, saveEndIdx);
+  assert.match(saveBody, /window\.__ASKUSER_SETTINGS_V2__\s*=\s*nextEnvelope/);
+  assert.match(saveBody, /nextEnvelope\.browser\s*=\s*Settings_Schema\.mergeBrowserLegacy/);
+});

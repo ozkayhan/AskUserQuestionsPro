@@ -215,6 +215,10 @@ rejected with HTTP 409 so answers cannot cross rounds.
 
 ## Troubleshooting
 
+Compatibility is evidence-gated: see the [host matrix](test/host-compatibility-evidence.md),
+[capability cards](docs/host-capability-cards/), and [native OS limitations](docs/evidence/phase-13-native-os-runs.md).
+`Researching`, `Unsupported`, and `Unavailable` rows are not support promises.
+
 - Run `askuserquestionspro doctor --target all` to see host-specific hook,
   skill, and MCP registration status. Use a narrower target when only one host
   is intended.
@@ -245,6 +249,12 @@ annotations.
 Before contributing, run `npm run lint`, `npm run format:check`, and
 `npm test`. Releases use Changesets: add a changeset, merge it, then merge the
 generated Version Packages PR to publish.
+
+The maintained [v1.1.1 release handoff](docs/evidence/v1.1.1-release-handoff.md)
+indexes current Phase 14–17 evidence and separates local PASS results from
+PARTIAL or UNAVAILABLE browser-runtime, native-OS, and authenticated
+Claude/Codex handoffs. Phase 19 owns the final clean-checkout release decision,
+including complete install, upgrade, and uninstall proof.
 
 ## License
 

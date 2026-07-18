@@ -3,6 +3,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Bridge, DEFAULT_DETACHED_TTL_MS, terminalReason } = require('./bridge.js');
+const { RoundStore } = require('../lib/round-store.cjs');
 const APP_ID = require('../lib/app-id.cjs');
 const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
@@ -11,12 +12,25 @@ const { validQuestions: validateQuestionSet } = require('../lib/question-contrac
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
+const runtimeSettings = () => Settings.inspect().effective;
+const settingsStatus = Settings.inspect();
 const configuredDetachedTtl = Number(process.env.ASKUSER_DETACHED_ROUND_TTL_MS);
+const configuredSettings = runtimeSettings();
 const bridge = new Bridge({
-  detachedTtlMs: Number.isFinite(configuredDetachedTtl)
-    ? configuredDetachedTtl
-    : DEFAULT_DETACHED_TTL_MS,
+  detachedTtlMs: Number.isFinite(configuredSettings.recovery?.retentionMs)
+    ? configuredSettings.recovery.retentionMs
+    : Number.isFinite(configuredDetachedTtl)
+      ? configuredDetachedTtl
+      : DEFAULT_DETACHED_TTL_MS,
+  store: new RoundStore(),
+  settings: configuredSettings,
 });
+// Retention is enforced both before recovery hydration and periodically while
+// the daemon is idle. The interval is bounded and unref'd so it never keeps a
+// CLI process alive.
+const cleanupTimer = setInterval(() => bridge._store?.cleanupExpired(), 60 * 1000);
+cleanupTimer.unref?.();
+bridge._store?.cleanupExpired();
 const sseClients = new Set();
 const MIME = {
   '.html': 'text/html',
@@ -31,6 +45,50 @@ const MIME = {
 function sendJson(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(obj));
+}
+
+function recoveryError(res, code) {
+  const status =
+    {
+      invalid_selector: 400,
+      ownership_conflict: 409,
+      ambiguous_selection: 409,
+      result_not_ready: 409,
+      expired: 410,
+      not_found: 404,
+      recovery_error: 409,
+    }[code] || 409;
+  return sendJson(res, status, { error: 'round recovery unavailable', reason: code });
+}
+
+// A host result is delivered only after Node reports that its response stream
+// completed. A closed or unwritable stream is an uncertain delivery and must
+// leave request-id results available to /resume.
+function sendJsonAndObserve(res, code, obj) {
+  return new Promise((resolve) => {
+    let done = false;
+    const settle = (delivered) => {
+      if (done) return;
+      done = true;
+      res.off('finish', onFinish);
+      res.off('close', onClose);
+      res.off('error', onError);
+      resolve(delivered);
+    };
+    const onFinish = () => settle(true);
+    const onClose = () => settle(false);
+    const onError = () => settle(false);
+    if (res.destroyed || !res.writable) return settle(false);
+    res.once('finish', onFinish);
+    res.once('close', onClose);
+    res.once('error', onError);
+    try {
+      res.writeHead(code, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(obj));
+    } catch {
+      settle(false);
+    }
+  });
 }
 
 const MAX_BODY = 8e6; // 8 MB sert tavan.
@@ -73,7 +131,12 @@ function validQuestions(q) {
 }
 
 function broadcastCurrent() {
-  const payload = JSON.stringify(bridge.peek() || { id: null, questions: null });
+  const current = bridge.peek();
+  const payload = JSON.stringify(
+    current
+      ? { ...current, lifecycle: bridge.getSnapshot() }
+      : { id: null, questions: null, lifecycle: bridge.getSnapshot() }
+  );
   for (const res of sseClients) {
     // res.write() hatayı çoğu Node yolunda ASENKRON 'error' ile yayar; senkron
     // try/catch ölü soketi yakalamaz. writable kontrolü deterministik guard'dır;
@@ -89,12 +152,19 @@ function broadcastCurrent() {
 // Ayarlar bellek cache'i: her index.html / POST /settings'te fs.readFileSync ile
 // event loop'u bloke etmemek için. write yolundan invalidate edilir.
 let settingsCache = null;
+const settingsPreviews = new Map();
 function readSettings() {
-  if (settingsCache === null) settingsCache = Settings.read();
+  const status = Settings.inspect();
+  if (settingsCache === null || settingsCacheRevision !== status.revision) {
+    settingsCache = status.effective;
+    settingsCacheRevision = status.revision;
+  }
   return settingsCache;
 }
+let settingsCacheRevision = null;
 function invalidateSettings(value) {
   settingsCache = value || null; // value verilirse direkt cache'le, yoksa lazy re-read.
+  settingsCacheRevision = value ? Settings.inspect().revision : null;
 }
 
 // index.html taban HTML'i ilk istekte cache'lenir (UTF-8 decode bir kez). Ayar
@@ -150,7 +220,12 @@ function serveStatic(req, res) {
 }
 
 function sendIndex(res, baseHtml) {
-  const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(readSettings())}</script>`;
+  const status = Settings.inspect();
+  const legacy =
+    status.status === 'current'
+      ? require('../web/settings-schema.js').browserToLegacy(status.effective.browser)
+      : Settings.read();
+  const tag = `<script>window.__ASKUSER_SETTINGS__=${JSON.stringify(legacy)}</script><script>window.__ASKUSER_SETTINGS_V2__=${JSON.stringify(readSettings())}</script>`;
   const html = baseHtml.replace('</head>', tag + '</head>');
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end(html);
@@ -172,7 +247,71 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ok: true, app: APP_ID });
   if (req.method === 'GET' && url === '/current') {
     const requestId = new URL(req.url, 'http://127.0.0.1').searchParams.get('requestId');
-    return sendJson(res, 200, bridge.peek(requestId || undefined) || { id: null, questions: null });
+    const current = bridge.peek(requestId || undefined);
+    return sendJson(
+      res,
+      200,
+      current
+        ? { ...current, lifecycle: bridge.getSnapshot() }
+        : { id: null, questions: null, lifecycle: bridge.getSnapshot() }
+    );
+  }
+
+  if (req.method === 'GET' && url === '/rounds') {
+    return sendJson(res, 200, { rounds: bridge.listRecoverable() });
+  }
+
+  const roundMatch = /^\/rounds\/(round_[A-Za-z0-9_-]+)(?:\/(result|ack))?$/.exec(url);
+  if (roundMatch && req.method === 'GET' && !roundMatch[2]) {
+    const found = bridge.getDurable(roundMatch[1]);
+    if (!found.ok) return recoveryError(res, found.code);
+    const { roundId, requestId, lifecycle, revision, createdAt, updatedAt, expiresAt, questions } =
+      found.record;
+    return sendJson(res, 200, {
+      roundId,
+      requestId,
+      state: lifecycle.state,
+      revision,
+      createdAt,
+      updatedAt,
+      expiresAt,
+      questionCount: questions.length,
+    });
+  }
+
+  if (
+    roundMatch &&
+    req.method === 'POST' &&
+    (roundMatch[2] === 'result' || roundMatch[2] === 'ack')
+  ) {
+    let body;
+    try {
+      body = await readBody(req);
+    } catch {
+      return sendJson(res, 400, { error: 'read error' });
+    }
+    let capability;
+    try {
+      ({ capability } = JSON.parse(body));
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
+    if (typeof capability !== 'string') return recoveryError(res, 'invalid_selector');
+    if (roundMatch[2] === 'result') {
+      const result = bridge.getResult(roundMatch[1], capability);
+      if (!result.ok) return recoveryError(res, result.code);
+      return sendJson(res, 200, { answers: result.result, revision: result.record.revision });
+    }
+    const record = bridge.getDurable(roundMatch[1]);
+    if (!record.ok) return recoveryError(res, record.code);
+    if (record.record.capability !== capability) return recoveryError(res, 'ownership_conflict');
+    if (!record.record.answers) return recoveryError(res, 'result_not_ready');
+    if (!bridge.confirmDelivery(roundMatch[1])) return recoveryError(res, 'recovery_error');
+    const acknowledged = bridge.getDurable(roundMatch[1]);
+    return sendJson(res, 200, {
+      acknowledgedAt: acknowledged.record.delivery.acknowledgedAt,
+      revision: acknowledged.record.revision,
+    });
   }
 
   if (req.method === 'GET' && url === '/events') {
@@ -184,7 +323,10 @@ async function handleRequest(req, res) {
     // Önce ekle, sonra ilk snapshot'ı yaz: add-write penceresinde araya giren bir
     // broadcast'i kaçırmamak için (eklenme-yazma sırasına kırılgan değil).
     sseClients.add(res);
-    res.write(`data: ${JSON.stringify(bridge.peek() || { id: null, questions: null })}\n\n`);
+    const current = bridge.peek();
+    res.write(
+      `data: ${JSON.stringify(current ? { ...current, lifecycle: bridge.getSnapshot() } : { id: null, questions: null, lifecycle: bridge.getSnapshot() })}\n\n`
+    );
     // 25 sn'de bir yorum-ping: bağlantı/proxy timeout'una karşı keepalive.
     const ping = setInterval(() => {
       if (!res.writable) {
@@ -229,6 +371,7 @@ async function handleRequest(req, res) {
     const lifecycle = createLifecycle({
       adapter: 'http',
       requestId,
+      settings: settingsStatus.status === 'current' ? configuredSettings : undefined,
     });
     lifecycle.event('ask_received');
     const answersPromise = bridge.submitQuestions(questions, requestId, lifecycle);
@@ -253,8 +396,11 @@ async function handleRequest(req, res) {
     try {
       const answers = await answersPromise;
       settled = true;
-      if (res.destroyed || !res.writable) return;
-      return sendJson(res, 200, { answers });
+      const delivered = await sendJsonAndObserve(res, 200, { answers });
+      const deliveryId = bridge.durableRoundId(myId) || myId;
+      if (delivered) bridge.confirmDelivery(deliveryId);
+      else bridge.markDeliveryUncertain(deliveryId);
+      return;
     } catch (e) {
       settled = true;
       lifecycle.finish('bridge_error');
@@ -276,18 +422,33 @@ async function handleRequest(req, res) {
     } catch {
       return sendJson(res, 400, { error: 'read error' });
     }
-    let requestId;
+    let requestId, roundId;
     try {
       const payload = body ? JSON.parse(body) : {};
       if (payload.requestId !== undefined && typeof payload.requestId !== 'string') {
         return sendJson(res, 400, { error: 'invalid requestId' });
       }
+      if (
+        payload.roundId !== undefined &&
+        (typeof payload.roundId !== 'string' || !/^round_[A-Za-z0-9_-]+$/.test(payload.roundId))
+      ) {
+        return sendJson(res, 400, { error: 'invalid roundId' });
+      }
       requestId = payload.requestId;
+      roundId = payload.roundId;
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
 
-    const waiter = bridge.waitForAnswers(requestId);
+    if (!roundId && !requestId) return recoveryError(res, 'invalid_selector');
+    if (roundId) {
+      const found = bridge.getDurable(roundId);
+      if (!found.ok) return recoveryError(res, found.code);
+      if (requestId && found.record.requestId !== requestId)
+        return recoveryError(res, 'ownership_conflict');
+      requestId = found.record.requestId;
+    }
+    const waiter = bridge.waitForAnswers({ requestId, roundId });
     let settled = false;
     const onClose = () => {
       if (!settled) waiter.cancel();
@@ -296,8 +457,11 @@ async function handleRequest(req, res) {
     try {
       const answers = await waiter.promise;
       settled = true;
-      if (res.destroyed || !res.writable) return;
-      return sendJson(res, 200, { answers });
+      const delivered = await sendJsonAndObserve(res, 200, { answers });
+      const deliveryId = waiter.roundId;
+      if (delivered) bridge.confirmDelivery(deliveryId);
+      else bridge.markDeliveryUncertain(deliveryId);
+      return;
     } catch (e) {
       settled = true;
       return sendJson(res, 409, {
@@ -317,9 +481,9 @@ async function handleRequest(req, res) {
     } catch {
       return sendJson(res, 400, { error: 'read error' });
     }
-    let id, answers;
+    let id, answers, capability;
     try {
-      ({ id, answers } = JSON.parse(body));
+      ({ id, answers, capability } = JSON.parse(body));
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
@@ -327,14 +491,48 @@ async function handleRequest(req, res) {
     if (!answers || typeof answers !== 'object' || Array.isArray(answers))
       return sendJson(res, 400, { error: 'invalid answers' });
     // Contract R: id eşleşen pending turu resolve eder; eşleşmezse (stale/yok) 409.
-    if (!bridge.provideAnswers(id, answers)) {
+    if (typeof capability !== 'string' || !bridge.provideAnswers(id, answers, capability)) {
       return sendJson(res, 409, {
         error: 'no matching pending question set',
-        reason: 'stale_round',
+        reason: 'ownership_conflict',
       });
     }
     broadcastCurrent();
     return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url === '/draft') {
+    let body;
+    try {
+      body = await readBody(req);
+    } catch {
+      return sendJson(res, 400, { error: 'read error' });
+    }
+    let id, answers, capability, revision;
+    try {
+      ({ id, answers, capability, revision } = JSON.parse(body));
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
+    if (
+      !Number.isInteger(id) ||
+      !answers ||
+      typeof answers !== 'object' ||
+      Array.isArray(answers) ||
+      typeof capability !== 'string' ||
+      !Number.isInteger(revision) ||
+      revision < 0
+    ) {
+      return sendJson(res, 400, { error: 'invalid draft request' });
+    }
+    const saved = bridge.saveDraft(id, answers, capability, revision);
+    if (!saved.ok) return recoveryError(res, saved.code);
+    broadcastCurrent();
+    return sendJson(res, 200, {
+      ok: true,
+      revision: saved.record.revision,
+      replayed: saved.replayed,
+    });
   }
 
   if (req.method === 'POST' && url === '/cancel') {
@@ -344,16 +542,22 @@ async function handleRequest(req, res) {
     } catch {
       return sendJson(res, 400, { error: 'read error' });
     }
-    let id;
+    let id, capability;
     let reason = 'user cancelled';
     try {
       const payload = JSON.parse(body);
       id = payload.id;
+      capability = payload.capability;
       if (payload.reason !== undefined) reason = payload.reason;
     } catch {
       return sendJson(res, 400, { error: 'bad json' });
     }
-    if (!Number.isInteger(id) || id < 1 || typeof reason !== 'string') {
+    if (
+      !Number.isInteger(id) ||
+      id < 1 ||
+      typeof reason !== 'string' ||
+      typeof capability !== 'string'
+    ) {
       return sendJson(res, 400, { error: 'invalid cancel request' });
     }
     const knownReason = new Set([
@@ -365,10 +569,10 @@ async function handleRequest(req, res) {
     if (!knownReason.has(reason)) {
       return sendJson(res, 400, { error: 'invalid cancel reason' });
     }
-    if (!bridge.cancel(reason, id)) {
+    if (!bridge.cancel(reason, id, capability)) {
       return sendJson(res, 409, {
         error: 'no matching pending question set',
-        reason: 'stale_round',
+        reason: 'ownership_conflict',
       });
     }
     broadcastCurrent();
@@ -390,15 +594,127 @@ async function handleRequest(req, res) {
     }
     if (!patch || typeof patch !== 'object' || Array.isArray(patch))
       return sendJson(res, 400, { error: 'invalid settings' });
-    // Contract W: write → {ok,value,error?}. Settings.write zaten validate eder.
-    const r = Settings.write(patch);
+    const current = Settings.inspect();
+    const r =
+      current.status === 'current'
+        ? Settings.mutateCompareAndSwap(undefined, (envelope) => ({
+            ...envelope,
+            browser: require('../web/settings-schema.js').mergeBrowserLegacy(
+              envelope.browser,
+              patch
+            ),
+          }))
+        : Settings.write(patch);
     if (!r.ok)
-      return sendJson(res, 500, {
-        error: (r.error && r.error.message) || 'settings write failed',
+      return sendJson(res, r.code === 'STALE_REVISION' ? 409 : 500, {
+        error: (r.error && r.error.message) || r.code || 'settings write failed',
       });
     invalidateSettings(r.value); // bellek cache'i taze değerle güncelle.
-    const { _v, ...clientSettings } = r.value; // _v disk formatı; tarayıcıya sızdırma
+    const clientSettings =
+      r.value._v === 2
+        ? require('../web/settings-schema.js').browserToLegacy(r.value.browser)
+        : (() => {
+            const { _v, ...legacy } = r.value;
+            return legacy;
+          })();
     return sendJson(res, 200, { ok: true, settings: clientSettings });
+  }
+
+  if (req.method === 'GET' && url === '/settings/export') {
+    const status = Settings.inspect();
+    const body = JSON.stringify(status.effective, null, 2) + '\n';
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="askuserquestionspro-settings-v2.json"',
+      'Cache-Control': 'no-store',
+    });
+    return res.end(body);
+  }
+  if (req.method === 'GET' && url === '/settings/doctor') {
+    // The browser needs an actionable health view, but never the raw config
+    // path or arbitrary imported fields. Keep this projection identical to
+    // the CLI's redacted doctor output.
+    return sendJson(res, 200, Settings.doctorProjection(Settings.inspectReadOnly()));
+  }
+  if (
+    req.method === 'POST' &&
+    (url === '/settings/preview' || url === '/settings/apply' || url === '/settings/reset')
+  ) {
+    let payload;
+    try {
+      payload = JSON.parse(await readBody(req));
+    } catch {
+      return sendJson(res, 400, { error: 'bad json' });
+    }
+    const status = Settings.inspect();
+    if (url === '/settings/preview') {
+      if (
+        !payload ||
+        typeof payload !== 'object' ||
+        !payload.payload ||
+        payload.baselineRevision === undefined
+      ) {
+        return sendJson(res, 400, { error: 'payload and baselineRevision are required' });
+      }
+      const candidate = payload.payload;
+      const checked = require('../web/settings-schema.js').inspectEnvelope(candidate);
+      const details = checked.valid ? [] : [{ field: '_v', error: checked.status }];
+      const id = require('node:crypto').randomBytes(12).toString('hex');
+      if (payload.baselineRevision !== status.revision)
+        return sendJson(res, 409, { error: 'baseline changed', baselineRevision: status.revision });
+      settingsPreviews.set(id, {
+        revision: status.revision,
+        candidate: checked.envelope,
+        payload: candidate,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+      return sendJson(res, 200, {
+        previewId: id,
+        baselineRevision: status.revision,
+        status: checked.status,
+        valid: checked.valid,
+        errors: details,
+        migration: checked.migrated,
+        ignored: checked.ignored || { count: 0, truncated: false },
+        canApply: checked.valid && checked.status !== 'unsupported-future',
+      });
+    }
+    if (url === '/settings/reset') {
+      const namespace = payload.namespace;
+      const defaults = require('../web/settings-schema.js').namespaceDefaults();
+      if (!Object.prototype.hasOwnProperty.call(defaults, namespace))
+        return sendJson(res, 400, { error: 'invalid namespace' });
+      const result = Settings.mutateCompareAndSwap(payload.baselineRevision, (current) => ({
+        ...current,
+        [namespace]: defaults[namespace],
+      }));
+      if (!result.ok) return sendJson(res, 409, { error: result.code });
+      invalidateSettings(result.value);
+      return sendJson(res, 200, { ok: true, settings: result.value });
+    }
+    if (
+      !payload ||
+      typeof payload.previewId !== 'string' ||
+      !payload.payload ||
+      payload.baselineRevision === undefined
+    )
+      return sendJson(res, 400, { error: 'previewId, payload and baselineRevision are required' });
+    const preview = settingsPreviews.get(payload.previewId);
+    if (!preview || preview.expiresAt < Date.now())
+      return sendJson(res, 409, { error: 'preview expired' });
+    if (
+      payload.baselineRevision !== preview.revision ||
+      JSON.stringify(payload.payload) !== JSON.stringify(preview.payload)
+    )
+      return sendJson(res, 409, { error: 'preview payload mismatch' });
+    const checked = require('../web/settings-schema.js').inspectEnvelope(payload.payload);
+    if (!checked.valid || checked.status === 'unsupported-future')
+      return sendJson(res, 400, { error: 'invalid import', status: checked.status });
+    const result = Settings.mutateCompareAndSwap(preview.revision, () => checked.envelope);
+    if (!result.ok) return sendJson(res, 409, { error: result.code });
+    settingsPreviews.delete(payload.previewId);
+    invalidateSettings(result.value);
+    return sendJson(res, 200, { ok: true, settings: result.value });
   }
 
   if (req.method === 'GET') return serveStatic(req, res);

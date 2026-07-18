@@ -1,0 +1,13 @@
+# OpenCode
+
+- Evidence date: 2026-07-17
+- Version: 1.15.12
+- Evidence class: official-doc+installed-unverified
+- Transport: MCP documented
+- Timeout/deadline owner: Unverified
+- Cancellation/disconnect: Unverified
+- Approval/trust: Unverified
+- Configuration: Unverified
+- Installation/upgrade/uninstall: Installed binary only; no lifecycle run
+- Evidence state: `Researching`
+- Limitations: OpenCode 1.15.12 presence is not support evidence.

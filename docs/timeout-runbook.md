@@ -5,6 +5,8 @@ Codex/Claude call ends after a repeatable wall-clock interval.
 
 ## Scope and current contract
 
+Read redacted `boundary`, `deadlineOwner`, `reason`, and `elapsedMs` together. Attachment loss is detached (recover with `resume`), not cancelled. Deterministic tests prove this local contract only; authenticated Claude Code and Codex evidence is required before making host timeout claims.
+
 The application timeout is one hour in the shared bridge client. The HTTP server
 sets `requestTimeout = 0`, and the bridge is localhost-only. MCP progress
 heartbeats are optional liveness notifications; they do not override a host’s
@@ -13,9 +15,9 @@ the host boundary instead of “fixed” by increasing the application constant.
 
 The supported recovery paths are:
 
-- Either MCP host: call `mcp__askuserquestionspro__resume` after an unexpected
-  host disconnect, before creating a new round. With no argument it selects the
-  latest detached round.
+- Either MCP host: call `mcp__askuserquestionspro__resume` with the original
+  request id or exact durable round id after an unexpected host disconnect,
+  before creating a new round. Selector-less recovery is rejected.
 - Codex: call `request_user_input` natively if resume reports no available
   round or the MCP round was explicitly cancelled.
 - Claude Code: call native `AskUserQuestion` if the hook cannot complete.
@@ -105,3 +107,8 @@ despite `tool_timeout_sec = 3600`. In the verified run the lifecycle recorded
 `round_finished(reason=completed)`. The detached/resume path is the supported
 mitigation for that host boundary, while the one-hour TTL remains the local
 application deadline.
+
+For the current evidence boundary and owner/environment/next-gate fields, see
+the [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md). Historical
+timeout rationale is retained in [decisions.md](decisions.md) and the archived
+v1.1 milestone sources.

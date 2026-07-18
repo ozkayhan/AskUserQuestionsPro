@@ -18,3 +18,14 @@ test('app: stale round retry edilmez', () => {
   assert.match(app, /sendError === ['"]network['"]\s*\)\s*\{/);
   assert.match(app, /(?:R\.)?sendError !== ['"]stale['"]/);
 });
+
+test('app: recovery chooser and delivery surfaces are explicit and keyboard-owned', () => {
+  assert.match(app, /RecoveryChooser/);
+  assert.match(app, /getRecoverableRounds/);
+  assert.match(app, /selectedRecovery/);
+  assert.match(app, /delivery-pending|DeliveryPanel/);
+  assert.match(app, /durableRoundId/);
+  assert.match(app, /retryAcknowledgement/);
+  assert.match(app, /clearPendingDrafts/);
+  assert.match(app, /createAnswerState\(QUESTIONS, draftAnswers\)/);
+});

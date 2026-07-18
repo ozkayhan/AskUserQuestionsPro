@@ -1,0 +1,10 @@
+{
+  "_v": 2,
+  "browser": { "strategy": "manual", "theme": "paper" },
+  "recovery": { "retentionMs": 7200000, "mode": "manual" },
+  "autosave": { "enabled": true, "debounceMs": 1000 },
+  "diagnostics": { "enabled": true, "includePaths": false },
+  "delivery": { "mode": "confirm", "retryMs": 2000 },
+  "closure": { "mode": "after-delivery" },
+  "adapters": { "claudeEnabled": true, "codexEnabled": false }
+}

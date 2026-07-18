@@ -1,56 +1,191 @@
-/* global React, ReactDOM, AnswerMap, useLiveQuestions, postAnswers, fullOptions,
-   Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary,
+/* global React, ReactDOM, AnswerMap, DraftWriter, Settings_Schema, useLiveQuestions, postAnswers, postDraft, fullOptions,
+   Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary, RecoveryChooser, ReconciliationPanel, DeliveryPanel,
    SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
 const { useState, useEffect, useRef, useCallback } = React;
 
+// v2 is the canonical browser source. The flat global remains the explicit
+// compatibility path for v1 files and is updated so older consumers agree.
+function normalizeBootSettings() {
+  const envelope = window.__ASKUSER_SETTINGS_V2__;
+  if (envelope && envelope._v === 2 && envelope.browser) {
+    const b = envelope.browser;
+    const legacy = Settings_Schema.browserToLegacy(b);
+    window.__ASKUSER_SETTINGS__ = legacy;
+    return legacy;
+  }
+  return window.__ASKUSER_SETTINGS__ || Settings_Schema.defaults();
+}
+const APP_SETTINGS = normalizeBootSettings();
+const currentAppSettings = () => window.__ASKUSER_SETTINGS__ || APP_SETTINGS;
+
+function createAnswerState(questions, draft) {
+  const answers = {};
+  questions.forEach((q) => {
+    answers[q.question] = {
+      sel: [],
+      confirmed: false,
+      customText: '',
+      value: null,
+      order: null,
+      path: null,
+    };
+  });
+  return { ...answers, ...(draft && typeof draft === 'object' ? draft : {}) };
+}
+
 function App() {
-  const { id, questions } = useLiveQuestions();
-  const roundId = id;
+  const {
+    id,
+    roundId: durableRoundId,
+    questions,
+    capability,
+    revision,
+    draftAnswers,
+  } = useLiveQuestions();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [recoverableRounds, setRecoverableRounds] = useState(null);
+  const [recoveryError, setRecoveryError] = useState(null);
+  const [selectedRecovery, setSelectedRecovery] = useState(null);
+  const settingsFabRef = useRef(null);
+
+  useEffect(() => {
+    if (id != null || typeof getRecoverableRounds !== 'function') return undefined;
+    getRecoverableRounds()
+      .then(setRecoverableRounds)
+      .catch((error) => setRecoveryError(error.message));
+    return undefined;
+  }, [id]);
+
+  const chooseRecovery = (round) => {
+    setRecoveryError(null);
+    setSelectedRecovery(round);
+    selectRecoveryRound(round).catch((error) => setRecoveryError(error.message));
+  };
 
   const screen =
     !questions || questions.length === 0 ? (
-      <div className="app">
+      <div className="app app--waiting">
         <Waiting />
       </div>
     ) : (
       // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
-      <Flow questions={questions} roundId={roundId} key={id == null ? 'q' : 'round-' + id} />
+      <Flow
+        questions={questions}
+        roundId={id}
+        durableRoundId={durableRoundId}
+        capability={capability}
+        revision={revision}
+        draftAnswers={draftAnswers}
+        key={id == null ? 'q' : 'round-' + id}
+      />
     );
 
   return (
     <React.Fragment>
       {screen}
-      <SettingsButton onOpen={() => setSettingsOpen(true)} />
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      <SettingsButton buttonRef={settingsFabRef} onOpen={() => setSettingsOpen(true)} />
+      {settingsOpen && (
+        <SettingsModal
+          onClose={() => {
+            setSettingsOpen(false);
+            setTimeout(() => settingsFabRef.current?.focus(), 0);
+          }}
+        />
+      )}
+      {id == null && recoverableRounds && recoverableRounds.length > 0 && !selectedRecovery && (
+        <RecoveryChooser
+          rounds={recoverableRounds}
+          error={recoveryError}
+          onSelect={chooseRecovery}
+          onDismiss={() => setRecoverableRounds([])}
+          onRetry={() => {
+            setRecoveryError(null);
+            getRecoverableRounds()
+              .then(setRecoverableRounds)
+              .catch((error) => setRecoveryError(error.message));
+          }}
+        />
+      )}
     </React.Fragment>
   );
 }
 
-function Flow({ questions, roundId }) {
+function Flow({ questions, roundId, durableRoundId, capability, revision, draftAnswers }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
+  const draftWriterKey = `${roundId}:${capability || ''}`;
 
   // answers[question] = { sel:number[], confirmed, customText, value, order, path }
   const [answers, setAnswers] = useState(() => {
-    const a = {};
-    QUESTIONS.forEach((q) => {
-      a[q.question] = {
-        sel: [],
-        confirmed: false,
-        customText: '',
-        value: null,
-        order: null,
-        path: null,
-      };
-    });
-    return a;
+    const pending = DraftWriter.readLatestPendingDraft
+      ? DraftWriter.readLatestPendingDraft(draftWriterKey)
+      : null;
+    const localDraft = pending?.draft || DraftWriter.readPendingDraft(draftWriterKey, revision);
+    return createAnswerState(QUESTIONS, localDraft || draftAnswers);
   });
+  const draftRevision = useRef(revision);
+  const draftWriter = useRef(null);
+  if (draftWriter.current?.key !== draftWriterKey) {
+    draftWriter.current = {
+      key: draftWriterKey,
+      writer: DraftWriter.createDraftWriter({
+        save: (draft, expectedRevision) => postDraft(roundId, draft, capability, expectedRevision),
+        getRevision: () => draftRevision.current,
+        setRevision: (nextRevision) => {
+          draftRevision.current = nextRevision;
+        },
+        roundKey: draftWriterKey,
+      }),
+    };
+  }
+  const draftReady = useRef(false);
+  useEffect(() => {
+    if (Number.isInteger(revision)) draftRevision.current = revision;
+  }, [revision]);
   const [current, setCurrent] = useState(0);
   const [dir, setDir] = useState('right');
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [deliveryState, setDeliveryState] = useState('saved');
+  const [closeDenied, setCloseDenied] = useState(false);
+  const [conflict, setConflict] = useState(null);
+  const [recoveryReview, setRecoveryReview] = useState(false);
+  const resolvedConflictKey = useRef(null);
+  const applyServerDraft = useCallback(() => {
+    if (conflict)
+      resolvedConflictKey.current = `${conflict.serverRevision}:${conflict.localRevision}`;
+    setAnswers(() => createAnswerState(QUESTIONS, draftAnswers));
+    if (Number.isInteger(revision)) draftRevision.current = revision;
+    if (DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
+    setRecoveryReview(false);
+    setConflict(null);
+  }, [QUESTIONS, conflict, draftAnswers, draftWriterKey, revision]);
+  useEffect(() => {
+    const local = DraftWriter.readLatestPendingDraft
+      ? DraftWriter.readLatestPendingDraft(draftWriterKey)
+      : null;
+    if (local && Number.isInteger(revision) && local.revision !== revision) {
+      const key = `${revision}:${local.revision}`;
+      if (key !== resolvedConflictKey.current) {
+        setConflict(
+          DraftWriter.reconcileDraft(draftAnswers || {}, local.draft, revision, local.revision)
+        );
+      }
+    }
+  }, [draftAnswers, draftWriterKey, revision]);
+  useEffect(() => {
+    if (!Number.isInteger(draftRevision.current) || !capability || submitted) return undefined;
+    // Initial hydration is already durable. Every later material edit starts a
+    // save immediately and is deliberately not cancelled on unmount/reload.
+    if (!draftReady.current) {
+      draftReady.current = true;
+      draftWriter.current.writer.replay();
+      return undefined;
+    }
+    draftWriter.current.writer.write(answers);
+    return undefined;
+  }, [answers, capability, roundId, submitted]);
   // sendError: null | 'network' | 'server' | 'stale' (yalnızca network retry edilebilir).
   const [sendError, setSendError] = useState(null);
   // confirmSubmit ayarı açıkken: ilk Enter/tık "silahlar", ikincisi gerçekten gönderir.
@@ -133,7 +268,7 @@ function Flow({ questions, roundId }) {
           // autoAdvance: single-select ilk (armed olmayan) seçimde, custom ("Other")
           // değilse binary gibi tek basışta onayla+ilerle. multi hep 'toggle' döndüğünden
           // buraya girmez (B action.type==='select' guard).
-          const s = window.__ASKUSER_SETTINGS__;
+          const s = currentAppSettings();
           if (action.type === 'select' && s && s.autoAdvance) {
             const opts = fullOptions(q);
             if (optIdx !== opts.length - 1) {
@@ -278,7 +413,7 @@ function Flow({ questions, roundId }) {
     if (ref.current.submitted || inflight.current) return;
     // confirmSubmit ayarı: ilk çağrı sadece "silahlanır" (toast gösterir), gerçek
     // gönderim ikinci Enter/tık'ta olur.
-    const confirmOn = window.__ASKUSER_SETTINGS__ && window.__ASKUSER_SETTINGS__.confirmSubmit;
+    const confirmOn = currentAppSettings().confirmSubmit;
     if (confirmOn && !ref.current.confirmArmed) {
       setConfirmArmed(true);
       return;
@@ -286,28 +421,72 @@ function Flow({ questions, roundId }) {
     setConfirmArmed(false);
     const mapped = mappedAnswers(ref.current.answers);
     if (Object.keys(mapped).length === 0) return; // boş submit guard (B8)
+    if (!durableRoundId) {
+      setSendError('server');
+      setDeliveryState('recovery-error');
+      return;
+    }
     setSendError(null);
     setSubmitted(true);
+    setDeliveryState('delivery-pending');
     inflight.current = true;
-    postAnswers(roundId, mapped)
+    postAnswers(roundId, mapped, capability)
       .then(() => {
         inflight.current = false;
+        if (typeof acknowledgeDelivery === 'function') {
+          return acknowledgeDelivery(durableRoundId, capability)
+            .then(() => {
+              setDeliveryState('delivered');
+              if (
+                currentAppSettings().closureMode === 'after-delivery' &&
+                typeof attemptClose === 'function'
+              ) {
+                const result = attemptClose();
+                setCloseDenied(result.denied);
+              }
+            })
+            .catch(() => {
+              setDeliveryState('delivery-uncertain');
+            });
+        }
+        setDeliveryState('delivered');
       })
       .catch((err) => {
         // B6: hata → kilidi aç, uyar. Ağ (TypeError/abort, kurtarılabilir) ile sunucu
         // (HTTP 4xx/5xx, err.server) ayrılır; 4xx'te sonsuz retry yerine "server" mesajı.
         inflight.current = false;
         setSubmitted(false);
+        setDeliveryState(err?.server ? 'recovery-error' : 'delivery-uncertain');
         setSendError(
           err && err.reason === 'stale_round' ? 'stale' : err && err.server ? 'server' : 'network'
         );
       });
-  }, [mappedAnswers, roundId]);
+  }, [capability, durableRoundId, mappedAnswers, roundId]);
+
+  const retryAcknowledgement = useCallback(() => {
+    if (!durableRoundId || !capability || inflight.current) return;
+    inflight.current = true;
+    setDeliveryState('delivery-pending');
+    acknowledgeDelivery(durableRoundId, capability)
+      .then(() => {
+        setDeliveryState('delivered');
+        if (
+          currentAppSettings().closureMode === 'after-delivery' &&
+          typeof attemptClose === 'function'
+        ) {
+          setCloseDenied(attemptClose().denied);
+        }
+      })
+      .catch(() => setDeliveryState('delivery-uncertain'))
+      .finally(() => {
+        inflight.current = false;
+      });
+  }, [capability, durableRoundId]);
 
   useEffect(() => {
     const onKey = (e) => {
       const R = ref.current;
-      if (R.popup || R.submitted) return;
+      if (R.popup || R.submitted || document.activeElement?.closest?.('[role="dialog"]')) return;
       // Metin alanında (input, textarea) tuş yönlendirmesi: sadece ok tuşlarını ve Escape'i engelle.
       const inTextField =
         document.activeElement &&
@@ -465,6 +644,27 @@ function Flow({ questions, roundId }) {
           Answers sent back to the agent.
         </div>
       )}
+      <DeliveryPanel
+        state={deliveryState}
+        closeDenied={closeDenied}
+        onRetry={retryAcknowledgement}
+      />
+      {conflict && !recoveryReview && (
+        <ReconciliationPanel
+          conflict={conflict}
+          onKeepServer={() => applyServerDraft()}
+          onReview={() => setRecoveryReview(true)}
+          onDiscard={applyServerDraft}
+        />
+      )}
+      {conflict && recoveryReview && (
+        <ReconciliationPanel
+          conflict={conflict}
+          onKeepServer={() => applyServerDraft()}
+          onReview={() => setRecoveryReview(false)}
+          onDiscard={applyServerDraft}
+        />
+      )}
       {confirmArmed && (
         <div className="toast" role="status" aria-live="polite" aria-atomic="true">
           Press submit again to confirm.
@@ -492,8 +692,8 @@ function Flow({ questions, roundId }) {
 }
 
 // Boot: ayarlar varsa AnswerMap.setEnabled ile yeni tip toggleları uygula (reload'da okur).
-if (window.__ASKUSER_SETTINGS__) {
-  const s = window.__ASKUSER_SETTINGS__;
+if (APP_SETTINGS) {
+  const s = APP_SETTINGS;
   AnswerMap.setEnabled({
     binary: s.qtypeBinary !== false,
     scale: s.qtypeScale !== false,

@@ -15,7 +15,15 @@ function reconnectDelay(attempt) {
 
 // SSE ile bekleyen turu canlı al: { id, questions } (questions null = bekliyor).
 function useLiveQuestions() {
-  const [round, setRound] = useStateLive({ id: null, questions: null });
+  const [round, setRound] = useStateLive({
+    id: null,
+    roundId: null,
+    questions: null,
+    capability: null,
+    lifecycle: null,
+    revision: null,
+    draftAnswers: null,
+  });
   const timerRef = useRefLive(null);
   useEffectLive(() => {
     let es;
@@ -40,10 +48,18 @@ function useLiveQuestions() {
           console.warn('[live] SSE parse edilemedi:', err.message);
           return;
         }
-        const next = { id: d.id ?? null, questions: d.questions ?? null };
+        const next = {
+          id: d.id ?? null,
+          roundId: d.roundId ?? null,
+          questions: d.questions ?? null,
+          capability: d.capability ?? null,
+          lifecycle: d.lifecycle ?? null,
+          revision: d.revision ?? null,
+          draftAnswers: d.draftAnswers ?? null,
+        };
         // Round id state boundary'sidir: reconnect aynı round'u yeniden yayınlasa da
         // Flow içindeki cevaplar korunur; yeni id React key ile temiz remount eder.
-        setRound((prev) => (prev.id === next.id ? prev : next));
+        setRound((prev) => (prev.id === next.id ? { ...prev, ...next } : next));
       };
       source.onerror = () => {
         if (closed || currentGeneration !== generation) return;
@@ -82,14 +98,14 @@ async function responseError(path, response) {
 // Eşlenmiş cevapları köprüye gönder; başarısızlıkta THROW eder (UI kurtarsın).
 // Ağ hatası (TypeError/abort) ile sunucu hatası (HTTP !ok) çağıran tarafça ayrılabilsin
 // diye HTTP hatasında err.server=true işaretlenir. 10s timeout sonsuz askıyı keser.
-async function postAnswers(id, answers) {
+async function postAnswers(id, answers, capability) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
   try {
     const r = await fetch('/answer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, answers }), // Contract R: body {id,answers}
+      body: JSON.stringify({ id, answers, capability }),
       signal: ctrl.signal,
     });
     if (!r.ok) {
@@ -103,14 +119,147 @@ async function postAnswers(id, answers) {
   }
 }
 
-async function cancelRound(id, reason = 'user cancelled') {
+async function postDraft(id, answers, capability, revision) {
+  const body = JSON.stringify({ id, answers, capability, revision });
+  // Fetch keepalive lets a small in-flight draft survive page teardown in
+  // supporting browsers. Larger payloads retain the local replay mirror,
+  // because browsers commonly reject keepalive bodies above their quota.
+  const keepalive = body.length <= 60 * 1024;
+  const r = await fetch('/draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive,
+  });
+  if (!r.ok) throw await responseError('/draft', r);
+  return r.json();
+}
+
+class RecoveryError extends Error {
+  constructor(message, { code = 'recovery_error', status, preserveDraft = true, cause } = {}) {
+    super(message, { cause });
+    this.name = 'RecoveryError';
+    this.code = code;
+    this.status = status;
+    this.preserveDraft = preserveDraft;
+  }
+}
+
+async function getRecoverableRounds() {
+  let response;
+  try {
+    response = await fetch('/rounds');
+  } catch (error) {
+    throw new RecoveryError(
+      'Recoverable rounds are unavailable. Your current work remains active.',
+      {
+        code: 'origin_or_network',
+        cause: error,
+      }
+    );
+  }
+  if (!response.ok)
+    throw new RecoveryError('Recoverable rounds could not be loaded.', { status: response.status });
+  const body = await response.json().catch((cause) => {
+    throw new RecoveryError('Recoverable rounds returned invalid data.', {
+      code: 'invalid_response',
+      cause,
+    });
+  });
+  if (!Array.isArray(body.rounds))
+    throw new RecoveryError('Recoverable rounds are unavailable.', { code: 'invalid_response' });
+  return body.rounds;
+}
+
+async function selectRecoveryRound(selector) {
+  if (!selector || (selector.roundId == null && !selector.requestId)) {
+    throw new RecoveryError('Choose an exact recoverable round before continuing.', {
+      code: 'selection_required',
+    });
+  }
+  try {
+    const response = await fetch('/resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(selector),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new RecoveryError(
+        'This round could not be recovered safely. Your current work was not replaced.',
+        {
+          code: body.reason || 'selection_failed',
+          status: response.status,
+        }
+      );
+    }
+    return body;
+  } catch (error) {
+    if (error instanceof RecoveryError) throw error;
+    throw new RecoveryError('Recovery failed. Retry or choose another round.', {
+      code: 'origin_or_network',
+      cause: error,
+    });
+  }
+}
+
+async function acknowledgeDelivery(id, capability) {
+  const response = await fetch(`/rounds/${encodeURIComponent(id)}/ack`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ capability }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new RecoveryError('Delivery status is uncertain. Your answer is preserved.', {
+      code: body.reason || 'ack_uncertain',
+      status: response.status,
+    });
+    error.server = true;
+    throw error;
+  }
+  return { ...body, state: 'delivered', acknowledged: true };
+}
+
+function attemptClose(close = typeof window !== 'undefined' ? window.close.bind(window) : null) {
+  if (typeof close !== 'function') return { closed: false, denied: true };
+  try {
+    close();
+    return { closed: true, denied: false };
+  } catch {
+    return { closed: false, denied: true };
+  }
+}
+
+function deliveryTransition(state, event) {
+  const table = {
+    drafting: { submit: 'delivery-pending', cancel: 'cancelled' },
+    'delivery-pending': {
+      acknowledged: 'delivered',
+      timeout: 'delivery-uncertain',
+      network_error: 'delivery-uncertain',
+      cancelled: 'cancelled',
+    },
+    'delivery-uncertain': {
+      acknowledged: 'delivered',
+      retry: 'delivery-pending',
+      recovered: 'delivery-uncertain',
+    },
+    delivered: {},
+    cancelled: {},
+    'recovery-error': { retry: 'drafting', choose: 'drafting' },
+  };
+  return table[state]?.[event] || state;
+}
+
+async function cancelRound(id, reason = 'user cancelled', capability) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
   try {
     const r = await fetch('/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, reason }),
+      body: JSON.stringify({ id, reason, capability }),
       signal: ctrl.signal,
     });
     if (!r.ok) throw await responseError('/cancel', r);
@@ -122,5 +271,24 @@ async function cancelRound(id, reason = 'user cancelled') {
 
 // node:test için CommonJS dışa aktarımı (tarayıcıda global olarak yüklenir).
 if (typeof module === 'object' && module.exports) {
-  module.exports = { postAnswers, cancelRound, reconnectDelay };
+  module.exports = {
+    postAnswers,
+    postDraft,
+    cancelRound,
+    reconnectDelay,
+    RecoveryError,
+    getRecoverableRounds,
+    selectRecoveryRound,
+    acknowledgeDelivery,
+    attemptClose,
+    deliveryTransition,
+  };
+}
+if (typeof window !== 'undefined') {
+  window.RecoveryError = RecoveryError;
+  window.getRecoverableRounds = getRecoverableRounds;
+  window.selectRecoveryRound = selectRecoveryRound;
+  window.acknowledgeDelivery = acknowledgeDelivery;
+  window.attemptClose = attemptClose;
+  window.deliveryTransition = deliveryTransition;
 }

@@ -76,7 +76,7 @@ and `_seq` (monotonic counter for ids).
 | `provideAnswers(id, answers)` | **Contract R:** resolves only if `id` matches the current pending round's id. Returns `true` on resolve, `false` on mismatch/no pending (no throw). |
 | `cancel(reason, expectedId?)` | **Contract R:** rejects the pending promise only if `expectedId` is absent or matches. Returns `true` on cancel, `false` on mismatch/no pending.    |
 | `detach(reason, expectedId)`  | Keeps a requestId-bearing round alive after host disconnect until the bounded TTL; ownership-checked.                                               |
-| `waitForAnswers(requestId?)`  | Returns a cancellable waiter for the detached/latest completed round without cancelling the browser round.                                          |
+| `waitForAnswers(selector)`    | Requires an exact `roundId` or uniquely matching `requestId`, then returns a cancellable waiter without cancelling the browser round.               |
 
 Round identity (`_seq` monotonically incremented) is the mechanism that makes
 cross-round answer mix-up structurally impossible: a late `/answer` carrying
@@ -122,8 +122,8 @@ Used by both the hook and the MCP server. Port/base from `ASKUSER_PORT`
   `AbortController` timeout (not on HTTP errors or JSON failures).
 - `BridgeError` — exported class with `status` and parsed `body`; used to show
   actionable validation failures such as the required `{label}` option shape.
-- `resumeBridge(requestId?, { timeoutMs?, signal? })` — `POST /resume`; recovers
-  a detached round after a host-side connection deadline.
+- `resumeBridge(selector, { timeoutMs?, signal? })` — `POST /resume`; requires
+  an exact `roundId` or `requestId` to recover a detached round after a host-side connection deadline.
 - `cancelBridge(requestId, reason?)` — resolves the current round id and sends
   explicit `/cancel` before an MCP cancellation closes the owning stream.
 
@@ -163,7 +163,7 @@ defaults, never throws. `apply()` functions run only in the browser.
   read contract).
 - `write(patch)` — merge over current, validate, then atomic write via
   `writeFileAtomic` from `lib/atomic-write.cjs` (`.tmp.<pid>` + `rename` +
-  `O_EXCL` lockfile); stamps `_v: 1`. **Contract W:** returns
+  directory lease); stamps `_v: 1`. **Contract W:** returns
   `{ ok: true, value: next }` on success or `{ ok: false, value: next, error: e }`
   on disk failure (never swallows the error silently). Callers check `ok`
   before trusting the write.
@@ -172,11 +172,18 @@ defaults, never throws. `apply()` functions run only in the browser.
 ### Atomic write helper (`lib/atomic-write.cjs`)
 
 `writeFileAtomic(file, data)` — writes data to `file.tmp.<pid>`, then
-`rename`s it into place (POSIX-atomic). An `O_EXCL` lockfile (`file.lock`)
-serialises concurrent writers: a second writer fails fast with an error rather
-than racing to `rename`. Stale locks older than 10 s are reclaimed (handles
-killed writers). Orphan `.tmp` files are cleaned up on failure. Consumed by
-`lib/settings.js` and `bin/install.js`.
+`rename`s it into place (POSIX-atomic). A `mkdir` directory lease
+(`file.lock/owner`) serialises concurrent writers: creating the directory is
+the atomic acquisition, and a second writer fails fast rather than racing to
+`rename`. The owner records its PID, a random lease token, and (where Linux
+procfs provides it) the process start identity. Crash recovery removes only a
+confirmed-dead owner's private `owner` entry, then atomically retires the now
+empty lease directory with `rmdir`; it never unlinks the public lease pathname.
+A live PID with a missing or unreadable identity is treated as uncertain and
+remains held (fail closed); operators must remove such a lease only after
+confirming the writer is gone. A mismatched identity proves PID reuse, so the
+crashed lease can be recovered safely. Orphan `.tmp` files are cleaned up on
+failure. Consumed by `lib/settings.js` and `bin/install.js`.
 
 ## Hook (`hooks/askuserquestionspro-bridge.mjs` + `hooks/hook-output.js`)
 
@@ -344,3 +351,16 @@ adapter pointing at them; when every installed host is removed it deletes the
 shared files too. It keeps cleaning after individual failures and verifies
 residues. Reinstall continues to the idempotent install even when cleanup
 reports a recoverable residue.
+
+## Settings commands
+
+`askuserquestionspro settings export` prints the allowlisted v2 envelope. `settings import-preview <file|->` validates without applying and exits 0 for an applicable preview, 2 for invalid/future input, or 64 for usage/I/O errors. `settings reset <namespace>` performs a namespace-only CAS reset. Export and doctor output never includes raw unknown values, secrets, commands, or loopback configuration.
+
+### Settings HTTP preview/apply contract
+
+`POST /settings/preview` requires `{payload, baselineRevision}` and never writes. It returns a one-time
+`previewId`, status, validation errors, migration/ignored-data details, and `canApply`. Apply requires the
+preview id, the exact candidate payload, and the same baseline revision. The server revalidates the payload,
+preview, and current revision before one CAS-backed atomic write; stale, expired, reused, restarted, future,
+or mismatched requests preserve the current bytes. A failed write does not consume the preview. Reset is
+namespace-only and CAS-protected. Doctor uses a deterministic allowlisted projection with no absolute path.

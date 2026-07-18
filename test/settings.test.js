@@ -340,6 +340,43 @@ test('getPath: XDG_CONFIG_HOME altında settings.json', () => {
   });
 });
 
+test('doctor projection is read-only for legacy settings', () => {
+  withTmpConfig((Settings, dir) => {
+    const cfg = path.join(dir, 'askuserquestionspro');
+    fs.mkdirSync(cfg, { recursive: true });
+    const file = path.join(cfg, 'settings.json');
+    const legacy = JSON.stringify({ theme: 'paper' });
+    fs.writeFileSync(file, legacy);
+    const before = fs.readFileSync(file);
+    const projection = Settings.doctorProjection(Settings.inspectReadOnly());
+    assert.equal(projection.migration.needed, true);
+    assert.deepStrictEqual(fs.readFileSync(file), before);
+    assert.equal(fs.existsSync(Settings.BACKUP), false);
+  });
+});
+
+test('v2 browser patch preserves non-browser namespaces with CAS', () => {
+  withTmpConfig((Settings) => {
+    const original = Schema.envelopeDefaults();
+    original.browser.theme = 'paper';
+    original.recovery.retentionMs = 7200000;
+    original.adapters.codexEnabled = false;
+    assert.strictEqual(Settings.writeEnvelope(original).ok, true);
+
+    const result = Settings.mutateCompareAndSwap(undefined, (envelope) => ({
+      ...envelope,
+      browser: Schema.mergeBrowserLegacy(envelope.browser, { theme: 'paper', autoAdvance: true }),
+    }));
+    assert.strictEqual(result.ok, true);
+    const disk = JSON.parse(fs.readFileSync(Settings.getPath(), 'utf8'));
+    assert.strictEqual(disk._v, 2);
+    assert.strictEqual(disk.browser.theme, 'paper');
+    assert.strictEqual(disk.browser.behavior.autoAdvance, true);
+    assert.strictEqual(disk.recovery.retentionMs, 7200000);
+    assert.strictEqual(disk.adapters.codexEnabled, false);
+  });
+});
+
 // ── write() hata yolu (Contract W) ───────────────────────────────────
 // Regresyon: yazma başarısızlığında ok:false döner, disk değişmez, .tmp kalmaz.
 test('write: yazılamaz dizin → ok:false, disk değişmez, .tmp kalmaz', () => {
@@ -440,20 +477,110 @@ test('writeFileAtomic: başarılı yazımdan sonra kilit bırakılır (tekrar ya
   }
 });
 
-test('writeFileAtomic: bayat kilit (>10sn) devralınır', () => {
+test('writeFileAtomic: crash-created dead-owner lock is recovered for the next write', () => {
   const { writeFileAtomic } = require('../lib/atomic-write.cjs');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-lock3-'));
   try {
     const file = path.join(dir, 'test.json');
     const lock = file + '.lock';
-    fs.writeFileSync(lock, '12345', { flag: 'wx' });
-    // mtime'ı 1 dakika geriye al → bayat say.
+    fs.mkdirSync(lock, { mode: 0o700 });
+    fs.writeFileSync(path.join(lock, 'owner'), '99999999:crashed-writer', { flag: 'wx' });
+    writeFileAtomic(file, '{"ok":true}');
+    assert.strictEqual(fs.readFileSync(file, 'utf8'), '{"ok":true}');
+    assert.ok(!fs.existsSync(lock), 'recovered writer releases its own replacement lock');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('writeFileAtomic: a reused PID does not keep a crashed directory lease held', () => {
+  const { ownerIsAlive } = require('../lib/atomic-write.cjs');
+  const reusedOwner = { pid: 4321, token: 'crashed-writer', identity: 'linux:old-start-ticks' };
+  assert.equal(
+    ownerIsAlive(reusedOwner, {
+      kill: () => {},
+      getProcessIdentity: () => 'linux:new-start-ticks',
+    }),
+    false,
+    'a matching PID with a different start identity is a reused PID, not a live lease owner'
+  );
+  assert.equal(
+    ownerIsAlive(reusedOwner, { kill: () => {}, getProcessIdentity: () => null }),
+    true,
+    'unknown identity must fail closed'
+  );
+});
+
+test('writeFileAtomic: stale directory recovery cannot remove a newly acquired lease', () => {
+  const { acquireLock } = require('../lib/atomic-write.cjs');
+  const lock = '/virtual/round.json.lock';
+  const lease = lock + '/owner';
+  let lockExists = true;
+  let contents = '99999999:dead-owner';
+  let contenderSawHeldLock = false;
+  const newOwner = '{"pid":12345,"token":"new-owner"}';
+  let removedPublicLockWithUnlink = false;
+  const fsImpl = {
+    mkdirSync(pathname) {
+      if (lockExists) {
+        const error = Object.assign(new Error('exists'), { code: 'EEXIST' });
+        throw error;
+      }
+      assert.equal(pathname, lock);
+      lockExists = true;
+    },
+    writeFileSync(pathname, data, options) {
+      assert.equal(pathname, lease);
+      assert.equal(options.flag, 'wx');
+      contents = data;
+    },
+    lstatSync(pathname) {
+      assert.equal(pathname, lock);
+      return { isDirectory: () => true };
+    },
+    readFileSync(pathname) {
+      assert.equal(pathname, lease);
+      return contents;
+    },
+    unlinkSync(pathname) {
+      if (pathname === lock) removedPublicLockWithUnlink = true;
+      assert.equal(pathname, lease);
+      contents = null;
+    },
+    rmdirSync(pathname) {
+      assert.equal(pathname, lock);
+      // Deterministic interleaving: while recovery is about to retire the
+      // stale lease, another writer tries to acquire. mkdir must still see the
+      // directory as held; it can only win after this atomic rmdir completes.
+      assert.throws(() => fsImpl.mkdirSync(lock), /exists/);
+      contenderSawHeldLock = true;
+      lockExists = false;
+      // Once rmdir has atomically retired the stale directory, a different
+      // writer may acquire before the recovering writer retries. Its lease
+      // must survive that retry unchanged.
+      fsImpl.mkdirSync(lock);
+      fsImpl.writeFileSync(lease, newOwner, { flag: 'wx' });
+    },
+  };
+  const token = acquireLock(lock, fsImpl);
+  assert.equal(contenderSawHeldLock, true);
+  assert.equal(removedPublicLockWithUnlink, false);
+  assert.equal(token, null);
+  assert.equal(lockExists, true);
+  assert.equal(contents, newOwner);
+});
+
+test('writeFileAtomic: old lock owned by a live writer is never reclaimed', () => {
+  const { writeFileAtomic } = require('../lib/atomic-write.cjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-lock-live-'));
+  try {
+    const file = path.join(dir, 'test.json');
+    const lock = file + '.lock';
+    fs.writeFileSync(lock, `${process.pid}:slow-writer`, { flag: 'wx' });
     const old = Date.now() / 1000 - 60;
     fs.utimesSync(lock, old, old);
-    // Bayat kilit devralınmalı → yazım başarılı.
-    writeFileAtomic(file, '{"ok":true}');
-    assert.strictEqual(JSON.parse(fs.readFileSync(file, 'utf8')).ok, true);
-    assert.ok(!fs.existsSync(lock), 'devralınan kilit yazım sonunda bırakılmalı');
+    assert.throws(() => writeFileAtomic(file, '{"x":1}'), /concurrent write lock/);
+    assert.strictEqual(fs.readFileSync(lock, 'utf8'), `${process.pid}:slow-writer`);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -475,3 +602,42 @@ test('writeFileAtomic: hedef yazılamaz → throw eder, .tmp temizlenir', () => 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+for (const operation of ['openSync', 'writeFileSync', 'fsyncSync', 'closeSync', 'renameSync']) {
+  test(`writeFileAtomic: injected ${operation} failure preserves target and cleans tmp/lock`, () => {
+    const { writeFileAtomic } = require('../lib/atomic-write.cjs');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-aw-fault-'));
+    const file = path.join(dir, 'test.json');
+    fs.writeFileSync(file, '{"healthy":true}');
+    const fsImpl = new Proxy(fs, {
+      get(target, property) {
+        if (property !== operation) return target[property];
+        if (operation === 'writeFileSync') {
+          return (targetFile, ...args) => {
+            if (typeof targetFile === 'number')
+              throw Object.assign(new Error('injected write'), { code: 'EIO' });
+            return target.writeFileSync(targetFile, ...args);
+          };
+        }
+        if (operation === 'closeSync') {
+          return (handle) => {
+            target.closeSync(handle);
+            throw Object.assign(new Error('injected close'), { code: 'EIO' });
+          };
+        }
+        return () => {
+          throw Object.assign(new Error(`injected ${operation}`), { code: 'EIO' });
+        };
+      },
+    });
+    try {
+      assert.throws(() => writeFileAtomic(file, '{"new":true}', { fsImpl }), /injected/);
+      assert.equal(fs.readFileSync(file, 'utf8'), '{"healthy":true}');
+      const entries = fs.readdirSync(dir);
+      assert.ok(!entries.some((entry) => entry.includes('.tmp.')), 'tmp is cleaned');
+      assert.ok(!entries.some((entry) => entry.endsWith('.lock')), 'lock is cleaned');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}

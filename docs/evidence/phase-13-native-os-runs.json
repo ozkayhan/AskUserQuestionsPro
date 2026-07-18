@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "evidenceDate": "2026-07-17",
+  "scenarios": [
+    "idle",
+    "refresh/reconnect",
+    "detach/resume",
+    "restart",
+    "corrupt/partial quarantine",
+    "exact selection",
+    "immutable replay",
+    "acknowledgement retry",
+    "expiry",
+    "permissions",
+    "loopback",
+    "browser fallback",
+    "installer scope"
+  ],
+  "oses": [
+    {
+      "id": "macos",
+      "os": "macOS",
+      "architecture": "arm64",
+      "node": "26.0.0",
+      "configRoot": "isolated HOME/XDG temporary roots",
+      "command": "npm test; bash -n install.sh uninstall.sh reinstall.sh",
+      "date": "2026-07-17",
+      "result": "Partial/local automated",
+      "limitation": "Native external-host and full manual lane not run",
+      "scenarioResults": {
+        "idle": "Partial/local automated",
+        "refresh/reconnect": "Partial/local automated",
+        "detach/resume": "Partial/local automated",
+        "restart": "Partial/local automated",
+        "corrupt/partial quarantine": "Partial/local automated",
+        "exact selection": "Partial/local automated",
+        "immutable replay": "Partial/local automated",
+        "acknowledgement retry": "Partial/local automated",
+        "expiry": "Partial/local automated",
+        "permissions": "Partial/local automated",
+        "loopback": "Partial/local automated",
+        "browser fallback": "Partial/local automated",
+        "installer scope": "Partial/local automated"
+      }
+    },
+    {
+      "id": "linux",
+      "os": "Linux",
+      "architecture": "unavailable",
+      "node": "unavailable",
+      "configRoot": "unavailable native environment",
+      "command": "npm ci; npm test; npm run lint; npm run format:check; bash -n install.sh uninstall.sh reinstall.sh",
+      "date": "2026-07-17",
+      "result": "Unavailable",
+      "limitation": "Requires native Linux maintainer run; WSL does not qualify",
+      "scenarioResults": {
+        "idle": "Unavailable",
+        "refresh/reconnect": "Unavailable",
+        "detach/resume": "Unavailable",
+        "restart": "Unavailable",
+        "corrupt/partial quarantine": "Unavailable",
+        "exact selection": "Unavailable",
+        "immutable replay": "Unavailable",
+        "acknowledgement retry": "Unavailable",
+        "expiry": "Unavailable",
+        "permissions": "Unavailable",
+        "loopback": "Unavailable",
+        "browser fallback": "Unavailable",
+        "installer scope": "Unavailable"
+      }
+    },
+    {
+      "id": "windows",
+      "os": "Windows",
+      "architecture": "unavailable",
+      "node": "unavailable",
+      "configRoot": "unavailable native environment",
+      "command": "npm ci; npm test; npm run lint; npm run format:check; native PowerShell installer checks",
+      "date": "2026-07-17",
+      "result": "Unavailable",
+      "limitation": "Requires native Windows maintainer run; emulation does not qualify",
+      "scenarioResults": {
+        "idle": "Unavailable",
+        "refresh/reconnect": "Unavailable",
+        "detach/resume": "Unavailable",
+        "restart": "Unavailable",
+        "corrupt/partial quarantine": "Unavailable",
+        "exact selection": "Unavailable",
+        "immutable replay": "Unavailable",
+        "acknowledgement retry": "Unavailable",
+        "expiry": "Unavailable",
+        "permissions": "Unavailable",
+        "loopback": "Unavailable",
+        "browser fallback": "Unavailable",
+        "installer scope": "Unavailable"
+      }
+    }
+  ]
+}

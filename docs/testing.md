@@ -12,6 +12,12 @@ node --test test/bridge.test.js   # one file
 CI runs `npm ci && npm test` on Node 18, 20, 22
 (`.github/workflows/ci.yml`).
 
+The maintained quality scope is defined by `package.json`: ESLint owns the
+repository lint command, while Prettier checks the explicit maintained roots
+listed by `format:check`. That scope includes application source and maintained
+docs, and intentionally excludes vendor, generated, ignored, and historical
+archive material. Do not use `prettier --write .` as a release check.
+
 ## Layout
 
 There are 32 top-level `*.test.js` files:
@@ -63,6 +69,15 @@ runtime ownership, and `mcp-server.test.js` proves the metadata that helps both
 hosts discover and consume the tool.
 
 ## Release gate
+
+Phase 13 evidence is fail-closed: unavailable optional tools are recorded as
+environment gaps, never installed by the gate and never reported as passes.
+Run the clean-checkout sequence below, then review the [cross-platform
+evidence](evidence/phase-13-cross-platform.md), [host matrix](../test/host-compatibility-evidence.md),
+and [candidate gates](host-research/README.md). The package retains zero
+production dependencies and its existing `package.json` file allowlist.
+The changeset and release workflow are checked alongside the package-boundary
+tests; this sequence does not add dependencies or broaden the published scope.
 
 Run the same local gates used by CI before shipping a release:
 
@@ -145,3 +160,17 @@ apply a separate wall-clock deadline.
 - `server.test.js` isolates disk I/O by setting `XDG_CONFIG_HOME` to a tmp
   dir before requiring the server module (the settings dir is resolved at
   load time).
+
+# Testing boundaries
+
+Phase 12 acceptance separates deterministic local evidence from authenticated host evidence. Run `npm test`, `npm run lint`, and `npm run format:check` where available; run `bash -n install.sh uninstall.sh reinstall.sh` for shell changes.
+
+The Tier 1 matrix is maintained in `test/tier1-acceptance-evidence.md` and checked by `node --test test/tier1-acceptance.test.js`. It covers idle, reconnect, restart-shaped recovery, cancellation, exact recovery selection, result replay, and delivery acknowledgement for Claude Code and Codex. Missing authentication or host binaries produce `Unavailable`, not a passing live row.
+
+The dated [Phase 16 verification](../.planning/phases/16-cross-phase-uat-full-verification/16-VERIFICATION.md)
+records the current full-suite, focused-suite, lint, format, browser-smoke,
+package, audit, Bash, and ShellCheck results. The [Phase 17 verification](../.planning/phases/17-security-privacy-audit/17-VERIFICATION.md)
+and [security summary](../.planning/phases/17-security-privacy-audit/17-SECURITY-SUMMARY.md)
+record the local security, privacy, redaction, archive, protected-file, and
+fail-closed gates. These local results do not promote unavailable authenticated
+host or native-OS evidence.

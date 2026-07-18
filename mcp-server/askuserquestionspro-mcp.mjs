@@ -9,6 +9,7 @@ const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { createProgressHeartbeat, isProgressToken } = require('../lib/mcp-progress.cjs');
 const { validQuestions } = require('../lib/question-contract.cjs');
+const { adapterEnabled } = require('../lib/runtime-settings.cjs');
 
 process.on('uncaughtException', (e) => log('mcp', e));
 process.on('unhandledRejection', (r) => log('mcp', r));
@@ -137,18 +138,22 @@ const ASK_TOOL = {
 const RESUME_TOOL = {
   name: 'resume',
   description:
-    'Resume the latest detached askuserquestionspro browser round after a host timeout or MCP connection loss. ' +
+    'Resume one explicitly selected detached askuserquestionspro browser round after a host timeout or MCP connection loss. ' +
     'Use this before starting a new ask round so answers already submitted in the browser are not lost. ' +
-    'Optionally pass the original requestId when it is known.',
+    'Pass the original requestId or an exact durable roundId.',
   inputSchema: {
     type: 'object',
     properties: {
       requestId: {
         type: 'string',
-        description:
-          'Original round request id, if available; otherwise the latest detached round is used.',
+        description: 'Original round request id.',
+      },
+      roundId: {
+        type: 'string',
+        description: 'Exact durable round id from redacted recovery discovery.',
       },
     },
+    anyOf: [{ required: ['requestId'] }, { required: ['roundId'] }],
   },
   outputSchema: ASK_TOOL.outputSchema,
   annotations: {
@@ -190,6 +195,13 @@ function formatAnswers(answers) {
 
 // 'ask' aracı çağrısını işle.
 async function handleAsk(args, signal, { progressToken } = {}) {
+  if (!adapterEnabled('codex'))
+    return {
+      content: [
+        { type: 'text', text: 'AskUserQuestionsPro Codex adapter is disabled in settings.' },
+      ],
+      isError: true,
+    };
   if (!Array.isArray(args?.questions) || args.questions.length === 0) {
     return {
       content: [{ type: 'text', text: "Invalid input: 'questions' must be a non-empty array." }],
@@ -279,7 +291,7 @@ async function handleAsk(args, signal, { progressToken } = {}) {
       log('mcp', 'pending round not visible within 5 seconds; continuing to wait for ask');
     }
     openBrowser();
-    lifecycle.event('browser_opened');
+    lifecycle.event('browser_opened', { boundary: 'mcp', deadlineOwner: 'none' });
     answers = await askPromise;
   } catch (e) {
     const hostCancelled = signal?.aborted === true;
@@ -293,7 +305,17 @@ async function handleAsk(args, signal, { progressToken } = {}) {
         ? 'host_cancelled'
         : e?.name === 'TimeoutError'
           ? 'application_timeout'
-          : 'bridge_error'
+          : 'bridge_error',
+      {
+        boundary: stdinClosed ? 'stdio' : 'mcp',
+        deadlineOwner: hostCancelled
+          ? stdinClosed
+            ? 'transport'
+            : 'host'
+          : e?.name === 'TimeoutError'
+            ? 'application'
+            : 'none',
+      }
     );
     log('mcp', e); // tip/mesaj/stack artık kaybolmuyor
     const cause = hostCancelled
@@ -358,10 +380,13 @@ async function handleResume(args, signal, { progressToken } = {}) {
     intervalMs: progressIntervalMs(),
   });
   try {
-    const answers = await resumeBridge(args?.requestId, {
-      timeoutMs: 60 * 60 * 1000,
-      signal,
-    });
+    const answers = await resumeBridge(
+      args?.roundId ? { roundId: args.roundId, requestId: args?.requestId } : args?.requestId,
+      {
+        timeoutMs: 60 * 60 * 1000,
+        signal,
+      }
+    );
     return formatAnswers(answers);
   } catch (e) {
     const cause =

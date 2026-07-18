@@ -220,6 +220,11 @@ degrades it to `single` or `multi` transparently.
   draft to `/settings`, updates `window.__ASKUSER_SETTINGS__`, advances the
   `baseline` to the saved values, and shows a reload notice if a
   `reload`-class setting changed.
+- The modal also includes a Data & recovery surface: export backup, import
+  JSON with a server-side preview before apply, namespace reset, undo back to
+  the session-start envelope, and a redacted effective-settings/health view.
+  Recovery mutations use revision checks so a second tab cannot silently
+  overwrite newer settings.
 - On boot, `applyAll(window.__ASKUSER_SETTINGS__)` applies the
   server-injected settings (theme is handled separately by `themes.js`).
 
@@ -250,3 +255,11 @@ Mechanics:
 
 Styling specifics live in `web/styles.css` (CSS Grid app layout, 380ms
 direction-aware slide animations gated on `prefers-reduced-motion`).
+
+## Settings v2 browser evidence
+
+Run `node --test test/settings-panel.test.js test/views-a11y.test.js test/browser-settings.test.js test/browser-settings-e2e.test.js`.
+The Playwright CLI harness starts an isolated loopback server, captures 320px and desktop screenshots, and
+writes `test/artifacts/settings-v2/assertions.log` during the run. The modal owns Tab/Escape while open,
+returns focus to its FAB, announces save/error outcomes, exposes descriptions/current values/effect timing,
+and honors reduced-motion and narrow viewport rules.

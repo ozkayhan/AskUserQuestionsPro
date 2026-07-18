@@ -31,7 +31,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
+    "test:browser": "node test/browser-settings-cli-e2e.js",
     "serve": "node server/server.js",
     "mcp": "node mcp-server/askuserquestionspro-mcp.mjs",
     "install-hook": "node bin/cli.js install",
@@ -40,7 +41,7 @@
     "release": "changeset publish",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --ignore-unknown --check bin hooks lib mcp-server server test web docs package.json eslint.config.js .prettierrc.json README.md '*.sh'"
   },
   "publishConfig": {
     "access": "public",

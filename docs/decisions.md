@@ -8,9 +8,10 @@ the historical audit/plan material; the source documents are preserved in
 ## D-001 — Local, single-user, zero-runtime-dependency architecture
 
 The product remains a local question UI: the bridge binds to `127.0.0.1`, keeps
-one in-memory round, and ships with no production npm dependencies. React,
-ReactDOM, and Babel are vendored in `web/vendor/`. Question/answer payloads are
-not persisted; only UI settings are written to the user config directory.
+one active in-memory round, and ships with no production npm dependencies. React,
+ReactDOM, and Babel are vendored in `web/vendor/`. Durable round question and
+answer snapshots are the narrowly-scoped exception documented in D-010; UI
+settings remain separately persisted in the user config directory.
 
 **Why:** this keeps installation simple and avoids turning a local interaction
 tool into an unauthenticated remote service.
@@ -56,6 +57,33 @@ the user’s answers part of logs.
 **Evidence:** `lib/round-lifecycle.cjs`, `docs/hosts.md`, and
 `docs/timeout-runbook.md`.
 
+## D-010 — Durable per-round recovery snapshots
+
+Each recoverable round has one authoritative versioned JSON snapshot below the
+local AskUserQuestionsPro configuration area. Snapshots and temporary files are
+private (0600) and store directories are private (0700). The implemented
+baseline is same-directory temp-file write, file sync, close, and rename; a
+corrupt named record is quarantined individually without hiding valid siblings.
+
+Browser draft delivery keeps a non-authoritative local mirror keyed by round,
+capability, and expected revision until the matching server acknowledgement; it
+replays a rejected or teardown-aborted request without bypassing revision or
+capability checks. Atomic writers use a directory lease: recovery removes only
+a confirmed-dead owner's private lease entry, then atomically retires the empty
+directory. Malformed, legacy file, live, or uncertain locks fail closed.
+
+The initial expiry for recoverable rounds and finalized-result replay is the
+resolved detached-round TTL: a valid `ASKUSER_DETACHED_ROUND_TTL_MS`, otherwise
+`DEFAULT_DETACHED_TTL_MS`. Settings v2 is the sole future user-facing retention
+owner. Browser storage is only a mirror and cannot replace the Node record.
+
+This is macOS filesystem evidence, not Linux/Windows validation or a universal
+power-loss/directory-durability guarantee.
+
+**Evidence:** `test/round-record.test.js`, `test/round-store.test.js`,
+`test/bridge.test.js`, `test/server.test.js`, and
+`docs/evidence/phase-09-durable-recovery.md`.
+
 ## D-005 — Host capabilities are intentionally asymmetric
 
 Claude Code can use a `PreToolUse` hook to replace the native
@@ -94,6 +122,10 @@ bugs without new evidence.
 `archive/hardening-plan-dynamic.md`, and `docs/hardening.md`.
 
 ## D-008 — Host disconnect detaches resumable MCP rounds
+
+## D-009 — Lifecycle capability and deadline ownership
+
+Round identity plus an opaque capability guard localhost browser mutations. This is not remote authentication: binding remains `127.0.0.1`, Node 18+, and zero production dependencies remain constraints. Avoidable idle timeouts do not cancel rounds; application, host, and transport deadline owners remain distinct.
 
 When a host-owned `/ask` connection carrying a `requestId` disappears without
 an explicit cancellation, the bridge marks the round detached instead of

@@ -3,7 +3,17 @@
 // timeout abort ve yeniden bağlanma backoff'u (jitter + tavan).
 const test = require('node:test');
 const assert = require('node:assert');
-const { postAnswers, cancelRound, reconnectDelay } = require('../web/live.js');
+const {
+  postAnswers,
+  postDraft,
+  cancelRound,
+  reconnectDelay,
+  deliveryTransition,
+  attemptClose,
+  getRecoverableRounds,
+  selectRecoveryRound,
+  acknowledgeDelivery,
+} = require('../web/live.js');
 
 // fetch'i mock'la, t.after ile geri yükle (DOM/global kirliliği bırakma — Contract T ruhu).
 function withFetch(t, impl) {
@@ -14,23 +24,39 @@ function withFetch(t, impl) {
   });
 }
 
-test('postAnswers Contract R: body {id,answers} gönderir ve JSON döner', async (t) => {
+test('postAnswers Contract R: body {id,answers,capability} gönderir ve JSON döner', async (t) => {
   let seen;
   withFetch(t, async (url, opts) => {
     seen = { url, body: JSON.parse(opts.body), hasSignal: !!opts.signal };
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   });
-  const res = await postAnswers('round-7', { Q: 'A' });
+  const res = await postAnswers('round-7', { Q: 'A' }, 'cap-round-7');
   assert.strictEqual(seen.url, '/answer');
-  assert.deepStrictEqual(seen.body, { id: 'round-7', answers: { Q: 'A' } });
+  assert.deepStrictEqual(seen.body, {
+    id: 'round-7',
+    answers: { Q: 'A' },
+    capability: 'cap-round-7',
+  });
   assert.strictEqual(seen.hasSignal, true); // AbortController bağlı
   assert.deepStrictEqual(res, { ok: true });
+});
+
+test('postDraft küçük payload için unload-safe keepalive kullanır', async (t) => {
+  let seen;
+  withFetch(t, async (url, opts) => {
+    seen = { url, keepalive: opts.keepalive, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ ok: true, revision: 2 }) };
+  });
+  await postDraft(9, { Q: 'A' }, 'cap-9', 1);
+  assert.equal(seen.url, '/draft');
+  assert.equal(seen.keepalive, true);
+  assert.deepEqual(seen.body, { id: 9, answers: { Q: 'A' }, capability: 'cap-9', revision: 1 });
 });
 
 test('postAnswers HTTP !ok → err.server=true (sunucu hatası, kurtarılamaz)', async (t) => {
   withFetch(t, async () => ({ ok: false, status: 500, json: async () => ({}) }));
   await assert.rejects(
-    () => postAnswers('id', {}),
+    () => postAnswers('id', {}, 'cap'),
     (err) => err.server === true && /500/.test(err.message)
   );
 });
@@ -41,33 +67,33 @@ test('postAnswers HTTP reason/roundId alanlarını kaybetmez', async (t) => {
     status: 409,
     json: async () => ({
       error: 'no matching pending question set',
-      reason: 'stale_round',
+      reason: 'ownership_conflict',
       roundId: 8,
     }),
   }));
   await assert.rejects(
-    () => postAnswers(8, { Q: 'A' }),
+    () => postAnswers(8, { Q: 'A' }, 'cap-8'),
     (err) =>
       err.server === true &&
       err.status === 409 &&
-      err.reason === 'stale_round' &&
+      err.reason === 'ownership_conflict' &&
       err.roundId === 8 &&
-      /stale_round/.test(err.message)
+      /ownership_conflict/.test(err.message)
   );
 });
 
-test('cancelRound Contract: id ve reason body gönderir, typed error taşır', async (t) => {
+test('cancelRound Contract: id, reason ve capability body gönderir, typed error taşır', async (t) => {
   let seen;
   withFetch(t, async (url, opts) => {
     seen = { url, body: JSON.parse(opts.body) };
     return { ok: true, status: 200, json: async () => ({ ok: true, reason: 'user_cancelled' }) };
   });
-  assert.deepStrictEqual(await cancelRound(8, 'user cancelled'), {
+  assert.deepStrictEqual(await cancelRound(8, 'user cancelled', 'cap-8'), {
     ok: true,
     reason: 'user_cancelled',
   });
   assert.strictEqual(seen.url, '/cancel');
-  assert.deepStrictEqual(seen.body, { id: 8, reason: 'user cancelled' });
+  assert.deepStrictEqual(seen.body, { id: 8, reason: 'user cancelled', capability: 'cap-8' });
 });
 
 test('postAnswers ağ hatası → err.server yok (kurtarılabilir, retry edilebilir)', async (t) => {
@@ -75,7 +101,7 @@ test('postAnswers ağ hatası → err.server yok (kurtarılabilir, retry edilebi
     throw new TypeError('Failed to fetch');
   });
   await assert.rejects(
-    () => postAnswers('id', {}),
+    () => postAnswers('id', {}, 'cap'),
     (err) => err instanceof TypeError && !err.server
   );
 });
@@ -97,7 +123,7 @@ test('postAnswers 10s timeout: hung fetch abort sinyaliyle reddedilir', async (t
   } else {
     t.mock.timers.enable(['setTimeout']);
   }
-  const p = postAnswers('id', {});
+  const p = postAnswers('id', {}, 'cap');
   t.mock.timers.tick(10000);
   await assert.rejects(p, (err) => err.name === 'AbortError');
 });
@@ -109,4 +135,52 @@ test('reconnectDelay: full-jitter [0, exp) ve 30s tavanı aşmaz', () => {
     const big = reconnectDelay(20);
     assert.ok(big >= 0 && big < 30000, 'tavan 30s, negatif değil');
   }
+});
+
+test('recovery requires exact selection and never chooses latest implicitly', async (t) => {
+  withFetch(t, async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ rounds: [{ roundId: 'opaque-1', state: 'drafting' }] }),
+  }));
+  assert.deepEqual(await getRecoverableRounds(), [{ roundId: 'opaque-1', state: 'drafting' }]);
+  assert.equal(deliveryTransition('delivery-pending', 'timeout'), 'delivery-uncertain');
+  assert.equal(deliveryTransition('delivery-uncertain', 'retry'), 'delivery-pending');
+});
+
+test('selectRecoveryRound sends exact round selector to the supported resume route', async (t) => {
+  let seen;
+  withFetch(t, async (url, opts) => {
+    seen = { url, method: opts.method, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ answers: { Q: 'A' } }) };
+  });
+  assert.deepEqual(await selectRecoveryRound({ roundId: 'round_exact_42' }), {
+    answers: { Q: 'A' },
+  });
+  assert.deepEqual(seen, {
+    url: '/resume',
+    method: 'POST',
+    body: { roundId: 'round_exact_42' },
+  });
+});
+
+test('uncertain delivery and denied close remain recoverable', () => {
+  assert.deepEqual(
+    attemptClose(() => {
+      throw new Error('denied');
+    }),
+    { closed: false, denied: true }
+  );
+  assert.equal(deliveryTransition('delivery-uncertain', 'acknowledged'), 'delivered');
+});
+
+test('acknowledgeDelivery uses the durable round id and is replayable', async (t) => {
+  let seen;
+  withFetch(t, async (url, opts) => {
+    seen = { url, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  });
+  await acknowledgeDelivery('round_opaque_42', 'capability');
+  assert.equal(seen.url, '/rounds/round_opaque_42/ack');
+  assert.deepEqual(seen.body, { capability: 'capability' });
 });

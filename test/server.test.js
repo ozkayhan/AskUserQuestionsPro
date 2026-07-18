@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
@@ -9,10 +10,14 @@ const path = require('node:path');
 process.env.XDG_CONFIG_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-srv-'));
 const { server, bridge } = require('../server/server.js');
 const APP_ID = require('../lib/app-id.cjs');
+const Record = require('../lib/round-record.cjs');
+const { createRecord, transition } = require('../lib/round-state.cjs');
+const { RoundStore } = require('../lib/round-store.cjs');
 
 let base;
 test.before(async () => {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  assert.equal(server.address().address, '127.0.0.1');
   base = `http://127.0.0.1:${server.address().port}`;
 });
 test.after(async () => {
@@ -28,6 +33,17 @@ test.after(async () => {
 // --- yardımcılar ---
 
 function post(url, obj, opts = {}) {
+  if (
+    (url === '/answer' || url === '/cancel') &&
+    obj &&
+    typeof obj === 'object' &&
+    obj.id != null
+  ) {
+    obj = {
+      ...obj,
+      capability: obj.capability || bridge.peek()?.capability || 'missing-capability',
+    };
+  }
   return fetch(`${base}${url}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -59,6 +75,25 @@ async function waitForClear(deadlineMs = 2000) {
   throw new Error('timed out waiting for pending to clear');
 }
 
+async function waitForLifecycle(state, deadlineMs = 2000) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    const current = await (await fetch(`${base}/current`)).json();
+    if (current.lifecycle?.state === state) return current;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error(`timed out waiting for lifecycle state ${state}`);
+}
+
+async function waitForCondition(predicate, deadlineMs = 2000) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    if (await predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error('timed out waiting for condition');
+}
+
 // /ask aç → pending'i bekle → id ile cevapla → askPromise'i çöz. answer plain object'tir
 // (Contract R). Döner: askPromise json.
 async function askAndAnswer(questions, answers) {
@@ -71,6 +106,140 @@ async function askAndAnswer(questions, answers) {
 
 test('requestTimeout devre dışı (uzun /ask beklemesi Node 5dk tavanına takılmaz)', () => {
   assert.strictEqual(server.requestTimeout, 0);
+});
+
+test('delivery.mode confirm retires a successfully delivered host response', async () => {
+  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-confirm-'));
+  const settingsDir = path.join(configHome, 'askuserquestionspro');
+  fs.mkdirSync(settingsDir, { recursive: true });
+  const settings = require('../web/settings-schema.js').envelopeDefaults();
+  settings.delivery.mode = 'confirm';
+  fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify(settings));
+  const port = 4600 + (process.pid % 1000);
+  const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'server.js')], {
+    env: { ...process.env, ASKUSER_PORT: String(port), XDG_CONFIG_HOME: configHome },
+    stdio: 'ignore',
+  });
+  const childBase = `http://127.0.0.1:${port}`;
+  try {
+    await waitForCondition(async () => {
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
+    });
+    const ask = fetch(`${childBase}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: 'confirm-delivery',
+        questions: [{ question: 'CONFIRM?', options: [{ label: 'A' }] }],
+      }),
+    });
+    let current;
+    await waitForCondition(async () => {
+      try {
+        current = await (await fetch(`${childBase}/current`)).json();
+        return !!current.questions;
+      } catch {
+        return false;
+      }
+    });
+    await fetch(`${childBase}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: current.id,
+        capability: current.capability,
+        answers: { 'CONFIRM?': 'A' },
+      }),
+    });
+    assert.deepEqual((await (await ask).json()).answers, { 'CONFIRM?': 'A' });
+    await waitForCondition(async () => {
+      const rounds = (await (await fetch(`${childBase}/rounds`)).json()).rounds;
+      return rounds.length === 1 && rounds[0].state === 'delivered';
+    });
+    assert.equal((await (await fetch(`${childBase}/current`)).json()).questions, null);
+  } finally {
+    child.kill();
+    fs.rmSync(configHome, { recursive: true, force: true });
+  }
+});
+
+test('durable discovery is redacted and result acknowledgement is idempotent', async () => {
+  const ask = post('/ask', {
+    questions: [{ question: 'DURABLE?', options: [{ label: 'A' }] }],
+    requestId: 'durable-http',
+  });
+  const current = await waitForPending();
+  const listed = await (await fetch(`${base}/rounds`)).json();
+  const item = listed.rounds.find((round) => round.roundId === current.roundId);
+  assert.ok(item);
+  assert.equal(JSON.stringify(item).includes('DURABLE?'), false);
+  const before = await post(`/rounds/${current.roundId}/result`, {
+    capability: current.capability,
+  });
+  assert.equal(before.status, 409);
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'DURABLE?': 'A' },
+  });
+  await ask;
+  const result = await post(`/rounds/${current.roundId}/result`, {
+    capability: current.capability,
+  });
+  assert.deepEqual((await result.json()).answers, { 'DURABLE?': 'A' });
+  const first = await (
+    await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })
+  ).json();
+  const replay = await (
+    await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })
+  ).json();
+  assert.deepEqual(replay, first);
+});
+
+test('/draft persists capability/revision guarded browser state and rejects a stale edit', async () => {
+  const ask = post('/ask', {
+    requestId: 'draft-http',
+    questions: [{ question: 'DRAFT?', options: [{ label: 'A' }] }],
+  });
+  const current = await waitForPending();
+  const draft = { 'DRAFT?': { sel: [0], confirmed: true } };
+  const first = await post('/draft', {
+    id: current.id,
+    capability: current.capability,
+    revision: current.revision,
+    answers: draft,
+  });
+  assert.equal(first.status, 200);
+  assert.deepEqual(await first.json(), {
+    ok: true,
+    revision: current.revision + 1,
+    replayed: false,
+  });
+  const replay = await post('/draft', {
+    id: current.id,
+    capability: current.capability,
+    revision: current.revision,
+    answers: draft,
+  });
+  assert.equal((await replay.json()).replayed, true);
+  const stale = await post('/draft', {
+    id: current.id,
+    capability: current.capability,
+    revision: current.revision,
+    answers: { 'DRAFT?': { sel: [1] } },
+  });
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).reason, 'stale_revision');
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'DRAFT?': 'A' },
+  });
+  await ask;
 });
 
 test('/health ok döndürür', async () => {
@@ -93,6 +262,198 @@ test('/ask soruları tutar, /answer ile resolve olur (id round-trip)', async () 
   assert.strictEqual(bridge.getCurrent(), null);
 });
 
+test('real server lifecycle diagnostics attribute Bridge events without question or answer payloads', async () => {
+  const probe = http.createServer();
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const port = probe.address().port;
+  await new Promise((resolve, reject) =>
+    probe.close((error) => (error ? reject(error) : resolve()))
+  );
+
+  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-lifecycle-'));
+  const child = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'server.js')], {
+    env: { ...process.env, ASKUSER_PORT: String(port), XDG_CONFIG_HOME: configHome },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  const diagnostics = [];
+  let stderr = '';
+  let stderrBuffer = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk;
+    stderrBuffer += chunk;
+    let newline;
+    while ((newline = stderrBuffer.indexOf('\n')) >= 0) {
+      const line = stderrBuffer.slice(0, newline);
+      stderrBuffer = stderrBuffer.slice(newline + 1);
+      const match = line.match(/^\[askuser:lifecycle\] (.+)$/);
+      if (match) diagnostics.push(JSON.parse(match[1]));
+    }
+  });
+
+  try {
+    const childBase = `http://127.0.0.1:${port}`;
+    await waitForCondition(async () => {
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
+    });
+
+    const ask = fetch(`${childBase}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: 'opaque-request',
+        questions: [{ question: 'secret question', options: [{ label: 'A' }] }],
+      }),
+    });
+    let current;
+    await waitForCondition(async () => {
+      current = await (await fetch(`${childBase}/current?requestId=opaque-request`)).json();
+      return current.id != null;
+    });
+    const answer = await fetch(`${childBase}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: current.id,
+        capability: current.capability,
+        answers: { 'secret question': 'secret answer' },
+      }),
+    });
+    assert.equal(answer.status, 200);
+    assert.equal((await ask).status, 200);
+    await waitForCondition(() => diagnostics.some((entry) => entry.event === 'round_finished'));
+
+    assert.ok(diagnostics.length > 0, 'real server should emit lifecycle diagnostics');
+    assert.ok(
+      diagnostics.every(
+        (entry) => typeof entry.boundary === 'string' && typeof entry.deadlineOwner === 'string'
+      ),
+      'every emitted operational lifecycle record must identify its boundary and deadline owner'
+    );
+
+    const operational = Object.fromEntries(
+      diagnostics
+        .filter((entry) => ['answer_received', 'round_finished'].includes(entry.event))
+        .map((entry) => [
+          entry.event,
+          { boundary: entry.boundary, deadlineOwner: entry.deadlineOwner },
+        ])
+    );
+    assert.deepEqual(operational, {
+      answer_received: { boundary: 'browser', deadlineOwner: 'browser' },
+      round_finished: { boundary: 'bridge', deadlineOwner: 'none' },
+    });
+    assert.doesNotMatch(stderr, /secret question|secret answer/);
+  } finally {
+    child.kill();
+    await new Promise((resolve) => child.once('exit', resolve));
+    fs.rmSync(configHome, { recursive: true, force: true });
+  }
+});
+
+test('real server restart hydrates a detached draft for /current and exact /resume', async () => {
+  const probe = http.createServer();
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const port = probe.address().port;
+  await new Promise((resolve, reject) =>
+    probe.close((error) => (error ? reject(error) : resolve()))
+  );
+  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-restart-'));
+  const store = new RoundStore({ root: path.join(configHome, 'askuserquestionspro') });
+  const capability = 'restart-capability';
+  const lifecycle = transition(createRecord({ id: 41, capability, now: Date.now() }), 'detach', {
+    now: Date.now(),
+    deadlineOwner: 'host',
+    reason: 'host_disconnect',
+  }).record;
+  const created = store.create({
+    questions: [{ question: 'RESTART?', options: [{ label: 'A' }] }],
+    requestId: 'restart-http',
+    capability,
+    lifecycle,
+    retentionMs: 60 * 1000,
+  });
+  const drafted = store.mutate(created.record.roundId, (record, now) =>
+    Record.saveDraft(record, { 'RESTART?': { sel: [0], confirmed: true } }, record.revision, now)
+  );
+  assert.equal(drafted.ok, true);
+  const childPath = path.join(__dirname, '..', 'server', 'server.js');
+  const start = () =>
+    spawn(process.execPath, [childPath], {
+      env: { ...process.env, ASKUSER_PORT: String(port), XDG_CONFIG_HOME: configHome },
+      stdio: 'ignore',
+    });
+  const stop = async (child) => {
+    if (child.exitCode != null || child.signalCode != null) return;
+    child.kill('SIGTERM');
+    await new Promise((resolve) => {
+      const force = setTimeout(() => {
+        child.kill('SIGKILL');
+        resolve();
+      }, 1000);
+      child.once('exit', () => {
+        clearTimeout(force);
+        resolve();
+      });
+    });
+  };
+  let first = start();
+  let second;
+  try {
+    const childBase = `http://127.0.0.1:${port}`;
+    await waitForCondition(async () => {
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
+    });
+    const current = await (await fetch(`${childBase}/current?requestId=restart-http`)).json();
+    assert.equal(current.id, 41);
+    assert.equal(current.lifecycle.state, 'detached');
+    await stop(first);
+
+    second = start();
+    await waitForCondition(async () => {
+      try {
+        return (await fetch(`${childBase}/health`)).ok;
+      } catch {
+        return false;
+      }
+    });
+    const hydrated = await (await fetch(`${childBase}/current?requestId=restart-http`)).json();
+    assert.deepEqual(hydrated.questions, [{ question: 'RESTART?', options: [{ label: 'A' }] }]);
+    assert.equal(hydrated.roundId, created.record.roundId);
+    assert.equal(hydrated.capability, capability);
+    assert.equal(hydrated.lifecycle.state, 'detached');
+    assert.deepEqual(hydrated.draftAnswers, { 'RESTART?': { sel: [0], confirmed: true } });
+    const resumed = fetch(`${childBase}/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: 'restart-http', roundId: created.record.roundId }),
+    });
+    const answer = await fetch(`${childBase}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: hydrated.id,
+        capability: hydrated.capability,
+        answers: { 'RESTART?': 'A' },
+      }),
+    });
+    assert.equal(answer.status, 200);
+    assert.deepEqual(await (await resumed).json(), { answers: { 'RESTART?': 'A' } });
+  } finally {
+    await stop(first);
+    if (second) await stop(second);
+    fs.rmSync(configHome, { recursive: true, force: true });
+  }
+});
+
 test('GET / index.html serve eder', async () => {
   const r = await fetch(`${base}/`);
   const body = await r.text();
@@ -111,7 +472,11 @@ test('/current requestId ile yalnizca ilgili pending turunu gosterir', async () 
   const cur = await waitForPending();
 
   const unrelated = await fetch(`${base}/current?requestId=request-owner-b`);
-  assert.deepStrictEqual(await unrelated.json(), { id: null, questions: null });
+  assert.deepStrictEqual(await unrelated.json(), {
+    id: null,
+    questions: null,
+    lifecycle: bridge.getSnapshot(),
+  });
   const owned = await fetch(`${base}/current?requestId=${requestId}`);
   assert.deepStrictEqual(await owned.json(), cur);
 
@@ -132,16 +497,82 @@ test('requestId li /ask host soketi kapaninca round korunur ve /resume cevap ver
 
   const current = await waitForPending();
   request.destroy();
-  await new Promise((resolve) => setTimeout(resolve, 25));
+  await waitForLifecycle('detached');
 
   const retained = await fetch(`${base}/current?requestId=${requestId}`);
-  assert.deepStrictEqual(await retained.json(), current);
+  const retainedRound = await retained.json();
+  assert.equal(retainedRound.id, current.id);
+  assert.equal(retainedRound.lifecycle.state, 'detached');
 
-  const resumed = post('/resume', {});
+  const resumed = post('/resume', { requestId });
   await post('/answer', { id: current.id, answers: { 'RESUME?': 'A' } });
   const resumeResponse = await resumed;
   assert.strictEqual(resumeResponse.status, 200);
   assert.deepStrictEqual(await resumeResponse.json(), { answers: { 'RESUME?': 'A' } });
+});
+
+test('detached round correct capability ile resume öncesi cevap kabul eder ve sonra recover edilir', async () => {
+  const requestId = 'answer-before-resume';
+  const request = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  request.on('error', () => {});
+  request.end(
+    JSON.stringify({ requestId, questions: [{ question: 'DETACHED?', options: [{ label: 'A' }] }] })
+  );
+  const current = await waitForPending();
+  request.destroy();
+  await waitForLifecycle('detached');
+
+  const answer = await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'DETACHED?': 'A' },
+  });
+  assert.equal(answer.status, 200);
+  await waitForLifecycle('delivery-uncertain');
+
+  const resumed = await post('/resume', { requestId });
+  assert.equal(resumed.status, 200);
+  assert.deepEqual(await resumed.json(), { answers: { 'DETACHED?': 'A' } });
+  await waitForClear();
+});
+
+test('closed /resume response remains delivery-uncertain and later resume recovers answers', async () => {
+  const requestId = 'closed-resume-response';
+  const ask = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  ask.on('error', () => {});
+  ask.end(
+    JSON.stringify({ requestId, questions: [{ question: 'RECOVER?', options: [{ label: 'A' }] }] })
+  );
+  const current = await waitForPending();
+  ask.destroy();
+  await waitForLifecycle('detached');
+
+  const resume = http.request(`${base}/resume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  resume.on('error', () => {});
+  resume.end(JSON.stringify({ requestId }));
+  await waitForLifecycle('reconnecting');
+  resume.destroy();
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'RECOVER?': 'A' },
+  });
+  const uncertain = await waitForLifecycle('delivery-uncertain');
+  assert.equal(uncertain.lifecycle.state, 'delivery-uncertain');
+
+  const recovered = await post('/resume', { requestId });
+  assert.equal(recovered.status, 200);
+  assert.deepEqual(await recovered.json(), { answers: { 'RECOVER?': 'A' } });
+  await waitForClear();
 });
 
 // --- Contract R: /answer round-id rendezvous ---
@@ -156,6 +587,32 @@ test('/answer stale id -> 409 (cross-round race korumasi)', async () => {
   // pending hâlâ açık; doğru id ile çöz, sızıntı bırakma.
   const ok = await post('/answer', { id: cur.id, answers: { 'ST?': 'A' } });
   assert.strictEqual(ok.status, 200);
+  await askPromise;
+});
+
+test('/answer missing or wrong capability -> 409 ownership_conflict and round remains pending', async () => {
+  const askPromise = post('/ask', { questions: [{ question: 'CAP?', options: [{ label: 'A' }] }] });
+  const current = await waitForPending();
+  const missing = await fetch(`${base}/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: current.id, answers: { 'CAP?': 'A' } }),
+  });
+  assert.equal(missing.status, 409);
+  assert.equal((await missing.json()).reason, 'ownership_conflict');
+  const wrong = await post('/answer', {
+    id: current.id,
+    capability: 'wrong-capability',
+    answers: { 'CAP?': 'A' },
+  });
+  assert.equal(wrong.status, 409);
+  assert.equal((await wrong.json()).reason, 'ownership_conflict');
+  assert.equal((await waitForPending()).id, current.id);
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'CAP?': 'A' },
+  });
   await askPromise;
 });
 
@@ -187,7 +644,7 @@ test('/cancel stale id -> 409 ve active round korunur', async () => {
   const current = await waitForPending();
   const stale = await post('/cancel', { id: current.id + 999, reason: 'user cancelled' });
   assert.strictEqual(stale.status, 409);
-  assert.strictEqual((await stale.json()).reason, 'stale_round');
+  assert.strictEqual((await stale.json()).reason, 'ownership_conflict');
   assert.strictEqual((await (await fetch(`${base}/current`)).json()).id, current.id);
   await post('/answer', { id: current.id, answers: { 'KEEP?': 'A' } });
   await askPromise;
@@ -484,6 +941,44 @@ test('POST /settings bad json -> 400', async () => {
 test('POST /settings dizi/null -> 400', async () => {
   const r = await post('/settings', '[1,2]');
   assert.strictEqual(r.status, 400);
+});
+
+test('settings recovery endpoints expose redacted doctor data and CAS-protected preview/apply/reset', async () => {
+  const doctor = await (await fetch(`${base}/settings/doctor`)).json();
+  assert.ok(doctor.effective && doctor.effective.browser);
+  assert.equal(Object.prototype.hasOwnProperty.call(doctor, 'path'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(doctor.effective, 'path'), false);
+
+  const Schema = require('../web/settings-schema.js');
+  const candidate = Schema.envelopeDefaults();
+  candidate.browser.theme = 'paper';
+  const previewResponse = await post('/settings/preview', {
+    payload: candidate,
+    baselineRevision: doctor.revision,
+  });
+  assert.strictEqual(previewResponse.status, 200);
+  const preview = await previewResponse.json();
+  assert.equal(preview.valid, true);
+  assert.equal(preview.canApply, true);
+
+  const appliedResponse = await post('/settings/apply', {
+    previewId: preview.previewId,
+    payload: candidate,
+    baselineRevision: preview.baselineRevision,
+  });
+  assert.strictEqual(appliedResponse.status, 200);
+  assert.equal((await appliedResponse.json()).settings.browser.theme, 'paper');
+
+  const afterApply = await (await fetch(`${base}/settings/doctor`)).json();
+  const resetResponse = await post('/settings/reset', {
+    namespace: 'browser',
+    baselineRevision: afterApply.revision,
+  });
+  assert.strictEqual(resetResponse.status, 200);
+  assert.equal(
+    (await resetResponse.json()).settings.browser.theme,
+    Schema.namespaceDefaults().browser.theme
+  );
 });
 
 test('istemci /ask kopusunda SSE null push edilir (olu soru temizlenir) — poll, sleep degil', async () => {

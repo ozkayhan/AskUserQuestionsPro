@@ -48,3 +48,26 @@ native fallback behavior.
 | `application_timeout`                    | The bridge's configured one-hour deadline elapsed. | Inspect lifecycle timing and retry; this is not a host deadline.  |
 | `bridge_error`                           | HTTP, validation, startup, or protocol failure.    | Read the typed error and fix the reported boundary.               |
 | `browser_disconnect` / `host_disconnect` | A client connection ended before completion.       | Reopen the round; investigate the first terminal lifecycle event. |
+
+# Host acceptance and support evidence
+
+Claude Code and Codex are Tier 1 adapters with separate framing and fallback semantics. Local fake-host and bridge integration evidence does not establish authenticated live-host support. The current environment has no authenticated, version-pinned acceptance sessions; live rows remain `UNAVAILABLE` in the [release handoff](evidence/v1.1.1-release-handoff.md).
+
+The current route and wiring are authoritative: browser recovery uses `POST /resume`
+with an exact round selector. Older Phase 11 wording describing a different
+route is historical and superseded; the archived artifact remains unchanged.
+See [decisions](decisions.md) and the [v1.1 integration check](../.planning/milestones/v1.1-INTEGRATION-CHECK.md).
+
+## Authenticated acceptance procedure
+
+For each host, record the exact executable version, installation/configuration scope, date, timeout/deadline owner, cancellation behavior, stdout/stderr behavior, and redacted lifecycle IDs. Never record question or answer text.
+
+1. Start a 15-question idle round and record lifecycle status without content.
+2. Disconnect the host transport, reconnect with the exact request/round selector, and verify the immutable result.
+3. Restart the bridge, verify restart-shaped recovery and exact selector rejection for stale material.
+4. Run explicit cancellation and verify it is terminal and idempotent.
+5. Verify result replay and delivery acknowledgement retries.
+
+Claude Code hook procedure (version-pinned): invoke the installed `PreToolUse` AskUserQuestion path, capture the hook exit/stdout/stderr and bridge lifecycle projection, and verify native fallback on timeout/failure. Codex MCP procedure (version-pinned): invoke `ask` over stdio, close stdin for detach, start a new MCP process for exact resume, then exercise cancel/result/ack.
+
+Local prerequisite commands are `node --test test/fake-host-conformance.test.js test/hook-output.test.js test/mcp-long-round.test.js` and `node --test test/tier1-acceptance.test.js`. Authenticated host rows must remain unavailable until the manual procedure is completed; do not infer support from MCP discoverability or hook shape.

@@ -1,0 +1,13 @@
+# Windsurf
+
+- Evidence date: 2026-07-17
+- Version: unavailable
+- Evidence class: source-gap
+- Transport: Third-party reference only
+- Timeout/deadline owner: Unavailable
+- Cancellation/disconnect: Unavailable
+- Approval/trust: Unverified
+- Configuration: Unverified
+- Installation/upgrade/uninstall: Not run
+- Evidence state: `Researching`
+- Limitations: Direct vendor documentation is required before claims.

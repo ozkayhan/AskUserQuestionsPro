@@ -34,6 +34,16 @@ test('ensureServer() sunucu zaten çalışıyorken true döner', async () => {
   assert.strictEqual(result, true, 'ensureServer() true döndürmeli');
 });
 
+test('openBrowser returns an explicit opening strategy result', () => {
+  const previous = process.env.ASKUSER_OPEN_BROWSER;
+  process.env.ASKUSER_OPEN_BROWSER = '0';
+  const result = bridgeClient.openBrowser({ url: `${base}/` });
+  if (previous === undefined) delete process.env.ASKUSER_OPEN_BROWSER;
+  else process.env.ASKUSER_OPEN_BROWSER = previous;
+  assert.equal(result.attempted, false);
+  assert.equal(result.url, `${base}/`);
+});
+
 // /current poll loop — setTimeout busy-wait yerine deterministik bekleme (Contract R id'sini de okur).
 async function waitForPending(deadlineMs = 2000) {
   const start = Date.now();
@@ -55,13 +65,13 @@ test('askBridge() soruları gönderir, eşzamanlı /answer ile resolve olur', as
   const bridgePromise = bridgeClient.askBridge(questions, { timeoutMs: 5000 });
 
   // Sunucu /ask'i kaydedene kadar bekle ve Contract R round id'sini al.
-  const { id } = await waitForPending();
+  const { id, capability } = await waitForPending();
 
   // /answer ile cevap gönder (Contract R: {id, answers} ve answers plain object olmalı).
   const answerRes = await fetch(`${base}/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, answers: answersObj }),
+    body: JSON.stringify({ id, capability, answers: answersObj }),
   });
   assert.strictEqual(answerRes.status, 200, '/answer 200 dönmeli');
 
@@ -84,11 +94,11 @@ test('waitForPending() tur kaydedilince true, kayıt yokken false döner', async
     const seen = await bridgeClient.waitForPending({ timeoutMs: 2000, intervalMs: 20 });
     assert.strictEqual(seen, true, 'tur kaydedilince true dönmeli');
     // Turu temizle: /current'tan id alıp /answer ile çöz.
-    const { id } = await waitForPending();
+    const { id, capability } = await waitForPending();
     await fetch(`${base}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, answers: { 'Hazır mı?': 'a' } }),
+      body: JSON.stringify({ id, capability, answers: { 'Hazır mı?': 'a' } }),
     });
     await bridgePromise;
   } catch (e) {
@@ -158,11 +168,15 @@ test('resumeBridge() host kopmasindan sonra ayni round cevaplarini alir', async 
   await assert.rejects(pending, /cancelled by caller/);
   await bridgeClient.waitForPending({ timeoutMs: 2000, requestId });
 
-  const resumed = bridgeClient.resumeBridge(undefined, { timeoutMs: 2000 });
+  const resumed = bridgeClient.resumeBridge(requestId, { timeoutMs: 2000 });
   await fetch(`${base}/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: current.id, answers: { Resume: 'A' } }),
+    body: JSON.stringify({
+      id: current.id,
+      capability: current.capability,
+      answers: { Resume: 'A' },
+    }),
   });
   assert.deepStrictEqual(await resumed, { Resume: 'A' });
 });
