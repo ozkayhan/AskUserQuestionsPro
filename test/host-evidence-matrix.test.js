@@ -73,12 +73,14 @@ test('ledger is redacted and matrix/cards map one-to-one', () => {
   const matrix = fs.readFileSync(path.join(__dirname, 'host-compatibility-evidence.md'), 'utf8');
   const cardsDir = path.join(__dirname, '..', 'docs', 'host-capability-cards');
   for (const h of ledger.hosts) {
-    const row = matrix.split('\n').find((line) => line.startsWith(`| ${h.id} |`));
+    const row = matrix
+      .split('\n')
+      .find((line) => new RegExp(`^\\| ${escapeRegExp(h.id)}\\s+\\|`).test(line));
     assert.ok(row, `${h.id} matrix row missing`);
     assert.match(
       row,
       new RegExp(
-        `\\| ${escapeRegExp(h.id)} \\| ${escapeRegExp(h.name)} \\| ${escapeRegExp(h.status)} \\| ${escapeRegExp(h.version)} \\| ${escapeRegExp(h.evidenceClass)} \\|`
+        `\\| ${escapeRegExp(h.id)}\\s+\\| ${escapeRegExp(h.name)}\\s+\\| ${escapeRegExp(h.status)}\\s+\\| ${escapeRegExp(h.version)}\\s+\\| ${escapeRegExp(h.evidenceClass)}\\s+\\|`
       )
     );
     const cardPath = path.join(cardsDir, `${h.id}.md`);

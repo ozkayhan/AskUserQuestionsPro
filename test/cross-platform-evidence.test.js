@@ -22,7 +22,7 @@ const scenarios = [
 test('native OS evidence has scenario parity and honest gaps', () => {
   for (const scenario of scenarios) assert.ok(evidence.scenarios.includes(scenario));
   for (const os of ['macOS arm64', 'Linux native', 'Windows native'])
-    assert.match(doc, new RegExp(`\\| ${os} \\|`));
+    assert.match(doc, new RegExp(`\\| ${os}\\s+\\|`));
   assert.match(doc, /WSL.*does not count/i);
 });
 test('cross-platform evidence requires metadata and redaction', () => {

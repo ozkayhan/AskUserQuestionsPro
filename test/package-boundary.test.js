@@ -18,6 +18,20 @@ function packagePreview() {
 }
 
 describe('npm paket sınırı', () => {
+  it('production dependency boundary is empty and dev dependency declarations match the lock root', () => {
+    const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
+    const lockRoot = lock.packages?.[''];
+
+    assert.ok(!pkg.dependencies || Object.keys(pkg.dependencies).length === 0);
+    assert.ok(!lockRoot?.dependencies || Object.keys(lockRoot.dependencies).length === 0);
+    assert.deepEqual(
+      Object.keys(lockRoot?.devDependencies || {}).sort(),
+      Object.keys(pkg.devDependencies || {}).sort()
+    );
+    assert.deepEqual(lockRoot?.devDependencies, pkg.devDependencies);
+  });
+
   it('package.json ve package-lock.json aynı sürümü taşır', () => {
     const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
     const lock = JSON.parse(readFileSync(path.join(root, 'package-lock.json'), 'utf8'));

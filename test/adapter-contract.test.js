@@ -19,7 +19,7 @@ test('contract inventories all lifecycle operations and safe replay rules', () =
     'result',
     'delivery acknowledgement',
   ]) {
-    assert.match(contract, new RegExp(`\\| ${operation} \\|`));
+    assert.match(contract, new RegExp(`\\| ${operation}\\s+\\|`));
   }
   assert.match(contract, /opaque selectors/);
   assert.match(contract, /immutable/);

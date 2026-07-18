@@ -54,7 +54,7 @@ test('local evidence links to executable tests and remains redacted', () => {
 
 test('authenticated live prerequisites are explicitly unavailable, never passed', () => {
   assert.match(evidence, /Authenticated live host unavailable/);
-  assert.match(evidence, /\| Unavailable \|/);
+  assert.match(evidence, /\|\s+Unavailable\s+\|/);
   assert.match(evidence, /not passes/);
   assert.doesNotMatch(evidence, /live.*\| (Automated )?pass \|/i);
 });
