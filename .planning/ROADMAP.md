@@ -78,10 +78,11 @@ Plans:
   3. The end-to-end paths from host ask through durable registration, browser recovery, answer delivery, acknowledgement, and adapter response are verified or linked to explicit evidence.
   4. Missing authenticated Claude/Codex and native Windows/Linux evidence is separated from local test results and remains an external handoff, not a completion claim.
 
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
 
+- [ ] 16-00-PLAN.md — Create deterministic verification runner and final validator artifacts
 - [ ] 16-01-PLAN.md — Reconcile archived Phase 8–13 UAT evidence into the current matrix
 - [ ] 16-02-PLAN.md — Run full release-critical verification and publish the current UAT summary
 

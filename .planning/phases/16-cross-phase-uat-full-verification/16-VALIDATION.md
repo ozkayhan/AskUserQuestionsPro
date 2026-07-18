@@ -52,6 +52,16 @@ Unsupported claims include treating fake-host, MCP, source-contract, CI configur
 
 ## Executable validation commands
 
+## Plan index and owned executables
+
+| Plan | Wave | Depends on | Owned files | Exact command |
+|---|---:|---|---|---|
+| `16-00-PLAN.md` | 0 | none | `16-run-verification.sh`, `16-validate-verification.mjs` | `bash -n .planning/phases/16-cross-phase-uat-full-verification/16-run-verification.sh && node --check .planning/phases/16-cross-phase-uat-full-verification/16-validate-verification.mjs && node .planning/phases/16-cross-phase-uat-full-verification/16-validate-verification.mjs --self-test` |
+| `16-01-PLAN.md` | 1 | none | `16-UAT-MATRIX.md`, `16-VALIDATION.md` | `node --input-type=module -e "...matrix parser..."` |
+| `16-02-PLAN.md` | 2 | `16-00`, `16-01` | `16-PROTECTED-BASELINE.txt`, `16-VERIFICATION.md`, `16-UAT-SUMMARY.md` | `bash .planning/phases/16-cross-phase-uat-full-verification/16-run-verification.sh && node .planning/phases/16-cross-phase-uat-full-verification/16-validate-verification.mjs .planning/phases/16-cross-phase-uat-full-verification/16-VERIFICATION.md` |
+
+Wave 0 owns the executable harness; Wave 1 creates the matrix; Wave 2 is the only plan that runs the harness and publishes final evidence. The runner writes only Phase 16 evidence files and temporary files and must not edit source, archives, or protected dirty files.
+
 Run these from the repository root and copy each command's stdout and exit status into `16-VERIFICATION.md`:
 
 ```sh
