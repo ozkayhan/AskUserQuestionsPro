@@ -28,9 +28,9 @@
 
 - [x] **DOC-01**: Maintained docs accurately describe lint/format policy, UAT status, release gates, and known Windows/Claude evidence gaps.
 - [x] **DOC-02**: The v1.1.1 audit and UAT artifacts provide a concise reproducible handoff for a future maintainer.
-- [ ] **REL-01**: Package dry-run, production dependency audit, shell checks, installer lifecycle checks, and release workflow gates pass together.
-- [ ] **REL-02**: The release checklist verifies clean-install, upgrade, uninstall, configuration-scope, and no-destructive-fallback behavior where locally testable.
-- [ ] **REL-03**: Unavailable native Windows and authenticated Claude/Codex validation are recorded as external handoff items and never promoted as completed evidence.
+- [x] **REL-01**: Package dry-run, production dependency audit, shell checks, installer lifecycle checks, and release workflow gates pass together.
+- [x] **REL-02**: The release checklist verifies clean-install, upgrade, uninstall, configuration-scope, and no-destructive-fallback behavior where locally testable.
+- [x] **REL-03**: Unavailable native Windows and authenticated Claude/Codex validation are recorded as external handoff items and never promoted as completed evidence.
 
 ## v2 Requirements
 
@@ -64,9 +64,9 @@
 | SEC-02 | Phase 17 | Complete |
 | DOC-01 | Phase 18 | Complete |
 | DOC-02 | Phase 18 | Complete |
-| REL-01 | Phase 19 | Pending |
-| REL-02 | Phase 19 | Pending |
-| REL-03 | Phase 19 | Pending |
+| REL-01 | Phase 19 | Complete |
+| REL-02 | Phase 19 | Complete |
+| REL-03 | Phase 19 | Complete |
 
 **Coverage:**
 

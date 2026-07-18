@@ -24,7 +24,8 @@ Run in order from the isolated candidate:
 node --version
 npm --version
 npm ci
-npm test
+npm test -- --test-concurrency=1 test/*.test.js
+node test/browser-settings-cli-e2e.js
 npm run lint
 npm run format:check
 npm audit --audit-level=high --omit=dev
@@ -37,6 +38,11 @@ bash .planning/phases/17-security-privacy-audit/17-run-audit.sh
 node .planning/phases/18-documentation-release-evidence-sync/18-validate.mjs
 git diff --check
 ```
+
+The repository also contains an executable browser CLI evidence file named
+`test/browser-settings-cli-e2e.js`. It is run as its own gate so it cannot race
+the unit/integration files discovered by `node --test`; the complete test
+surface is still covered.
 
 Expected: every command is labeled with timestamp, exit status, and bounded output; every required command returns 0. Audit registry/tool failure is `BLOCKED`, never PASS. Pack output proves the allowlist and zero production dependencies. Workflow tests prove the CI/release contracts.
 

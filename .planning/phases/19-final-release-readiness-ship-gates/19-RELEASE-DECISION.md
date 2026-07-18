@@ -1,7 +1,7 @@
 ---
 phase: 19-final-release-readiness-ship-gates
 status: BLOCKED
-candidate_sha: 24dcd564e8d6e7faf13076e9a4ce3ea4bf43c502
+candidate_sha: 5db6be8b1b188df69888188ea869cb36bf3ce286
 date: 2026-07-18
 ---
 
@@ -9,7 +9,7 @@ date: 2026-07-18
 
 Decision: BLOCKED.
 
-The locally executable release and disposable macOS installer evidence is retained in [19-RELEASE-GATES.md](19-RELEASE-GATES.md) and [19-INSTALLER-MATRIX.md](19-INSTALLER-MATRIX.md). Package, lint, format, audit, shell, package-boundary, and installer fixture gates pass. The candidate full-suite/docs/security evidence must be rerun from the committed evidence bundle; the isolated run at the pre-bundle SHA recorded its failures explicitly.
+The locally executable release and disposable macOS installer evidence is retained in [19-RELEASE-GATES.md](19-RELEASE-GATES.md) and [19-INSTALLER-MATRIX.md](19-INSTALLER-MATRIX.md). The final candidate gate manifest passes the full unit/integration suite, dedicated browser CLI evidence, lint, format, audit, shell, package-boundary, documentation, security, and installer checks. Shipment remains blocked only by the explicit package-version decision and unavailable external lanes.
 
 ## Version checkpoint
 

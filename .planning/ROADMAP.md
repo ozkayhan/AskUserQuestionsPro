@@ -142,9 +142,9 @@ Plans:
 
 Plans:
 
-- [ ] 19-01-PLAN.md — Run the combined clean-checkout quality, package, security, documentation, shell, and workflow gates
-- [ ] 19-02-PLAN.md — Prove isolated HOME/XDG installer install, upgrade, uninstall, scope, and fail-closed behavior
-- [ ] 19-03-PLAN.md — Record the fail-closed ship decision, external handoffs, and package version checkpoint
+- [x] 19-01-PLAN.md — Run the combined clean-checkout quality, package, security, documentation, shell, and workflow gates
+- [x] 19-02-PLAN.md — Prove isolated HOME/XDG installer install, upgrade, uninstall, scope, and fail-closed behavior
+- [ ] 19-03-PLAN.md — Record the fail-closed ship decision, external handoffs, and package version checkpoint (blocked on explicit version choice)
 
 ## Progress
 
@@ -157,7 +157,7 @@ Plans:
 | 16. Cross-Phase UAT & Full Verification | 3/3 | Complete| 2026-07-18 |
 | 17. Security & Privacy Audit | 2/2 | Complete| 2026-07-18 |
 | 18. Documentation & Release Evidence Sync | 3/3 | Complete| 2026-07-18 |
-| 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
+| 19. Final Release Readiness & Ship Gates | 2/3 | Blocked — version decision required | 2026-07-18 |
 
 ## Requirement Coverage
 
