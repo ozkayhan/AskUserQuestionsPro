@@ -31,7 +31,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
     "test:browser": "node test/browser-settings-cli-e2e.js",
     "serve": "node server/server.js",
     "mcp": "node mcp-server/askuserquestionspro-mcp.mjs",

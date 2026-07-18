@@ -4,6 +4,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const docs = fs.readFileSync('docs/testing.md', 'utf8');
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+test('npm test keeps optional Playwright CLI evidence on its dedicated command', () => {
+  assert.equal(pkg.scripts.test, 'node --test test/*.test.js');
+  assert.equal(pkg.scripts['test:browser'], 'node test/browser-settings-cli-e2e.js');
+});
+
 test('release gate documents the complete clean-checkout sequence', () => {
   for (const cmd of [
     'npm ci',
