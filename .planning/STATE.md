@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1.1
 milestone_name: Release Hardening
-current_phase: 15
-current_phase_name: Browser Visual & Accessibility QA
+current_phase: 17
+current_phase_name: Security & Privacy Audit
 status: executing
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-07-18T12:02:00.704Z"
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-07-18T12:41:14.780Z"
 last_activity: 2026-07-18
-last_activity_desc: Phase 15 execution started
+last_activity_desc: Phase 16 verification completed
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 5
-  percent: 33
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 8
+  percent: 50
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Users must be able to complete and safely deliver a long, multi-question round without losing answers, regardless of which supported AI coding host initiated it.
-**Current focus:** Phase 15 — Browser Visual & Accessibility QA
+**Current focus:** Phase 17 — Security & Privacy Audit
 
 ## Current Position
 
-Phase: 15 (Browser Visual & Accessibility QA) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute Plan 15-02
-Last activity: 2026-07-18 — Phase 15 execution started
+Phase: 17 (Security & Privacy Audit) — READY
+Plan: Not yet planned
+Status: Phase 16 complete; Phase 15 external runtime/AT lanes remain explicitly human-needed
+Last activity: 2026-07-18 — Phase 16 verification completed
 
 ## Performance Metrics
 
@@ -68,6 +68,8 @@ Last activity: 2026-07-18 — Phase 15 execution started
 | Phase 14 P02 | 22m | 2 tasks | 70 files |
 | Phase 15 P1 | 20min | 2 tasks | 3 files |
 | Phase 16 P01 | 10m | 2 tasks | 2 files |
+| Phase 16 P02 | 1m | 3 tasks | 3 files |
+| Phase 17 P1 | 8m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -93,6 +95,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Plan 14-02 records Node 22 locally and hands Node 18/20 evidence to the existing CI matrix.
 - [Phase ?]: Keep archived reports immutable and label historical counts/tool gaps as snapshots or superseded evidence.
 - [Phase ?]: Do not promote local fake-host, MCP, source-contract, or browser-smoke evidence to authenticated host, native OS, full browser-runtime, or AT proof.
+- [Phase ?]: Phase 17 Plan 01 preserved existing security/privacy/installer behavior and added only runtime loopback and nested lifecycle redaction assertions.
 
 ### Pending Todos
 
@@ -113,8 +116,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-18T12:02:00.699Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-07-18T12:41:14.772Z
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
