@@ -5,16 +5,16 @@ milestone_name: Release Hardening
 current_phase: 15
 current_phase_name: Browser Visual & Accessibility QA
 status: executing
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-07-18T11:08:04.213Z"
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-07-18T12:02:00.704Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 15 execution started
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 5
+  percent: 33
 ---
 
 # Project State
@@ -67,6 +67,7 @@ Last activity: 2026-07-18 — Phase 15 execution started
 | Phase 14 P01 | 9m | 2 tasks | 5 files |
 | Phase 14 P02 | 22m | 2 tasks | 70 files |
 | Phase 15 P1 | 20min | 2 tasks | 3 files |
+| Phase 16 P01 | 10m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 14 Plan 01 used globalThis at Playwright page-evaluation boundaries to preserve no-undef.
 - [Phase ?]: Plan 14-02 uses explicit maintained Prettier roots with documented vendor, historical, generated, and workflow exclusions.
 - [Phase ?]: Plan 14-02 records Node 22 locally and hands Node 18/20 evidence to the existing CI matrix.
+- [Phase ?]: Keep archived reports immutable and label historical counts/tool gaps as snapshots or superseded evidence.
+- [Phase ?]: Do not promote local fake-host, MCP, source-contract, or browser-smoke evidence to authenticated host, native OS, full browser-runtime, or AT proof.
 
 ### Pending Todos
 
@@ -110,8 +113,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-18T11:20:00.000Z
-Stopped at: Phase 14 verification completed
+Last session: 2026-07-18T12:02:00.699Z
+Stopped at: Completed 16-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

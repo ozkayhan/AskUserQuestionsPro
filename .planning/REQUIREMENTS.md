@@ -16,7 +16,7 @@
 
 - [ ] **UI-01**: Settings, recovery, and delivery screens receive a current browser visual/accessibility review with screenshots or an explicit unavailable-evidence record.
 - [ ] **UI-02**: Browser smoke verifies exact recovery selection, draft reconciliation, delivery acknowledgement-before-close, keyboard/focus ownership, and actionable fallback behavior.
-- [ ] **UAT-01**: Archived phases 8–13 have reconciled UAT records with current command results, zero diagnosed application issues, and explicit external limitations.
+- [x] **UAT-01**: Archived phases 8–13 have reconciled UAT records with current command results, zero diagnosed application issues, and explicit external limitations.
 - [ ] **UAT-02**: The full workspace suite and each release-critical focused suite pass after hardening changes.
 
 ### Security and Privacy
@@ -58,7 +58,7 @@
 | QUAL-03 | Phase 14 | Complete |
 | UI-01 | Phase 15 | Pending |
 | UI-02 | Phase 15 | Pending |
-| UAT-01 | Phase 16 | Pending |
+| UAT-01 | Phase 16 | Complete |
 | UAT-02 | Phase 16 | Pending |
 | SEC-01 | Phase 17 | Pending |
 | SEC-02 | Phase 17 | Pending |

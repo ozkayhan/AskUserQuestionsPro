@@ -78,12 +78,12 @@ Plans:
   3. The end-to-end paths from host ask through durable registration, browser recovery, answer delivery, acknowledgement, and adapter response are verified or linked to explicit evidence.
   4. Missing authenticated Claude/Codex and native Windows/Linux evidence is separated from local test results and remains an external handoff, not a completion claim.
 
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 
 Plans:
 
 - [ ] 16-00-PLAN.md — Create deterministic verification runner and final validator artifacts
-- [ ] 16-01-PLAN.md — Reconcile archived Phase 8–13 UAT evidence into the current matrix
+- [x] 16-01-PLAN.md — Reconcile archived Phase 8–13 UAT evidence into the current matrix
 - [ ] 16-02-PLAN.md — Run full release-critical verification and publish the current UAT summary
 
 ### Phase 17: Security & Privacy Audit
@@ -137,7 +137,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 14. Static Quality & Reproducibility | 2/2 | Complete | 2026-07-18 |
 | 15. Browser Visual & Accessibility QA | 2/2 | In Progress|  |
-| 16. Cross-Phase UAT & Full Verification | 0/TBD | Not started | - |
+| 16. Cross-Phase UAT & Full Verification | 1/3 | In Progress|  |
 | 17. Security & Privacy Audit | 0/TBD | Not started | - |
 | 18. Documentation & Release Evidence Sync | 0/TBD | Not started | - |
 | 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
