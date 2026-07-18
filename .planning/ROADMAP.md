@@ -38,10 +38,11 @@ Phases 8–13 delivered the lifecycle contract, durable round store and recovery
   3. A clean `npm ci` on the supported Node baseline exposes working test, lint, format, package, and audit commands.
   4. The hardening changes preserve zero production dependencies and avoid unrelated formatting churn.
 
-**Plans**: 2 plans
+**Plans**: 1/2 plans executed
 
 Plans:
-- [ ] 14-01-PLAN.md — Resolve the exact ESLint findings without weakening rules
+
+- [x] 14-01-PLAN.md — Resolve the exact ESLint findings without weakening rules
 - [ ] 14-02-PLAN.md — Define maintained Prettier scope and prove clean-install reproducibility
 
 ### Phase 15: Browser Visual & Accessibility QA
@@ -122,7 +123,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 14. Static Quality & Reproducibility | 0/TBD | Not started | - |
+| 14. Static Quality & Reproducibility | 1/2 | In Progress|  |
 | 15. Browser Visual & Accessibility QA | 0/TBD | Not started | - |
 | 16. Cross-Phase UAT & Full Verification | 0/TBD | Not started | - |
 | 17. Security & Privacy Audit | 0/TBD | Not started | - |
