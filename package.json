@@ -1,6 +1,6 @@
 {
   "name": "askuserquestionspro",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Claude Code ve Codex App/CLI için yerel, tam ekran ve yapılandırılmış soru-cevap arayüzü.",
   "type": "commonjs",
   "author": "oğuz kerem ayhan <oguzkeremayhan@hotmail.com>",
