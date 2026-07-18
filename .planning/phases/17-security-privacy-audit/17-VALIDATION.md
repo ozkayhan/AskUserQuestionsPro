@@ -1,0 +1,34 @@
+# Phase 17 Validation Manifest
+
+This manifest is the executable contract for SEC-01 and SEC-02. It is intentionally evidence-only: source behavior is preserved unless Plan 01 identifies a concrete regression gap.
+
+## Required gates
+
+| Label | Command | Expected |
+|---|---|---|
+| `sec01-focused` | `node --test test/adapter-contract.test.js test/bridge.test.js test/server.test.js test/round-store.test.js test/round-lifecycle.test.js test/fake-host-conformance.test.js test/host-evidence-matrix.test.js test/cross-platform-evidence.test.js` | Exit 0 |
+| `sec02-settings` | `node --test test/settings.test.js test/server.test.js` | Exit 0; malformed/future imports reject and CAS preserves concurrent state |
+| `sec02-install` | `node --test test/install.test.js test/cli-adapters.test.js test/shell-lifecycle.test.js test/host-install-gates.test.js` | Exit 0; exact target scope and fail-closed unavailable hosts |
+| `sec02-package` | `node --test test/package-boundary.test.js test/release-gates.test.js` | Exit 0; allowlist and zero production dependencies |
+| `full-suite` | `npm test` | Exit 0 with only documented expected skip |
+| `lint` | `npm run lint` | Exit 0 |
+| `format` | `npm run format:check` | Exit 0 |
+| `package-dry-run` | `npm pack --dry-run --json` | Exit 0; inspect only intended files |
+| `production-dependency-audit` | `npm audit --audit-level=high --omit=dev` | Exit 0 or record actual bounded result |
+| `shell-syntax` | `bash -n install.sh uninstall.sh reinstall.sh` | Exit 0 |
+| `shellcheck` | `shellcheck -S warning install.sh uninstall.sh reinstall.sh` | Exit 0, or UNAVAILABLE only with command-not-found evidence |
+| `evidence-redaction-scan` | `node --test test/host-evidence-matrix.test.js test/cross-platform-evidence.test.js test/fake-host-conformance.test.js` | Exit 0; no payload/path leakage |
+| `promotion-fail-closed` | `node --test test/host-evidence-matrix.test.js test/host-install-gates.test.js` | Exit 0; unavailable/unsupported rows cannot promote |
+| `protected-file-snapshot/comparison` | baseline-relative `git diff --`, cached diff, `git hash-object`, `git ls-files -s`, status, then `cmp`/`diff` | Exit 0 for each protected file; unchanged and not staged |
+
+## Protected and external evidence rules
+
+Before execution capture complete baseline records for `.planning/config.json` and `.planning/ui-reviews/.gitignore`; after execution compare each record to its baseline. Do not compare these intentional dirty files to `origin/main`. Preserve all archives and source files.
+
+Every verification record must contain exactly one label plus `command:`, `status:`, `output/summary:`, and `interpretation:`. Reject duplicates and broad keyword-only evidence. Report output must exclude question text, answer values, tokens/secrets, arbitrary imported values, commands, and user-specific absolute paths.
+
+Authenticated Claude/Codex sessions and native Windows/Linux execution are unavailable in this workspace. Record each as `UNAVAILABLE` with owner, exact environment, and next gate; never count it as local PASS or promote capability status from it.
+
+## Plan-owned executables
+
+Plan 02 owns `17-run-audit.sh` and `17-validate-audit.mjs` as deterministic helpers created during execution. They write only Phase 17 evidence artifacts and temporary files.

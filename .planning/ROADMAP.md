@@ -19,7 +19,7 @@ Phases 8–13 delivered the lifecycle contract, durable round store and recovery
 
 - [x] **Phase 14: Static Quality & Reproducibility** - Close lint/format gaps and prove a clean `npm ci` reproduces the declared quality gates without production dependency changes.
 - [ ] **Phase 15: Browser Visual & Accessibility QA** - Reconcile current browser behavior with visual, keyboard, focus, and accessibility evidence for settings, recovery, and delivery.
-- [ ] **Phase 16: Cross-Phase UAT & Full Verification** - Reconcile archived phase evidence and rerun the complete release-critical verification surface without diagnosing an untracked application issue.
+- [x] **Phase 16: Cross-Phase UAT & Full Verification** - Reconcile archived phase evidence and rerun the complete release-critical verification surface without diagnosing an untracked application issue.
 - [ ] **Phase 17: Security & Privacy Audit** - Recheck local-only boundaries, capability ownership, redaction, settings/package safety, and fail-closed promotion behavior.
 - [ ] **Phase 18: Documentation & Release Evidence Sync** - Make maintained docs and v1.1.1 evidence artifacts accurately reproduce the final status and external handoffs.
 - [ ] **Phase 19: Final Release Readiness & Ship Gates** - Assemble the final clean-checkout release proof and stop shipment unless every locally testable gate passes and every external gap is explicitly handed off.
@@ -78,13 +78,13 @@ Plans:
   3. The end-to-end paths from host ask through durable registration, browser recovery, answer delivery, acknowledgement, and adapter response are verified or linked to explicit evidence.
   4. Missing authenticated Claude/Codex and native Windows/Linux evidence is separated from local test results and remains an external handoff, not a completion claim.
 
-**Plans**: 1/3 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
 
-- [ ] 16-00-PLAN.md — Create deterministic verification runner and final validator artifacts
+- [x] 16-00-PLAN.md — Create deterministic verification runner and final validator artifacts
 - [x] 16-01-PLAN.md — Reconcile archived Phase 8–13 UAT evidence into the current matrix
-- [ ] 16-02-PLAN.md — Run full release-critical verification and publish the current UAT summary
+- [x] 16-02-PLAN.md — Run full release-critical verification and publish the current UAT summary
 
 ### Phase 17: Security & Privacy Audit
 
@@ -98,7 +98,12 @@ Plans:
   3. The published package contains only the intended boundary, retains zero production dependencies, and does not expose question/answer payloads through diagnostics or evidence artifacts.
   4. Unsupported or unavailable host evidence cannot promote a capability to Supported, and the external Windows/authenticated Claude/Codex handoff remains fail-closed.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 17-01-PLAN.md — Audit and close only confirmed security, privacy, and installer regression gaps
+- [ ] 17-02-PLAN.md — Run deterministic security/package/evidence gates and publish bounded results
 
 ### Phase 18: Documentation & Release Evidence Sync
 
@@ -137,7 +142,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 14. Static Quality & Reproducibility | 2/2 | Complete | 2026-07-18 |
 | 15. Browser Visual & Accessibility QA | 2/2 | In Progress|  |
-| 16. Cross-Phase UAT & Full Verification | 1/3 | In Progress|  |
+| 16. Cross-Phase UAT & Full Verification | 2/3 | In Progress|  |
 | 17. Security & Privacy Audit | 0/TBD | Not started | - |
 | 18. Documentation & Release Evidence Sync | 0/TBD | Not started | - |
 | 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
@@ -151,8 +156,8 @@ Plans:
 | QUAL-03 | Phase 14 | Complete |
 | UI-01 | Phase 15 | Pending |
 | UI-02 | Phase 15 | Pending |
-| UAT-01 | Phase 16 | Pending |
-| UAT-02 | Phase 16 | Pending |
+| UAT-01 | Phase 16 | Complete |
+| UAT-02 | Phase 16 | Complete |
 | SEC-01 | Phase 17 | Pending |
 | SEC-02 | Phase 17 | Pending |
 | DOC-01 | Phase 18 | Pending |
