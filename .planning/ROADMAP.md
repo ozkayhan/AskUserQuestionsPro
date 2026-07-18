@@ -21,7 +21,7 @@ Phases 8–13 delivered the lifecycle contract, durable round store and recovery
 - [ ] **Phase 15: Browser Visual & Accessibility QA** - Reconcile current browser behavior with visual, keyboard, focus, and accessibility evidence for settings, recovery, and delivery.
 - [x] **Phase 16: Cross-Phase UAT & Full Verification** - Reconcile archived phase evidence and rerun the complete release-critical verification surface without diagnosing an untracked application issue.
 - [x] **Phase 17: Security & Privacy Audit** - Recheck local-only boundaries, capability ownership, redaction, settings/package safety, and fail-closed promotion behavior.
-- [ ] **Phase 18: Documentation & Release Evidence Sync** - Make maintained docs and v1.1.1 evidence artifacts accurately reproduce the final status and external handoffs.
+- [x] **Phase 18: Documentation & Release Evidence Sync** - Make maintained docs and v1.1.1 evidence artifacts accurately reproduce the final status and external handoffs.
 - [ ] **Phase 19: Final Release Readiness & Ship Gates** - Assemble the final clean-checkout release proof and stop shipment unless every locally testable gate passes and every external gap is explicitly handed off.
 
 ## Phase Details
@@ -117,13 +117,13 @@ Plans:
   3. Historical v1.0.0/v1.1 rationale and archived evidence remain discoverable; cleanup removes duplication only where the source of truth is preserved.
   4. Windows and authenticated Claude/Codex work are explicitly labeled external handoff and are not presented as completed evidence.
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
 
 - [x] 18-00-PLAN.md — Implement and smoke-test the executable Phase 18 validator preflight
 - [x] 18-01-PLAN.md — Synchronize maintained docs and current planning metadata with Phase 14–17 evidence
-- [ ] 18-02-PLAN.md — Publish the v1.1.1 release-evidence handoff and documentation validation manifest
+- [x] 18-02-PLAN.md — Publish the v1.1.1 release-evidence handoff and documentation validation manifest
 
 ### Phase 19: Final Release Readiness & Ship Gates
 
@@ -138,7 +138,13 @@ Plans:
   4. Native Windows and authenticated Claude/Codex validation are recorded as external handoff items with owners/environment instructions and are never counted as completed local evidence.
   5. The ship decision is explicitly Ready or Blocked based on the documented gates; no unsupported host or platform claim is promoted by omission.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+- [ ] 19-01-PLAN.md — Run the combined clean-checkout quality, package, security, documentation, shell, and workflow gates
+- [ ] 19-02-PLAN.md — Prove isolated HOME/XDG installer install, upgrade, uninstall, scope, and fail-closed behavior
+- [ ] 19-03-PLAN.md — Record the fail-closed ship decision, external handoffs, and package version checkpoint
 
 ## Progress
 
@@ -150,7 +156,7 @@ Plans:
 | 15. Browser Visual & Accessibility QA | 2/2 | Human-needed external lanes remain |  |
 | 16. Cross-Phase UAT & Full Verification | 3/3 | Complete| 2026-07-18 |
 | 17. Security & Privacy Audit | 2/2 | Complete| 2026-07-18 |
-| 18. Documentation & Release Evidence Sync | 2/3 | In Progress|  |
+| 18. Documentation & Release Evidence Sync | 3/3 | Complete| 2026-07-18 |
 | 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
 
 ## Requirement Coverage
@@ -167,7 +173,7 @@ Plans:
 | SEC-01 | Phase 17 | Complete |
 | SEC-02 | Phase 17 | Complete |
 | DOC-01 | Phase 18 | Complete |
-| DOC-02 | Phase 18 | Pending |
+| DOC-02 | Phase 18 | Complete |
 | REL-01 | Phase 19 | Pending |
 | REL-02 | Phase 19 | Pending |
 | REL-03 | Phase 19 | Pending |
