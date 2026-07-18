@@ -1,176 +1,150 @@
-# Roadmap: AskUserQuestionsPro Reliability, Extensibility, and Productization
+# Roadmap: AskUserQuestionsPro v1.1.1 Release Hardening
+
+## Milestone
+
+**Current milestone:** v1.1.1 Release Hardening
+**Goal:** Turn the shipped v1.1 implementation into a clean, reproducible, quality-gated, honestly documented release.
+**Core value:** Users can complete and safely deliver long question rounds without losing answers, while maintainers can reproduce and verify the release from a clean checkout.
 
 ## Completed Milestones
 
-- [x] **v1.0.0 — AskUserQuestionsPro Reliability and Documentation Overhaul** (2026-07-16) — Phases 1-7 complete. [Archived roadmap](milestones/v1.0.0-ROADMAP.md) · [Archived requirements](milestones/v1.0.0-REQUIREMENTS.md)
+- [x] **v1.0.0 — AskUserQuestionsPro Reliability and Documentation Overhaul** (2026-07-16) — Phases 1–7 complete. [Archived roadmap](milestones/v1.0.0-ROADMAP.md) · [Archived requirements](milestones/v1.0.0-REQUIREMENTS.md)
+- [x] **v1.1 — Reliability, Extensibility, and Productization** (2026-07-17) — Phases 8–13 complete; implementation and local integration shipped with explicit external evidence limitations. [Archived roadmap](milestones/v1.1-ROADMAP.md) · [Audit](milestones/v1.1-MILESTONE-AUDIT.md) · [UAT summary](milestones/v1.1-UAT-SUMMARY.md)
 
-## Overview
+## v1.1 Shipped History
 
-Sprint 2 turns the existing resumable bridge into a durable, user-visible recovery product. It first establishes a privacy-preserving lifecycle contract, then makes the Node bridge authoritative for recoverable rounds, exposes those guarantees through settings and accessible browser UX, and proves host compatibility through evidence rather than protocol assumptions. Claude Code and Codex are the Tier 1 baseline; every additional materially relevant host receives a dated Supported, Experimental, Researching, or Unsupported status only when the evidence supports it.
+Phases 8–13 delivered the lifecycle contract, durable round store and recovery API, settings v2, browser recovery/delivery UX, Claude/Codex adapter contracts, and evidence-gated host/release hardening. The v1.1 audit found no critical integration blockers and recorded 500 passing tests, one expected Playwright skip, package/audit/shell/release checks passing, and no diagnosed application defect. Its `partial`/`tech_debt` status reflects unavailable evidence—not completed claims—for native Linux/Windows runs, authenticated Claude/Codex runs, exhaustive browser/AT scenarios, and local ESLint/Prettier execution.
 
 ## Phases
 
-- [x] **Phase 8: Lifecycle Contract & Observability** - Make every round transition, deadline owner, and terminal outcome explicit and safely observable. (completed 2026-07-17)
-- [x] **Phase 9: Durable Round Store & Recovery API** - Preserve authoritative rounds and immutable results through interruption, restart, and safe recovery. (completed 2026-07-17)
-- [x] **Phase 10: Settings v2** - Give users durable, validated controls for recovery, delivery, browser, and adapter behavior. (completed 2026-07-17)
-- [x] **Phase 11: Browser Recovery & Delivery UX** - Let users recover, understand, and safely complete rounds through an accessible browser flow. (completed 2026-07-17)
-- [x] **Phase 12: Adapter Contract & Tier 1 Acceptance** - Prove Claude Code and Codex work through distinct, evidence-backed lifecycle adapters. (completed 2026-07-17)
-- [x] **Phase 13: Evidence-Gated Host Expansion & Launch Hardening** - Evaluate the broader host landscape honestly and ship verified cross-platform documentation and release evidence. (completed 2026-07-17)
+- [ ] **Phase 14: Static Quality & Reproducibility** - Close lint/format gaps and prove a clean `npm ci` reproduces the declared quality gates without production dependency changes.
+- [ ] **Phase 15: Browser Visual & Accessibility QA** - Reconcile current browser behavior with visual, keyboard, focus, and accessibility evidence for settings, recovery, and delivery.
+- [ ] **Phase 16: Cross-Phase UAT & Full Verification** - Reconcile archived phase evidence and rerun the complete release-critical verification surface without diagnosing an untracked application issue.
+- [ ] **Phase 17: Security & Privacy Audit** - Recheck local-only boundaries, capability ownership, redaction, settings/package safety, and fail-closed promotion behavior.
+- [ ] **Phase 18: Documentation & Release Evidence Sync** - Make maintained docs and v1.1.1 evidence artifacts accurately reproduce the final status and external handoffs.
+- [ ] **Phase 19: Final Release Readiness & Ship Gates** - Assemble the final clean-checkout release proof and stop shipment unless every locally testable gate passes and every external gap is explicitly handed off.
 
 ## Phase Details
 
-### Phase 8: Lifecycle Contract & Observability
+### Phase 14: Static Quality & Reproducibility
 
-**Goal**: Users can keep a long-running round recoverable because its state, timeout owner, and terminal outcome are explicit rather than silently lost.
-**Depends on**: Phase 7
-**Requirements**: LIFE-01, LIFE-02, LIFE-03, LIFE-04, LIFE-05
+**Goal**: Maintainers can install the declared development toolchain from a clean checkout and run lint, formatting, tests, packaging, and audit entry points reproducibly without broad unreviewed churn or production dependency changes.
+**Depends on**: Phase 13
+**Requirements**: QUAL-01, QUAL-02, QUAL-03
 **Success Criteria** (what must be TRUE):
 
-  1. A user who loses a host attachment sees the round enter a distinct recoverable state instead of it appearing completed or disappearing.
-  2. Support diagnostics identify the responsible lifecycle boundary and terminal reason with opaque identifiers, without exposing question or answer content.
-  3. A stale, duplicate, delayed, or unauthorized operation cannot change another user's active or recovered round.
-  4. An unavoidable host deadline detaches a round with recovery guidance, while ordinary idle time does not end it.
-  5. Maintainers can repeat lifecycle races and deadline paths deterministically and observe the expected state for each.
+  1. `npm run lint` completes with zero errors using the repository-declared toolchain.
+  2. `npm run format:check` completes with zero differences under an explicit, reviewable scope that includes application source and does not silently exclude it.
+  3. A clean `npm ci` on the supported Node baseline exposes working test, lint, format, package, and audit commands.
+  4. The hardening changes preserve zero production dependencies and avoid unrelated formatting churn.
 
-**Plans**: 5 plans
-Plans:
+**Plans**: TBD
 
-- [x] 08-01-PLAN.md — Define deterministic lifecycle states, deadlines, and ownership guards.
-- [x] 08-02-PLAN.md — Project redacted lifecycle state and capability checks through HTTP/SSE.
-- [x] 08-03-PLAN.md — Establish host deadline-owner seams and deterministic adapter tests.
-- [x] 08-04-PLAN.md — Document the lifecycle contract and live-evidence procedure.
-- [x] 08-05-PLAN.md — Verify real authenticated Claude Code and Codex lifecycle evidence.
+### Phase 15: Browser Visual & Accessibility QA
 
-**Research flags**: Mandatory live, authenticated Claude Code and Codex runs must identify the version-pinned timeout/cancellation owner; validate filesystem sync and directory durability behavior on supported OSes before relying on it.
-
-### Phase 9: Durable Round Store & Recovery API
-
-**Goal**: Users can reopen an exact saved round and safely retrieve its final answer after browser, host, or bridge interruption.
-**Depends on**: Phase 8
-**Requirements**: DUR-01, DUR-02, DUR-03, DUR-04, DUR-05, DUR-06
+**Goal**: Users can navigate and understand the settings, recovery, reconciliation, and delivery flows in the current browser experience, with visual and accessibility evidence or a precise unavailable-evidence record for each remaining lane.
+**Depends on**: Phase 14
+**Requirements**: UI-01, UI-02
 **Success Criteria** (what must be TRUE):
 
-  1. Meaningful answer edits survive browser refresh, reconnect, closure, host detach, and bridge restart as revisions of the same round.
-  2. A user can choose a specific recoverable round rather than the product guessing a “latest” round.
-  3. A crash, partial write, or corrupt persisted record leaves recoverable records intact and presents a safe recovery error for the bad record.
-  4. A submitted answer cannot be changed by a retry, and result retrieval or delivery acknowledgement can be safely repeated.
-  5. Existing pre-v1.1 requests continue into the durable recovery model without cross-round loss.
+  1. Current screenshots or an explicit evidence record cover settings, exact recovery selection, draft reconciliation, delivery acknowledgement, and fallback states.
+  2. Browser smoke demonstrates that exact-round recovery, server-authoritative draft reconciliation, acknowledgement-before-close, and actionable opener/delivery fallback work as user-visible flows.
+  3. Keyboard navigation, focus ownership, dialog semantics, and live announcements are verified in the available browser path, with screen-reader and other unavailable AT evidence clearly marked external.
+  4. Browser-origin drift, private-mode/quota, opener failure, and ownership-denied `window.close()` are either evidenced in an available environment or recorded as external handoff items rather than implied as passed.
 
-**Plans**: 4/4 plans executed
-Plans:
-
-- [x] 09-01-PLAN.md — Create versioned private round snapshots, atomic storage, quarantine, and TTL-derived retention.
-- [x] 09-02-PLAN.md — Make Bridge transitions durable and migrate legacy registrations without result loss.
-- [x] 09-03-PLAN.md — Expose explicit redacted recovery, result replay, and acknowledgement HTTP contracts.
-- [x] 09-04-PLAN.md — Document recovery semantics and capture bounded macOS durable-store evidence.
-
-**Research flags**: Validate crash recovery, restrictive file permissions, and retention/expiry behavior on macOS, Linux, and Windows; define and test the legacy request-ID to durable-round migration.
-
-### Phase 10: Settings v2
-
-**Goal**: Users can safely configure the recovery and delivery experience, and keep those choices intact across upgrades and supported clients.
-**Depends on**: Phase 9
-**Requirements**: SET-01, SET-02, SET-03, SET-04, SET-05, SET-06
-**Success Criteria** (what must be TRUE):
-
-  1. Users can configure browser launch, bounded retention, autosave, recovery, diagnostics, delivery, post-submit closure, and adapter preferences from one validated settings contract.
-  2. Existing settings migrate once with a backup, while an unsupported future format is rejected without replacing the user's current configuration.
-  3. A user can preview a settings import, understand validation errors, and leave all current settings unchanged when the import cannot be applied safely.
-  4. Users can export settings, reset an individual settings namespace, and inspect effective non-sensitive settings in doctor output.
-  5. Settings controls remain keyboard-accessible and retain their persisted values after reload and upgrade.
-
-**Plans**: 3/4 plans executed
-Plans:
-
-- [x] 10-04-GAP-PLAN.md
-
-- [x] 10-01-PLAN.md — Establish the shared versioned settings schema and backed-up migration persistence.
-- [x] 10-02-PLAN.md — Add transactional HTTP/CLI import, export, reset, and redacted doctor operations.
-- [x] 10-03-PLAN.md — Deliver the accessible schema-driven Settings v2 browser experience.
-
+**Plans**: TBD
 **UI hint**: yes
-**Research flags**: Decide the v2 version boundary, precedence, and unknown-future-version policy against current settings fixtures before implementation; keep executable host commands and loopback binding outside user-importable settings.
 
-### Phase 11: Browser Recovery & Delivery UX
+### Phase 16: Cross-Phase UAT & Full Verification
 
-**Goal**: Users can understand a round's recovery and delivery status, resume safely, and never have a tab close before delivery is durable.
-**Depends on**: Phase 10
-**Requirements**: WEB-05, WEB-06, WEB-07, WEB-08, WEB-09
+**Goal**: Maintainers have one reconciled view of v1.1 behavior and current verification results, with all release-critical local suites passing and no diagnosed application issue hidden by stale phase artifacts.
+**Depends on**: Phase 15
+**Requirements**: UAT-01, UAT-02
 **Success Criteria** (what must be TRUE):
 
-  1. After refresh, reconnect, or browser-origin/session change, users see the server-authoritative draft and actionable reconciliation guidance.
-  2. Users can distinguish saved, delivery-pending, delivered, delivery-uncertain, cancelled, and recovery-error outcomes without guessing whether work was sent.
-  3. A browser tab attempts automatic closure only after durable delivery acknowledgement and otherwise leaves a safe, clear fallback.
-  4. Users can choose an opening strategy and receive actionable guidance when the preferred browser or profile cannot be opened.
-  5. Recovery, delivery, and settings flows retain accessible announcements, focus behavior, and keyboard navigation.
+  1. Archived UAT reports for Phases 8–13 agree with current command results, verification reports, and the v1.1 integration check.
+  2. The full workspace suite passes with the expected Playwright skip only, and each release-critical focused suite passes after hardening changes.
+  3. The end-to-end paths from host ask through durable registration, browser recovery, answer delivery, acknowledgement, and adapter response are verified or linked to explicit evidence.
+  4. Missing authenticated Claude/Codex and native Windows/Linux evidence is separated from local test results and remains an external handoff, not a completion claim.
 
-**Plans**: 4/4 plans executed
-Plans:
+**Plans**: TBD
 
-- [x] 11-01-PLAN.md — Make browser recovery server-authoritative with explicit selection and draft reconciliation.
-- [x] 11-02-PLAN.md — Make delivery states loss-aware, acknowledgement-gated, and opening-strategy failures actionable.
-- [x] 11-03-PLAN.md — Verify accessible recovery/delivery flows and record browser evidence and documentation.
-- [x] 11-04-GAP-PLAN.md — Close review findings for durable acknowledgement, conflict replacement, and modal focus.
+### Phase 17: Security & Privacy Audit
 
-**UI hint**: yes
-**Research flags**: Exercise recovery in private browsing, under storage failure/quota, and after localhost port/origin drift; use manual browser verification alongside existing accessibility tests.
-
-### Phase 12: Adapter Contract & Tier 1 Acceptance
-
-**Goal**: Claude Code and Codex users can complete, recover, cancel, and receive long rounds through adapters whose host-specific behavior is proven rather than assumed.
-**Depends on**: Phase 11
-**Requirements**: ADP-01, ADP-02, ADP-03, ADP-04, ADP-05, ADP-06, HST-01
+**Goal**: The final checkout remains safely local, capability-scoped, privacy-preserving, and fail-closed when inputs, package contents, installer targets, or host evidence are malformed or unavailable.
+**Depends on**: Phase 16
+**Requirements**: SEC-01, SEC-02
 **Success Criteria** (what must be TRUE):
 
-  1. Users of Claude Code and Codex can start, attach, detach, cancel, resume, check status, retrieve a result, and acknowledge delivery without another host's semantics leaking into their flow.
-  2. Each Tier 1 host has a capability card that records its version, transport, timeout, cancellation, approval, trust, configuration, installation, and current evidence state.
-  3. A fake-host conformance run proves lifecycle and idempotency behavior before an adapter is treated as usable.
-  4. Version-pinned, authenticated Claude Code and Codex acceptance runs cover idle rounds, reconnect, restart, cancellation, recovery, and delivery.
-  5. Install, doctor, upgrade, and uninstall affect only the intended host configuration and are safe to repeat.
+  1. Loopback binding, request/round capability ownership, stale-operation guards, and lifecycle/settings/evidence redaction checks pass.
+  2. Malformed and future settings imports leave current configuration safe, and installer/upgrade/uninstall scope does not escape intended host configuration.
+  3. The published package contains only the intended boundary, retains zero production dependencies, and does not expose question/answer payloads through diagnostics or evidence artifacts.
+  4. Unsupported or unavailable host evidence cannot promote a capability to Supported, and the external Windows/authenticated Claude/Codex handoff remains fail-closed.
 
-**Plans**: 4/4 plans executed
-Plans:
+**Plans**: TBD
 
-- [x] 12-01-PLAN.md — Define the adapter contract and Tier 1 capability cards.
-- [x] 12-02-PLAN.md — Prove Claude and Codex lifecycle behavior with fake-host conformance.
-- [x] 12-03-PLAN.md — Verify scoped, idempotent adapter installation and onboarding gates.
-- [x] 12-04-PLAN.md — Assemble Tier 1 acceptance evidence and live-host verification procedures.
+### Phase 18: Documentation & Release Evidence Sync
 
-**Research flags**: Mandatory live host/OS validation: run the actual installed, authenticated Claude Code and Codex versions, record host deadline and response-write semantics, and separately verify Claude hook fallback and Codex MCP behavior.
-
-### Phase 13: Evidence-Gated Host Expansion & Launch Hardening
-
-**Goal**: Users can make informed host choices from evidence-backed compatibility states, and install a release whose recovery, privacy, and lifecycle guarantees are verified across supported platforms.
-**Depends on**: Phase 12
-**Requirements**: HST-02, HST-03, HST-04, HST-05, HST-06, QLT-01, QLT-02, QLT-03, DOC-06, DOC-07, DOC-08
+**Goal**: A future maintainer can reproduce the release decision from concise, current documentation that preserves historical rationale and distinguishes local proof from external handoff.
+**Depends on**: Phase 17
+**Requirements**: DOC-01, DOC-02
 **Success Criteria** (what must be TRUE):
 
-  1. Cursor, GitHub Copilot CLI, Gemini CLI, Amazon Q Developer, Cline, Kiro, Kilo Code, Qwen Code, OpenCode, Roo Code, and Windsurf each have a dated, evidence-backed Supported, Experimental, Researching, or Unsupported status; Aider remains Unsupported unless a safe authoritative surface is proven.
-  2. Users can read a machine-readable and user-facing compatibility matrix with each host's version, transport, scenarios tested, limitations, evidence date, and a clear explanation for non-integrable hosts.
-  3. Every claimed Supported host has fresh-install, upgrade, uninstall, trust-policy, and configuration-scope evidence; other hosts are not promoted beyond their evidence state.
-  4. Durable recovery is verified on supported macOS, Linux, and Windows environments, and full tests, lint, formatting, shell, packaging, and release checks pass from a clean checkout.
-  5. Maintained documentation explains settings, recovery, timeout ownership, delivery acknowledgement, troubleshooting, local retention/privacy, and redacted support diagnostics.
+  1. Maintained settings, recovery, lifecycle/timeout, delivery, troubleshooting, privacy, compatibility, lint/format, and release docs describe the final behavior without stale contradictions.
+  2. The v1.1.1 UAT, security, audit, and release evidence artifacts identify commands, results, dates, expected skips, known limitations, and reproducible handoff steps.
+  3. Historical v1.0.0/v1.1 rationale and archived evidence remain discoverable; cleanup removes duplication only where the source of truth is preserved.
+  4. Windows and authenticated Claude/Codex work are explicitly labeled external handoff and are not presented as completed evidence.
 
-**Plans**: 4 plans
-Plans:
+**Plans**: TBD
 
-- [x] 13-01-PLAN.md — Define the evidence ledger, integrity/redaction gates, and host matrix/cards.
-- [x] 13-02-PLAN.md — Refresh official host research and add isolated unavailable-host gates.
-- [x] 13-03-PLAN.md — Establish cross-platform durability and clean release evidence gates.
-- [x] 13-04-PLAN.md — Consolidate launch documentation, packaging, and release checks.
+### Phase 19: Final Release Readiness & Ship Gates
 
-**Research flags**: Mandatory per-candidate official-document refresh and installed-host/manual long-round validation before promotion; research Roo Code and Windsurf individually, and never infer support from MCP discoverability alone.
+**Goal**: The v1.1.1 release is shippable from a clean checkout only when all locally testable quality, package, installer, security, documentation, and release gates pass together and all unavailable evidence is honestly bounded.
+**Depends on**: Phase 18
+**Requirements**: REL-01, REL-02, REL-03
+**Success Criteria** (what must be TRUE):
+
+  1. Package dry-run, production dependency audit, shell checks, installer lifecycle checks, and release workflow gates pass together from the final checkout.
+  2. The release checklist records clean install, upgrade, uninstall, configuration-scope, and no-destructive-fallback results for every locally testable target.
+  3. The final release evidence links the passing full suite, focused suites, browser QA, security audit, documentation sync, and package boundary checks.
+  4. Native Windows and authenticated Claude/Codex validation are recorded as external handoff items with owners/environment instructions and are never counted as completed local evidence.
+  5. The ship decision is explicitly Ready or Blocked based on the documented gates; no unsupported host or platform claim is promoted by omission.
+
+**Plans**: TBD
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13
+**Execution Order:** Phases execute in numeric order: 14 → 15 → 16 → 17 → 18 → 19
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. Lifecycle Contract & Observability | 5/5 | Complete    | 2026-07-17 |
-| 9. Durable Round Store & Recovery API | 4/4 | Complete    | 2026-07-17 |
-| 10. Settings v2 | 4/4 | Complete    | 2026-07-17 |
-| 11. Browser Recovery & Delivery UX | 4/4 | Complete    | 2026-07-17 |
-| 12. Adapter Contract & Tier 1 Acceptance | 4/4 | Complete    | 2026-07-17 |
-| 13. Evidence-Gated Host Expansion & Launch Hardening | 5/5 | Complete    | 2026-07-17 |
+| 14. Static Quality & Reproducibility | 0/TBD | Not started | - |
+| 15. Browser Visual & Accessibility QA | 0/TBD | Not started | - |
+| 16. Cross-Phase UAT & Full Verification | 0/TBD | Not started | - |
+| 17. Security & Privacy Audit | 0/TBD | Not started | - |
+| 18. Documentation & Release Evidence Sync | 0/TBD | Not started | - |
+| 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
+
+## Requirement Coverage
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| QUAL-01 | Phase 14 | Pending |
+| QUAL-02 | Phase 14 | Pending |
+| QUAL-03 | Phase 14 | Pending |
+| UI-01 | Phase 15 | Pending |
+| UI-02 | Phase 15 | Pending |
+| UAT-01 | Phase 16 | Pending |
+| UAT-02 | Phase 16 | Pending |
+| SEC-01 | Phase 17 | Pending |
+| SEC-02 | Phase 17 | Pending |
+| DOC-01 | Phase 18 | Pending |
+| DOC-02 | Phase 18 | Pending |
+| REL-01 | Phase 19 | Pending |
+| REL-02 | Phase 19 | Pending |
+| REL-03 | Phase 19 | Pending |
+
+**Coverage:** 14/14 v1.1.1 requirements mapped exactly once; no orphaned requirements.
+
+---
+*Roadmap created: 2026-07-18*

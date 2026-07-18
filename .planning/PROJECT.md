@@ -1,5 +1,16 @@
 # AskUserQuestionsPro Reliability, Extensibility, and Productization
 
+## Current Milestone: v1.1.1 Release Hardening
+
+**Goal:** Turn the shipped v1.1 implementation into a clean, reproducible, release-ready checkout by closing lint/format gaps, re-running UI/UAT/security/docs gates, and recording unavailable external evidence without overclaiming support.
+
+**Target features:**
+
+- Clean ESLint and Prettier gates without broad unreviewed formatting churn.
+- Browser-based visual/accessibility review for settings, recovery, and delivery flows.
+- Reconciled UAT, security, documentation, packaging, and release evidence.
+- Explicit handoff records for unavailable Windows and authenticated Claude/Codex validation.
+
 ## What This Is
 
 AskUserQuestionsPro is a local browser-based question interface that replaces cramped terminal prompts for AI coding agents and IDEs. Host adapters submit a question round to a single-user localhost bridge, the browser collects rich answers, and the result is returned to the originating host. The product is evolving from a reliable Claude Code/Codex integration into a durable, configurable, adapter-driven question platform that can be safely extended to new AI coding hosts.
@@ -19,7 +30,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 
 ## Current State
 
-Milestone v1.0.0 shipped on 2026-07-16 and v1.1 shipped on 2026-07-17; both are archived. The v1.1 implementation passes 500 tests with 1 expected Playwright skip and 0 failures, plus package, audit, shell, release, and local browser evidence gates. The cross-phase audit found no critical blockers. Authenticated host runs, native Linux/Windows runs, some browser/AT scenarios, and local lint/format executables remain explicitly documented release evidence gaps; unsupported hosts are not promoted.
+Milestone v1.0.0 shipped on 2026-07-16 and v1.1 shipped on 2026-07-17; both are archived. The v1.1 implementation passes 500 tests with 1 expected Playwright skip and 0 failures, plus package, audit, shell, release, and local browser evidence gates. The v1.1.1 hardening cycle is now active because installing the declared development tools exposed 17 ESLint errors and 137 Prettier differences. Authenticated host runs, native Linux/Windows runs, and some browser/AT scenarios remain explicitly documented evidence gaps; unsupported hosts are not promoted.
 
 ## Core Value
 
@@ -59,7 +70,7 @@ Users must be able to complete and safely deliver a long, multi-question round a
 
 ### Next Milestone Goals
 
-No next milestone is defined yet. Before promoting additional hosts or claiming cross-platform support, consume the archived evidence handoff for authenticated Claude/Codex runs, native Linux/Windows runs, and the remaining browser/AT scenarios.
+After v1.1.1, consume the archived evidence handoff for authenticated Claude/Codex runs, native Linux/Windows runs, and the remaining browser/AT scenarios before promoting additional hosts or claiming broader platform support.
 
 ### Out of Scope
 
@@ -125,4 +136,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-07-17 after Phase 10 completion_
+_Last updated: 2026-07-18 after v1.1.1 milestone start_

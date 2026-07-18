@@ -1,36 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Sprint 2
-status: Awaiting next milestone
-stopped_at: Milestone v1.1 completed and archived
-last_updated: "2026-07-17T18:14:55.770Z"
-last_activity: 2026-07-17
-last_activity_desc: Milestone v1.1 completed and archived
+milestone: v1.1.1
+milestone_name: Release Hardening
+status: planning
+last_updated: "2026-07-18T10:10:24.285Z"
+last_activity: 2026-07-18
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 26
-  completed_plans: 26
-current_phase: null
-current_phase_name: null
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-17)
+See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Users must be able to complete and safely deliver a long, multi-question round without losing answers, regardless of which supported AI coding host initiated it.
-**Current focus:** No active phase; v1.1 is archived.
+**Current focus:** v1.1.1 Release Hardening — defining requirements and preparing Phase 14.
 
 ## Current Position
 
-Phase: Milestone v1.1 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-17 — Milestone v1.1 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-18 — Milestone v1.1.1 started
 
 ## Performance Metrics
 
