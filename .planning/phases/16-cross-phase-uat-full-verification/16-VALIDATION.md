@@ -16,7 +16,8 @@ This manifest defines the evidence required for UAT-01 and UAT-02. It is a valid
 | UAT-02 | `npm pack --dry-run --json` | Exit 0 and package boundary is unchanged | Record actual result |
 | UAT-02 | `bash -n install.sh uninstall.sh reinstall.sh` | Exit 0 | Record actual result |
 | UAT-02 | ShellCheck conditional | If available, warning-level ShellCheck exits 0; if unavailable, write an `UNAVAILABLE` row with command-not-found reason and continue | Unavailable is an external installer-validation handoff, never PASS |
-| UAT-01/UAT-02 | `git diff --check`, production-dependency drift, protected-file checks | Each executable command exits 0; no protected config/gitignore changes or staging; current production dependency sections equal `origin/main` | Fail on unexpected changes |
+| UAT-01/UAT-02 | `git diff --check`, production-dependency drift, protected-file checks | Each executable command exits 0; current production dependency sections equal `origin/main`; protected files match captured pre-existing diff/hash/index snapshots and remain unstaged | Do not require pristine files; fail only on changes from the captured baseline |
+| UAT-01/UAT-02 | Final report-evidence gate | `16-VERIFICATION.md` contains every required command or stable label, exit status, output/summary, and interpretation | Missing any section or field fails |
 
 ## Immutable Phase 8–13 archive paths
 
@@ -63,3 +64,11 @@ rm "$origin_package"
 ```
 
 The parser is the deterministic gate for every matrix row; all three outputs are mandatory evidence in `16-VERIFICATION.md`.
+
+## Protected dirty-file baseline and archive evidence
+
+Before any Phase 16 execution, write `16-PROTECTED-BASELINE.txt` with the complete `git diff`, `git diff --cached`, worktree `git hash-object`, and `git ls-files -s` output for `.planning/config.json` and `.planning/ui-reviews/.gitignore`, plus their index/staged status. After execution, compare each command's output and require exit 0, recording command, status, output, and interpretation in `16-VERIFICATION.md`; the interpretation must explicitly say the files are unchanged from baseline and not staged. A nonzero `git diff` relative to `origin/main` is expected for these two files and is not a failure.
+
+Run the explicit archive command `git diff --exit-code origin/main -- <all twelve paths in the immutable archive list>` and require exit 0. Record the exact command, exit status, output, and interpretation in `16-VERIFICATION.md`.
+
+The final report-evidence gate must fail unless the report contains command-or-stable-label evidence with exit status, output/summary, and interpretation for every row in the requirement-to-check map, including the UAT row parser, archive immutability, production dependency drift, `git diff --check`, and protected-file snapshot comparison.
