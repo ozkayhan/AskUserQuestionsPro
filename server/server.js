@@ -9,7 +9,6 @@ const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { validQuestions: validateQuestionSet } = require('../lib/question-contract.cjs');
-const { deliveryPolicy, closurePolicy } = require('../lib/runtime-settings.cjs');
 
 const PORT = process.env.ASKUSER_PORT ? Number(process.env.ASKUSER_PORT) : 4517;
 const WEB_DIR = path.join(__dirname, '..', 'web');
@@ -17,8 +16,6 @@ const runtimeSettings = () => Settings.inspect().effective;
 const settingsStatus = Settings.inspect();
 const configuredDetachedTtl = Number(process.env.ASKUSER_DETACHED_ROUND_TTL_MS);
 const configuredSettings = runtimeSettings();
-const delivery = deliveryPolicy(configuredSettings);
-const closure = closurePolicy(configuredSettings);
 const bridge = new Bridge({
   detachedTtlMs: Number.isFinite(configuredSettings.recovery?.retentionMs)
     ? configuredSettings.recovery.retentionMs
@@ -350,7 +347,7 @@ async function handleRequest(req, res) {
       return sendJson(res, 400, { error: 'read error' });
     }
     let questions;
-    let requestId, roundId;
+    let requestId;
     try {
       const payload = JSON.parse(body);
       questions = payload.questions;
