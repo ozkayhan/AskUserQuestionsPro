@@ -122,7 +122,7 @@ Plans:
 Plans:
 
 - [x] 18-00-PLAN.md — Implement and smoke-test the executable Phase 18 validator preflight
-- [ ] 18-01-PLAN.md — Synchronize maintained docs and current planning metadata with Phase 14–17 evidence
+- [x] 18-01-PLAN.md — Synchronize maintained docs and current planning metadata with Phase 14–17 evidence
 - [ ] 18-02-PLAN.md — Publish the v1.1.1 release-evidence handoff and documentation validation manifest
 
 ### Phase 19: Final Release Readiness & Ship Gates
@@ -147,10 +147,10 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 14. Static Quality & Reproducibility | 2/2 | Complete | 2026-07-18 |
-| 15. Browser Visual & Accessibility QA | 2/2 | In Progress|  |
+| 15. Browser Visual & Accessibility QA | 2/2 | Human-needed external lanes remain |  |
 | 16. Cross-Phase UAT & Full Verification | 3/3 | Complete| 2026-07-18 |
 | 17. Security & Privacy Audit | 2/2 | Complete| 2026-07-18 |
-| 18. Documentation & Release Evidence Sync | 1/3 | In Progress|  |
+| 18. Documentation & Release Evidence Sync | 2/3 | In Progress|  |
 | 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
 
 ## Requirement Coverage
@@ -166,7 +166,7 @@ Plans:
 | UAT-02 | Phase 16 | Complete |
 | SEC-01 | Phase 17 | Complete |
 | SEC-02 | Phase 17 | Complete |
-| DOC-01 | Phase 18 | Pending |
+| DOC-01 | Phase 18 | Complete |
 | DOC-02 | Phase 18 | Pending |
 | REL-01 | Phase 19 | Pending |
 | REL-02 | Phase 19 | Pending |
