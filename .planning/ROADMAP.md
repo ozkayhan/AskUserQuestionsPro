@@ -20,7 +20,7 @@ Phases 8–13 delivered the lifecycle contract, durable round store and recovery
 - [x] **Phase 14: Static Quality & Reproducibility** - Close lint/format gaps and prove a clean `npm ci` reproduces the declared quality gates without production dependency changes.
 - [ ] **Phase 15: Browser Visual & Accessibility QA** - Reconcile current browser behavior with visual, keyboard, focus, and accessibility evidence for settings, recovery, and delivery.
 - [x] **Phase 16: Cross-Phase UAT & Full Verification** - Reconcile archived phase evidence and rerun the complete release-critical verification surface without diagnosing an untracked application issue.
-- [ ] **Phase 17: Security & Privacy Audit** - Recheck local-only boundaries, capability ownership, redaction, settings/package safety, and fail-closed promotion behavior.
+- [x] **Phase 17: Security & Privacy Audit** - Recheck local-only boundaries, capability ownership, redaction, settings/package safety, and fail-closed promotion behavior.
 - [ ] **Phase 18: Documentation & Release Evidence Sync** - Make maintained docs and v1.1.1 evidence artifacts accurately reproduce the final status and external handoffs.
 - [ ] **Phase 19: Final Release Readiness & Ship Gates** - Assemble the final clean-checkout release proof and stop shipment unless every locally testable gate passes and every external gap is explicitly handed off.
 
@@ -117,7 +117,11 @@ Plans:
   3. Historical v1.0.0/v1.1 rationale and archived evidence remain discoverable; cleanup removes duplication only where the source of truth is preserved.
   4. Windows and authenticated Claude/Codex work are explicitly labeled external handoff and are not presented as completed evidence.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — Synchronize maintained docs and current planning metadata with Phase 14–17 evidence
+- [ ] 18-02-PLAN.md — Publish the v1.1.1 release-evidence handoff and documentation validation manifest
 
 ### Phase 19: Final Release Readiness & Ship Gates
 
@@ -142,8 +146,8 @@ Plans:
 |-------|----------------|--------|-----------|
 | 14. Static Quality & Reproducibility | 2/2 | Complete | 2026-07-18 |
 | 15. Browser Visual & Accessibility QA | 2/2 | In Progress|  |
-| 16. Cross-Phase UAT & Full Verification | 2/3 | In Progress|  |
-| 17. Security & Privacy Audit | 2/2 | In Progress|  |
+| 16. Cross-Phase UAT & Full Verification | 3/3 | Complete| 2026-07-18 |
+| 17. Security & Privacy Audit | 2/2 | Complete| 2026-07-18 |
 | 18. Documentation & Release Evidence Sync | 0/TBD | Not started | - |
 | 19. Final Release Readiness & Ship Gates | 0/TBD | Not started | - |
 
@@ -158,8 +162,8 @@ Plans:
 | UI-02 | Phase 15 | Pending |
 | UAT-01 | Phase 16 | Complete |
 | UAT-02 | Phase 16 | Complete |
-| SEC-01 | Phase 17 | Pending |
-| SEC-02 | Phase 17 | Pending |
+| SEC-01 | Phase 17 | Complete |
+| SEC-02 | Phase 17 | Complete |
 | DOC-01 | Phase 18 | Pending |
 | DOC-02 | Phase 18 | Pending |
 | REL-01 | Phase 19 | Pending |
