@@ -4,17 +4,17 @@ milestone: v1.1.1
 milestone_name: Release Hardening
 current_phase: 18
 current_phase_name: Documentation & Release Evidence Sync
-status: planning
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-07-18T13:17:15.005Z"
+status: complete
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-07-18T13:19:57.297Z"
 last_activity: 2026-07-18
-last_activity_desc: Phase 18 Plan 01 documentation and metadata synchronization completed
+last_activity_desc: Phase 18 documentation and release evidence sync completed
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 12
-  completed_plans: 11
-  percent: 67
+  completed_plans: 12
+  percent: 75
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 
 ## Current Position
 
-Phase: 18 (Documentation & Release Evidence Sync) — READY
-Plan: 02 — READY
-Status: Phase 18 in progress; Phase 15 external runtime/AT lanes remain explicitly human-needed
-Last activity: 2026-07-18 — Phase 18 Plan 01 documentation and metadata synchronization completed
+Phase: 18 (Documentation & Release Evidence Sync) — COMPLETE
+Plan: 02 — COMPLETE
+Status: Phase 18 complete; Phase 15 external runtime/AT lanes remain explicitly human-needed
+Last activity: 2026-07-18 — Phase 18 documentation and release evidence sync completed
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Last activity: 2026-07-18 — Phase 18 Plan 01 documentation and metadata synchr
 | Phase 17 P02 | 1m | 3 tasks tasks | 7 files |
 | Phase 18 P00 | 1 | 2 tasks | 3 files |
 | Phase 18 P01 | 20m | 2 tasks | 12 files |
+| Phase 18 P02 | 2m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 17 Plan 02 keeps authenticated Claude/Codex and native Windows/Linux lanes UNAVAILABLE until owner-supplied evidence exists.
 - [Phase ?]: DOC-01 maintained documentation and release evidence boundaries synchronized; DOC-02 remains for Plan 18-02.
 - [Phase ?]: Authenticated Claude/Codex and native Windows/Linux evidence remain UNAVAILABLE until owner-supplied runs.
+- [Phase ?]: DOC-02 complete: the v1.1.1 release handoff and executable validation manifest preserve provenance, bounded external gaps, redaction, archive, protected-file, and source-boundary checks.
 
 ### Pending Todos
 
@@ -122,8 +124,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-18T13:17:14.994Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-07-18T13:19:57.288Z
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

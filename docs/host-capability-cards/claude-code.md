@@ -2,7 +2,7 @@
 
 - Evidence date: 2026-07-17
 - Version: authenticated live version unavailable (`Researching`)
-- Evidence state: local automated/fake-host evidence only; live authenticated acceptance `UNAVAILABLE` — see the [release handoff](../evidence/v1.1.1-release-handoff.md)
+- Evidence state: local automated/fake-host evidence only; live authenticated acceptance `Unavailable` — see the [release handoff](../evidence/v1.1.1-release-handoff.md)
 - Transport: `PreToolUse` hook process to the loopback bridge
 - Timeout/deadline owner: hook/bridge client boundary; live host deadline requires authenticated verification
 - Cancellation/disconnect: hook failure preserves native picker fallback; host disconnect is distinct from explicit terminal cancellation

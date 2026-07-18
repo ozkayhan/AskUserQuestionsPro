@@ -6,7 +6,7 @@ This manifest defines the evidence required for UAT-01 and UAT-02. It is a valid
 
 | Requirement | Check | Expected result | Skip/unavailable handling |
 |---|---|---|---|
-| UAT-01 | Archived Phase 8–13 UAT and verification paths listed below | Every path exists and `git diff --exit-code origin/main -- <path list>` is clean | Missing archive path fails; current Phase 16 files are outside this immutable list |
+| UAT-01 | Archived Phase 8–13 UAT and verification paths listed below | Every path exists and `git diff --exit-code 7f87a92 -- <path list>` is clean | Missing archive path or missing v1.1 UAT evidence commit fails; current Phase 16 files are outside this immutable list |
 | UAT-01 | `16-UAT-MATRIX.md` source-link, status, redaction, and handoff-field audit | One matrix; all links resolve; PASS/PARTIAL/UNAVAILABLE are bounded; a row-by-row parser fails any PARTIAL/UNAVAILABLE row with an empty owner, environment, or action/next gate | No unsupported host/native/browser claims are accepted |
 | UAT-02 | `npm test` | 505 pass, zero failures, one expected Playwright-package skip when reproduced | Record actual result; do not normalize differing counts |
 | UAT-02 | Exact focused 179-test `node --test` inventory from `16-RESEARCH.md` | 179 pass, zero failures, zero skips | Record actual result |
@@ -79,7 +79,7 @@ The parser is the deterministic gate for every matrix row; all three outputs are
 
 Before any Phase 16 execution, write `16-PROTECTED-BASELINE.txt` with the complete `git diff`, `git diff --cached`, worktree `git hash-object`, and `git ls-files -s` output for `.planning/config.json` and `.planning/ui-reviews/.gitignore`, plus their index/staged status. After execution, compare each command's output and require exit 0, recording command, status, output, and interpretation in `16-VERIFICATION.md`; the interpretation must explicitly say the files are unchanged from baseline and not staged. A nonzero `git diff` relative to `origin/main` is expected for these two files and is not a failure.
 
-Run the explicit archive command `git diff --exit-code origin/main -- <all twelve paths in the immutable archive list>` and require exit 0. Record the exact command, exit status, output, and interpretation in `16-VERIFICATION.md`.
+Run the explicit archive command `git diff --exit-code 7f87a92 -- <all twelve paths in the immutable archive list>` and require exit 0. The v1.1 UAT evidence commit `7f87a92` is the immutable baseline because the `v1.1` tag and `origin/main` both predate the archived UAT report files in this checkout. Record the exact command, exit status, output, and interpretation in `16-VERIFICATION.md`.
 
 The primary sequence must execute and record these exact labels individually: `full-suite`, `focused-suite`, `lint`, `format`, `browser-smoke`, `audit`, `package-dry-run`, `bash-syntax`, `shellcheck`, `git-diff-check`, `production-dependency-drift`, `UAT-row-parser`, `archive-immutability`, and `protected-file-snapshot/comparison`. Each label must occur exactly once in `16-VERIFICATION.md` and its record must contain non-empty `command:`, `status:`, `output/summary:`, and `interpretation:` fields. The final validator must parse records structurally; broad keyword presence, proximity windows, or one aggregate status cannot satisfy this gate. It must fail on any missing or duplicate label, missing field, absent primary-sequence result, archive status other than 0, or missing per-file protected comparison.
 

@@ -1,151 +1,102 @@
-# Phase 17 Verification Report
+---
+phase: 17-security-privacy-audit
+verified: 2026-07-18T13:00:00Z
+status: gaps_found
+score: 6/7 must-haves verified
+behavior_unverified: 0
+overrides_applied: 0
+gaps:
+  - truth: "ROADMAP, REQUIREMENTS, and STATE metadata consistently record Phase 17 completion"
+    status: failed
+    reason: "The implementation and audit evidence are complete, but planning metadata contradicts itself."
+    artifacts:
+      - path: ".planning/ROADMAP.md"
+        issue: "SEC-01 and SEC-02 are still marked Pending in the requirement status table."
+      - path: ".planning/REQUIREMENTS.md"
+        issue: "SEC-01 and SEC-02 are marked Complete, contradicting ROADMAP.md."
+      - path: ".planning/STATE.md"
+        issue: "State remains executing/READY, says Plan not yet planned, and records Phase 16 as the last activity after 17-02 completed."
+    missing:
+      - "Synchronize ROADMAP requirement/progress status and STATE current position/activity using the repository's supported legacy STATE format."
+human_verification:
+  - test: "Run the four external handoffs: authenticated Claude, authenticated Codex, native Windows, and native Linux."
+    expected: "Each produces owner-supplied evidence for the stated environment; until then each remains UNAVAILABLE and no host capability is promoted."
+    why_human: "Those authenticated/native environments are unavailable in this workspace and cannot be proven by local tests."
+---
 
-## LABEL: sec01-focused
-command: node --test test/adapter-contract.test.js test/bridge.test.js test/server.test.js test/round-store.test.js test/round-lifecycle.test.js test/fake-host-conformance.test.js test/host-evidence-matrix.test.js test/cross-platform-evidence.test.js
-status: 0
-output/summary: TAP version 13
-interpretation: Local security and lifecycle coverage.
+# Phase 17: Security & Privacy Audit Verification Report
 
-## LABEL: sec02-settings
-command: node --test test/settings.test.js test/server.test.js
-status: 0
-output/summary: TAP version 13
-interpretation: Settings rejection and CAS coverage.
+**Phase Goal:** The final checkout remains safely local, capability-scoped, privacy-preserving, and fail-closed when inputs, package contents, installer targets, or host evidence are malformed or unavailable.
+**Verified:** 2026-07-18
+**Status:** gaps_found
 
-## LABEL: sec02-install
-command: node --test test/install.test.js test/cli-adapters.test.js test/shell-lifecycle.test.js test/host-install-gates.test.js
-status: 0
-output/summary: TAP version 13
-interpretation: Installer scope and fail-closed host gates.
+## Goal Achievement
 
-## LABEL: sec02-package
-command: node --test test/package-boundary.test.js test/release-gates.test.js
-status: 0
-output/summary: TAP version 13
-interpretation: Package allowlist and dependency contract.
+### Observable Truths
 
-## LABEL: full-suite
-command: npm test
-status: 0
-output/summary: (no output)
-interpretation: Full suite.
+| # | Truth | Status | Evidence |
+|---|---|---|---|
+| 1 | Loopback binding, capability ownership, stale-operation guards, and lifecycle/settings/evidence redaction pass. | VERIFIED | `17-run-audit.sh` produced `sec01-focused`, `sec02-settings`, `evidence-redaction-scan`, and `promotion-fail-closed` with status 0; focused tests include the actual `server.address().address === 127.0.0.1` assertion and nested redaction fixtures. |
+| 2 | Malformed/future settings are rejected safely and installer scope remains bounded. | VERIFIED | `sec02-settings` and `sec02-install` status 0; isolated installer/config and CAS tests are included in the executed commands. |
+| 3 | Package boundary, zero production dependencies, and payload/privacy evidence checks pass. | VERIFIED | `sec02-package`, `package-dry-run`, `production-dependency-audit`, and `evidence-redaction-scan` status 0; forbidden payload/path scan of generated evidence found no prohibited values. |
+| 4 | Unsupported/unavailable host evidence cannot promote capability. | VERIFIED | `promotion-fail-closed` status 0; all four external lanes are explicitly UNAVAILABLE. |
+| 5 | Deterministic final evidence covers all required local security gates. | VERIFIED | Exactly 19 ordered labels; strict validator reports `audit validator PASS: 19 ordered labels`. |
+| 6 | Archive baseline and protected baseline remain intact. | VERIFIED | Archive label status 0, ref `7f87a92`, exact 12 preserved paths; protected comparison status 0 and both protected files match baseline and are not staged. |
+| 7 | Phase metadata consistently records completion. | FAILED | ROADMAP marks SEC-01/02 Pending; REQUIREMENTS marks them Complete; STATE remains executing/READY with stale Phase 16 activity. |
 
-## LABEL: lint
-command: npm run lint
-status: 0
-output/summary: (no output)
-interpretation: Lint.
+**Score:** 6/7 must-haves verified; the six implementation/evidence truths pass and metadata consistency fails.
 
-## LABEL: format
-command: npm run format:check
-status: 0
-output/summary: (no output)
-interpretation: Format.
+## Required Artifacts
 
-## LABEL: package-dry-run
-command: npm pack --dry-run --json >/dev/null
-status: 0
-output/summary: (no output)
-interpretation: Published package dry-run.
+| Artifact | Expected | Status | Details |
+|---|---|---|---|
+| `17-run-audit.sh` | Ordered deterministic audit runner | VERIFIED | Executable; smoke test and full run pass. |
+| `17-validate-audit.mjs` | Strict 19-label/fail-closed validator | VERIFIED | Syntax check, smoke test, and strict validation pass. |
+| `17-VALIDATION.md` | Manifest and archive/protected contracts | VERIFIED | Declares required labels, exact archive paths, and protected rules. |
+| `17-PROTECTED-BASELINE.txt` | Protected-file baseline | VERIFIED | Captures both requested protected paths and their dirty-but-unstaged state. |
+| `17-SECURITY-SUMMARY.md` | Bounded security summary | VERIFIED | Repeats local PASS, archive/protected PASS, and external UNAVAILABLE decisions. |
+| `test/server.test.js`, `test/round-lifecycle.test.js` | New concrete regression coverage | VERIFIED | Runtime loopback and nested lifecycle redaction tests are present. |
 
-## LABEL: production-dependency-audit
-command: npm audit --audit-level=high --omit=dev
-status: 0
-output/summary: found 0 vulnerabilities
-interpretation: Production dependency audit.
+## Key Link Verification
 
-## LABEL: shell-syntax
-command: bash -n install.sh uninstall.sh reinstall.sh
-status: 0
-output/summary: (no output)
-interpretation: Installer syntax.
+| From | To | Via | Status | Details |
+|---|---|---|---|---|
+| Runner | Validator | `node 17-validate-audit.mjs 17-VERIFICATION.md` | WIRED | Strict run passes. |
+| Runtime server | Listener assertion | `server.address().address` | WIRED | Test exercises actual bound address. |
+| Redaction projections | Regression fixtures | lifecycle/host/evidence tests | WIRED | Nested synthetic payload and secret/path exclusion assertions present. |
+| Promotion evidence | Host ledger/install gates | focused node tests | WIRED | Promotion gate status 0 and unavailable rows cannot pass. |
 
-## LABEL: shellcheck
-command: shellcheck -S warning install.sh uninstall.sh reinstall.sh
-status: 0
-output/summary: (no output)
-interpretation: ShellCheck.
+## Behavioral Spot-Checks
 
-## LABEL: evidence-redaction-scan
-command: node --test test/host-evidence-matrix.test.js test/cross-platform-evidence.test.js test/fake-host-conformance.test.js
-status: 0
-output/summary: TAP version 13
-interpretation: Evidence redaction.
+| Behavior | Command | Result | Status |
+|---|---|---|---|
+| Helper smoke validation | `bash 17-run-audit.sh --smoke-test` | exit 0 | PASS |
+| Validator smoke validation | `node 17-validate-audit.mjs --smoke-test` | exit 0 | PASS |
+| Full audit manifest | `bash 17-run-audit.sh` | local labels status 0; external lanes UNAVAILABLE | PASS |
+| Strict manifest validation | `node 17-validate-audit.mjs 17-VERIFICATION.md` | `PASS: 19 ordered labels` | PASS |
 
-## LABEL: promotion-fail-closed
-command: node --test test/host-evidence-matrix.test.js test/host-install-gates.test.js
-status: 0
-output/summary: TAP version 13
-interpretation: Promotion rejects unavailable hosts.
+## Requirements Coverage
 
-## LABEL: archive-immutability
-command: git diff --exit-code 7f87a92 -- .planning/milestones/v1.1-phases/08-lifecycle-contract-observability/08-UAT.md .planning/milestones/v1.1-phases/08-lifecycle-contract-observability/08-VERIFICATION.md .planning/milestones/v1.1-phases/09-durable-round-store-recovery-api/09-UAT.md .planning/milestones/v1.1-phases/09-durable-round-store-recovery-api/09-VERIFICATION.md .planning/milestones/v1.1-phases/10-settings-v2/10-UAT.md .planning/milestones/v1.1-phases/10-settings-v2/10-VERIFICATION.md .planning/milestones/v1.1-phases/11-browser-recovery-delivery-ux/11-UAT.md .planning/milestones/v1.1-phases/11-browser-recovery-delivery-ux/11-VERIFICATION.md .planning/milestones/v1.1-phases/12-adapter-contract-tier-1-acceptance/12-UAT.md .planning/milestones/v1.1-phases/12-adapter-contract-tier-1-acceptance/12-VERIFICATION.md .planning/milestones/v1.1-phases/13-evidence-gated-host-expansion-launch-hardening/13-UAT.md .planning/milestones/v1.1-phases/13-evidence-gated-host-expansion-launch-hardening/13-VERIFICATION.md
-status: 0
-output/summary: (no output)
-interpretation: Immutable v1.1 archive comparison; ref 7f87a92; all twelve paths preserved.
+| Requirement | Source Plan | Status | Evidence |
+|---|---|---|---|
+| SEC-01 | 17-01, 17-02 | SATISFIED by implementation/evidence | Loopback, ownership/stale guards, redaction, evidence and promotion gates pass. |
+| SEC-02 | 17-01, 17-02 | SATISFIED by implementation/evidence | Settings, installer, package, protected baseline, and unavailable-host gates pass. |
 
-archive-ref: 7f87a92
-archive-path-count: 12
-preserved: .planning/milestones/v1.1-phases/08-lifecycle-contract-observability/08-UAT.md
-preserved: .planning/milestones/v1.1-phases/08-lifecycle-contract-observability/08-VERIFICATION.md
-preserved: .planning/milestones/v1.1-phases/09-durable-round-store-recovery-api/09-UAT.md
-preserved: .planning/milestones/v1.1-phases/09-durable-round-store-recovery-api/09-VERIFICATION.md
-preserved: .planning/milestones/v1.1-phases/10-settings-v2/10-UAT.md
-preserved: .planning/milestones/v1.1-phases/10-settings-v2/10-VERIFICATION.md
-preserved: .planning/milestones/v1.1-phases/11-browser-recovery-delivery-ux/11-UAT.md
-preserved: .planning/milestones/v1.1-phases/11-browser-recovery-delivery-ux/11-VERIFICATION.md
-preserved: .planning/milestones/v1.1-phases/12-adapter-contract-tier-1-acceptance/12-UAT.md
-preserved: .planning/milestones/v1.1-phases/12-adapter-contract-tier-1-acceptance/12-VERIFICATION.md
-preserved: .planning/milestones/v1.1-phases/13-evidence-gated-host-expansion-launch-hardening/13-UAT.md
-preserved: .planning/milestones/v1.1-phases/13-evidence-gated-host-expansion-launch-hardening/13-VERIFICATION.md
-## LABEL: protected-file-snapshot/comparison
-command: compare complete protected baseline and unstaged status
-status: 0
-output/summary: protected baseline comparison
-interpretation: protected files unchanged and unstaged.
-.planning/config.json
-matching baseline: yes
-not staged: yes
-.planning/ui-reviews/.gitignore
-matching baseline: yes
-not staged: yes
+## Anti-Patterns Found
 
-## LABEL: authenticated-claude
-command: external authenticated Claude session handoff
-status: UNAVAILABLE
-output/summary: no authenticated Claude environment is attached
-interpretation: UNAVAILABLE; not promotion evidence.
-owner: project maintainer
-environment: authenticated Claude Code session
-reason: unavailable in this workspace
-next evidence/command: run version-pinned authenticated Claude long-round acceptance
+| File | Pattern | Severity | Impact |
+|---|---|---|---|
+| `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, `.planning/STATE.md` | Contradictory/stale completion metadata | BLOCKER | Planning state cannot reliably advance or represent Phase 17 completion. |
 
-## LABEL: authenticated-codex
-command: external authenticated Codex session handoff
-status: UNAVAILABLE
-output/summary: no authenticated Codex environment is attached
-interpretation: UNAVAILABLE; not promotion evidence.
-owner: project maintainer
-environment: authenticated Codex session
-reason: unavailable in this workspace
-next evidence/command: run version-pinned authenticated Codex long-round acceptance
+## Human Verification Required
 
-## LABEL: native-windows
-command: native Windows installer and host validation handoff
-status: UNAVAILABLE
-output/summary: no native Windows environment is attached
-interpretation: UNAVAILABLE; not promotion evidence.
-owner: project maintainer
-environment: native Windows host
-reason: unavailable in this workspace
-next evidence/command: run installer and host gates on native Windows
+The four external lanes require owner-supplied runs in authenticated Claude/Codex and native Windows/Linux environments. Their current records correctly remain `UNAVAILABLE`; they are not counted as local PASS evidence.
 
-## LABEL: native-linux
-command: native Linux installer and host validation handoff
-status: UNAVAILABLE
-output/summary: no native Linux environment is attached
-interpretation: UNAVAILABLE; not promotion evidence.
-owner: project maintainer
-environment: native Linux host
-reason: unavailable in this workspace
-next evidence/command: run installer and host gates on native Linux
+## Gaps Summary
+
+The security/privacy implementation and deterministic evidence are verified. The remaining blocker is planning metadata synchronization, plus the explicitly bounded external handoffs. Update the planning metadata through the supported workflow, preserving the legacy STATE schema, then rerun verification.
+
+---
+
+_Verified: 2026-07-18T13:00:00Z_
+_Verifier: the agent (gsd-verifier)_

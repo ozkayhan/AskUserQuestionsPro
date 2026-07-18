@@ -45,7 +45,7 @@ Created the canonical redacted matrix reconciling the six archived Phase 8–13 
 
 ### Environment limitation
 
-The prescribed `git diff --exit-code origin/main -- <12 archive paths>` command cannot establish byte-for-byte equality in this checkout because `origin/main` does not contain those archived paths; Git reports them as additions. No archive was changed. The archived files remain present and were only read for provenance.
+The `origin/main` and `v1.1` tag comparisons predate the archived UAT report files in this checkout. The immutable v1.1 UAT evidence commit `7f87a92` is the correct baseline for the twelve archive paths; the Phase 16 runner uses `git diff --exit-code 7f87a92 -- ...`. No archive was changed. The archived files remain present and were only read for provenance.
 
 The existing Wave 0 artifacts (`16-PROTECTED-BASELINE.txt`, `16-VERIFICATION.md`, `16-run-verification.sh`, and `16-validate-verification.mjs`) were pre-existing untracked files and were preserved untouched.
 
