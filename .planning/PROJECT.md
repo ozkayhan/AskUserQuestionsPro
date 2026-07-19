@@ -1,15 +1,15 @@
 # AskUserQuestionsPro Reliability, Extensibility, and Productization
 
-## Current Milestone: v1.1.1 Release Hardening (prepared)
+## Current Milestone: v1.2.0 Bug Fixes
 
-**Goal:** Release the hardened v1.1 checkout through the repository's authenticated Changesets workflow while keeping unavailable external evidence explicit.
+**Goal:** Eliminate duplicate browser tabs after round delivery and make local-server recovery prompts appear only when recovery is actually needed and understandable.
 
 **Target features:**
 
-- Clean ESLint and Prettier gates without broad unreviewed formatting churn.
-- Browser-based visual/accessibility review for settings, recovery, and delivery flows.
-- Reconciled UAT, security, documentation, packaging, and release evidence.
-- Explicit handoff records for unavailable Windows and authenticated Claude/Codex validation.
+- Automatically close the browser tab that completed a round successfully before a later round is opened.
+- Prevent a subsequent round from reopening an already-completed tab alongside a new tab.
+- Restrict local-server recovery UI to genuine recoverable states, with clear user-facing explanation and actions.
+- Preserve normal question completion and delivery without unrelated recovery prompts.
 
 ## What This Is
 
@@ -70,7 +70,7 @@ Users must be able to complete and safely deliver a long, multi-question round a
 
 ### Next Milestone Goals
 
-After v1.1.1 publication, consume the archived evidence handoff for authenticated Claude/Codex runs, native Linux/Windows runs, and remaining browser/AT scenarios before promoting additional hosts or claiming broader platform support.
+After v1.2.0, verify the corrected browser lifecycle and recovery behavior across normal completion, repeated rounds, reconnects, and genuinely recoverable local-server states.
 
 ### Out of Scope
 
@@ -114,6 +114,8 @@ After v1.1.1 publication, consume the archived evidence handoff for authenticate
 | Treat host integrations as capability adapters with evidence gates            | Different AI coding hosts expose different lifecycle, transport, and installation contracts  | — Pending |
 | Prefer durable local recovery over optimistic timeout removal                  | A host or OS boundary can remain outside the bridge’s control; user work must still survive   | — Pending |
 | Make settings schema/versioning a public contract                              | A larger user base makes silent reset or migration failure unacceptable                       | ✓ Good    |
+| Treat a successfully delivered browser round as terminal for its owning tab    | A completed tab must not remain eligible to render or duplicate a later round                | — Pending |
+| Explain recovery only for an actual recoverable local-server state              | Unrelated recovery prompts after normal delivery confuse users and obscure the next action   | — Pending |
 
 ## Evolution
 
@@ -136,4 +138,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-07-18 after v1.1.1 release-hardening closeout_
+_Last updated: 2026-07-19 after v1.2.0 milestone start_

@@ -2,7 +2,20 @@
 
 ## Current milestone
 
-No active milestone. v1.1.1 release hardening is archived and prepared for the post-merge Changesets publication workflow.
+**v1.2.0 Bug Fixes** — eliminate duplicate completed tabs and make local-server recovery prompts state-driven and understandable.
+
+### Phase 19: Browser Lifecycle and Recovery Corrections
+
+**Goal:** A successfully delivered round ends its owning tab cleanly, and recovery UI appears only for a real recoverable interruption.
+
+**Requirements:** TAB-01, TAB-02, REC-01, REC-02
+
+**Success criteria:**
+
+1. A successfully acknowledged round closes its owning browser tab and cannot render a later round.
+2. Opening a subsequent round produces one active tab without a duplicate in the completed tab.
+3. Normal successful delivery does not show a local-server recovery prompt.
+4. Interrupted or detached rounds show a clear, valid recovery action and preserve the existing recoverable flow.
 
 ## Completed Milestones
 
