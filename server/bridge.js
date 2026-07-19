@@ -510,8 +510,10 @@ class Bridge {
     if (!removed.ok) return removed;
 
     const ownerIds = new Set();
+    let removedCurrent = false;
     const pending = this._pending;
     if (pending?.durable?.roundId === roundId) {
+      removedCurrent = true;
       ownerIds.add(pending.id);
       if (pending.detachTimer) this._clearTimer(pending.detachTimer);
       pending.detachTimer = null;
@@ -541,7 +543,9 @@ class Bridge {
 
     // D-03/D-04: deleting the exact current owner must not leave a stale
     // lifecycle snapshot that can be replayed to /current or SSE clients.
-    if (this._lastSnapshot && ownerIds.has(this._lastSnapshot.id)) this._lastSnapshot = null;
+    if (removedCurrent || (this._lastSnapshot && ownerIds.has(this._lastSnapshot.id))) {
+      this._lastSnapshot = null;
+    }
     return { ok: true };
   }
 

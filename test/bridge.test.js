@@ -338,6 +338,28 @@ test('Bridge.deleteRecoverable removes one exact hydrated round and cleans all m
   assert.equal(bridge.getSnapshot(), null);
 });
 
+test('Bridge.deleteRecoverable clears a prior snapshot when deleting the current owner', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-recovery-snapshot-'));
+  const store = new RoundStore({ root });
+  const bridge = new Bridge({ store, detachedTtlMs: 1000 });
+  const deliveredOwner = bridge.submitQuestions([{ question: 'previous' }], 'previous-round');
+  const delivered = bridge.peek('previous-round');
+  assert.equal(
+    bridge.provideAnswers(delivered.id, { previous: 'answer' }, delivered.capability),
+    true
+  );
+  await deliveredOwner;
+  assert.equal(bridge.confirmDelivery(delivered.roundId), true);
+  assert.equal(bridge.getSnapshot().state, 'delivered');
+
+  const currentOwner = bridge.submitQuestions([{ question: 'current' }], 'current-round');
+  const current = bridge.peek('current-round');
+  assert.equal(bridge.detach('host disconnected', current.id, current.capability), true);
+  assert.deepEqual(bridge.deleteRecoverable(current.roundId), { ok: true });
+  await assert.rejects(currentOwner, (error) => error.code === 'round_deleted');
+  assert.equal(bridge.getSnapshot(), null);
+});
+
 test('Bridge snapshot uses opaque capability and deterministic detached expiry', async () => {
   const clock = scheduler();
   const b = new Bridge({ detachedTtlMs: 10, ...clock });
