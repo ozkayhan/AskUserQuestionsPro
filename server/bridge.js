@@ -5,6 +5,14 @@ const { createRecord, transition, snapshot } = require('../lib/round-state.cjs')
 const Record = require('../lib/round-record.cjs');
 const { deliveryPolicy, closurePolicy } = require('../lib/runtime-settings.cjs');
 
+const RECOVERABLE_STATES = Object.freeze([
+  'drafting',
+  'detached',
+  'reconnecting',
+  'delivery-uncertain',
+]);
+const ROUND_ID_RE = /^round_[A-Za-z0-9_-]{16,}$/;
+
 const CANCEL_REASON_MAP = new Map([
   ['client disconnected', 'host_disconnect'],
   ['host disconnected', 'host_disconnect'],
@@ -58,6 +66,7 @@ class Bridge {
       ? Math.max(1, detachedTtlMs)
       : DEFAULT_DETACHED_TTL_MS;
     this._completed = new Map();
+    this._completedTimers = new Map();
     this._deliveries = new Map();
     this._store = store;
     this._delivery = deliveryPolicy(settings);
@@ -350,9 +359,11 @@ class Bridge {
 
   _rememberCompleted(p, answers) {
     if (!p.detached || p.requestId == null) return;
+    this._forgetCompleted(p.requestId);
     this._completed.set(p.requestId, {
       answers,
       roundId: p.id,
+      durableRoundId: p.durable?.roundId || null,
       expiresAt: this._now() + this._detachedTtlMs,
     });
     const timer = this._setTimer(() => {
@@ -361,8 +372,18 @@ class Bridge {
         this._completed.delete(p.requestId);
         this._deliveries.delete(p.id);
       }
+      if (this._completedTimers.get(p.requestId) === timer)
+        this._completedTimers.delete(p.requestId);
     }, this._detachedTtlMs);
+    this._completedTimers.set(p.requestId, timer);
     timer.unref?.();
+  }
+
+  _forgetCompleted(requestId) {
+    const timer = this._completedTimers.get(requestId);
+    if (timer !== undefined) this._clearTimer(timer);
+    this._completedTimers.delete(requestId);
+    this._completed.delete(requestId);
   }
 
   _rememberDelivery(p, answers) {
@@ -391,7 +412,7 @@ class Bridge {
         delivery.p.lifecycle?.finish('completed', { boundary: 'bridge', deadlineOwner: 'none' });
         this._lastSnapshot = snapshot(delivery.p.record);
         this._deliveries.delete(delivery.p.id);
-        if (delivery.p.requestId != null) this._completed.delete(delivery.p.requestId);
+        if (delivery.p.requestId != null) this._forgetCompleted(delivery.p.requestId);
       }
       return confirmed.ok;
     }
@@ -404,7 +425,7 @@ class Bridge {
     delivery.p.lifecycle?.finish('completed', { boundary: 'bridge', deadlineOwner: 'none' });
     this._lastSnapshot = snapshot(delivery.p.record);
     this._deliveries.delete(roundId);
-    if (delivery.p.requestId != null) this._completed.delete(delivery.p.requestId);
+    if (delivery.p.requestId != null) this._forgetCompleted(delivery.p.requestId);
     return true;
   }
 
@@ -444,7 +465,7 @@ class Bridge {
   _findCompleted(selector) {
     const now = this._now();
     for (const [key, item] of this._completed) {
-      if (item.expiresAt <= now) this._completed.delete(key);
+      if (item.expiresAt <= now) this._forgetCompleted(key);
     }
     if (!selector.requestId) return null;
     const item = this._completed.get(selector.requestId) || null;
@@ -464,7 +485,64 @@ class Bridge {
   }
 
   listRecoverable() {
-    return this._store ? this._store.list() : [];
+    if (!this._store) return [];
+    const now = this._now();
+    // D-05/D-06/D-08/D-10: the bridge owns the chooser policy and only returns
+    // exact, redacted metadata for states that still need a user decision.
+    return this._store
+      .list()
+      .filter((record) => record.expiresAt > now && RECOVERABLE_STATES.includes(record.state));
+  }
+
+  deleteRecoverable(roundId) {
+    if (!this._store) return { ok: false, code: 'not_found' };
+    if (typeof roundId !== 'string' || !ROUND_ID_RE.test(roundId)) {
+      return { ok: false, code: 'invalid_selector' };
+    }
+    const found = this._store.get(roundId);
+    if (!found.ok) return found;
+    if (found.record.expiresAt <= this._now()) return { ok: false, code: 'expired' };
+    if (!RECOVERABLE_STATES.includes(found.record.lifecycle.state)) {
+      return { ok: false, code: 'stale_round' };
+    }
+
+    const removed = this._store.remove(roundId);
+    if (!removed.ok) return removed;
+
+    const ownerIds = new Set();
+    const pending = this._pending;
+    if (pending?.durable?.roundId === roundId) {
+      ownerIds.add(pending.id);
+      if (pending.detachTimer) this._clearTimer(pending.detachTimer);
+      pending.detachTimer = null;
+      const error = Object.assign(new Error('saved round deleted'), {
+        code: 'round_deleted',
+        roundId: pending.id,
+      });
+      pending.reject(error);
+      for (const waiter of pending.waiters) {
+        waiter.reject(Object.assign(new Error(error.message), error));
+      }
+      pending.waiters.length = 0;
+      this._pending = null;
+    }
+
+    for (const [id, delivery] of this._deliveries) {
+      if (delivery.p.durable?.roundId !== roundId) continue;
+      ownerIds.add(delivery.p.id);
+      this._deliveries.delete(id);
+    }
+
+    for (const [requestId, completed] of this._completed) {
+      if (completed.durableRoundId !== roundId) continue;
+      ownerIds.add(completed.roundId);
+      this._forgetCompleted(requestId);
+    }
+
+    // D-03/D-04: deleting the exact current owner must not leave a stale
+    // lifecycle snapshot that can be replayed to /current or SSE clients.
+    if (this._lastSnapshot && ownerIds.has(this._lastSnapshot.id)) this._lastSnapshot = null;
+    return { ok: true };
   }
 
   durableRoundId(id) {

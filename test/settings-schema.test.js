@@ -26,6 +26,29 @@ test('v2 envelope exposes exact namespaces and bounded matrix metadata', () => {
   }
 });
 
+test('closure defaults to after-delivery while explicit never remains valid', () => {
+  assert.equal(Schema.envelopeDefaults().closure.mode, 'after-delivery');
+  assert.equal(
+    Schema.matrix().find((field) => field.path === 'closure.mode').default,
+    'after-delivery'
+  );
+  assert.equal(
+    Schema.validateEnvelope({ _v: 2, closure: { mode: 'never' } }).closure.mode,
+    'never'
+  );
+  assert.equal(
+    Schema.validateEnvelope({ _v: 2, closure: { mode: 'invalid' } }).closure.mode,
+    'after-delivery'
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      Schema.browserToLegacy(Schema.envelopeDefaults().browser),
+      'closure'
+    ),
+    false
+  );
+});
+
 test('v2 migration maps legacy keys and rejects future versions', () => {
   const migrated = Schema.inspectEnvelope({
     _v: 1,
