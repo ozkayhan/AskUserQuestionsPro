@@ -10,6 +10,11 @@
 
 **Requirements:** TAB-01, TAB-02, REC-01, REC-02
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 19-01-PLAN.md — Correct browser tab retirement, delivery acknowledgement, and state-driven recovery
+
 **Success criteria:**
 
 1. A successfully acknowledged round closes its owning browser tab and cannot render a later round.
