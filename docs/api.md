@@ -43,9 +43,12 @@ ownership check and is safe to repeat after the first terminal transition.
 The Node bridge owns a versioned local snapshot for each recoverable round.
 Browser storage is a mirror only. `GET /rounds` returns redacted metadata
 (`roundId`, optional request id, lifecycle state, revision, timestamps, expiry,
-and question count); it never returns question text, answers, capabilities,
-paths, or recovery diagnostics. `GET /rounds/:roundId` selects one exact record
-and returns the same redacted metadata.
+and question count) only for rounds that still have a valid recovery path
+(`drafting`, `detached`, `reconnecting`, `delivery-pending`, or
+`delivery-uncertain`); terminal `delivered` records are not offered by the
+chooser. It never returns question text, answers, capabilities, paths, or
+recovery diagnostics. `GET /rounds/:roundId` selects one exact record and
+returns the same redacted metadata.
 
 `POST /resume` now requires `roundId`, `requestId`, or both. A supplied pair
 must match; absent selectors are rejected rather than selecting by recency.
@@ -65,9 +68,11 @@ Final delivery is a two-step browser operation: submit enters
 `delivery-pending`, then the immutable result is acknowledged at
 `POST /rounds/:roundId/ack`. Only a successful acknowledgement is `delivered`
 and eligible for an automatic close attempt. Network or timeout ambiguity is
-`delivery-uncertain`; it never closes the tab and preserves the result for
-retry or exact recovery. Browser-opening failures expose only the loopback URL
-and manual guidance, never executable host commands.
+`delivery-uncertain`; it never closes or retires the tab and preserves the result
+for retry or exact recovery. After acknowledgement, the tab is retired before
+future SSE rounds are accepted and the default lifecycle setting attempts to
+close it. Browser-opening failures expose only the loopback URL and manual
+guidance, never executable host commands.
 
 Snapshots are retained initially for the resolved detached-round TTL
 (`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). Invalid

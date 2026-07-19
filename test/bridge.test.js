@@ -23,6 +23,30 @@ test('Bridge persists durable registration and immutable result replay', async (
   assert.equal(restarted.confirmDelivery(current.roundId), true);
 });
 
+test('Bridge recovery listing excludes delivered rounds but keeps an interrupted draft', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-recovery-list-'));
+  const store = new RoundStore({ root });
+  const delivered = new Bridge({ store, detachedTtlMs: 1000 });
+  const owner = delivered.submitQuestions([{ question: 'delivered' }], 'delivered-request');
+  const deliveredRound = delivered.peek('delivered-request');
+  assert.equal(delivered.provideAnswers(deliveredRound.id, { delivered: 'yes' }), true);
+  await owner;
+  assert.equal(delivered.confirmDelivery(deliveredRound.roundId), true);
+
+  store.create({
+    questions: [{ question: 'draft' }],
+    requestId: 'draft-request',
+    capability: 'draft-capability',
+    retentionMs: 1000,
+  });
+
+  const listed = delivered.listRecoverable();
+  assert.deepEqual(
+    listed.map((round) => [round.requestId, round.state]),
+    [['draft-request', 'drafting']]
+  );
+});
+
 test('Bridge hydrates one detached draft after restart with its durable identity and expiry', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-restart-'));
   const first = new Bridge({ store: new RoundStore({ root }), detachedTtlMs: 1000 });

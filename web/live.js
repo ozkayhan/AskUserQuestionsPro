@@ -13,6 +13,18 @@ function reconnectDelay(attempt) {
   return Math.random() * exp;
 }
 
+function createRoundGate() {
+  let retired = false;
+  return {
+    retire() {
+      retired = true;
+    },
+    accepts() {
+      return !retired;
+    },
+  };
+}
+
 // SSE ile bekleyen turu canlı al: { id, questions } (questions null = bekliyor).
 function useLiveQuestions() {
   const [round, setRound] = useStateLive({
@@ -25,6 +37,8 @@ function useLiveQuestions() {
     draftAnswers: null,
   });
   const timerRef = useRefLive(null);
+  const gateRef = useRefLive(null);
+  if (!gateRef.current) gateRef.current = createRoundGate();
   useEffectLive(() => {
     let es;
     let closed = false;
@@ -35,11 +49,11 @@ function useLiveQuestions() {
       const source = new EventSource('/events');
       es = source;
       source.onopen = () => {
-        if (closed || currentGeneration !== generation) return;
+        if (closed || currentGeneration !== generation || !gateRef.current.accepts()) return;
         attempt = 0; // başarılı bağlantı backoff'u sıfırlar.
       };
       source.onmessage = (e) => {
-        if (closed || currentGeneration !== generation) return;
+        if (closed || currentGeneration !== generation || !gateRef.current.accepts()) return;
         let d;
         try {
           d = JSON.parse(e.data);
@@ -62,7 +76,7 @@ function useLiveQuestions() {
         setRound((prev) => (prev.id === next.id ? { ...prev, ...next } : next));
       };
       source.onerror = () => {
-        if (closed || currentGeneration !== generation) return;
+        if (closed || currentGeneration !== generation || !gateRef.current.accepts()) return;
         source.close();
         // Orphan timer'ları önle: yeni timer kurmadan önce öncekini iptal et.
         clearTimeout(timerRef.current);
@@ -80,7 +94,10 @@ function useLiveQuestions() {
       if (es) es.close();
     };
   }, []);
-  return round;
+  return {
+    ...round,
+    retireRound: () => gateRef.current.retire(),
+  };
 }
 
 async function responseError(path, response) {
@@ -282,6 +299,7 @@ if (typeof module === 'object' && module.exports) {
     acknowledgeDelivery,
     attemptClose,
     deliveryTransition,
+    createRoundGate,
   };
 }
 if (typeof window !== 'undefined') {
@@ -291,4 +309,5 @@ if (typeof window !== 'undefined') {
   window.acknowledgeDelivery = acknowledgeDelivery;
   window.attemptClose = attemptClose;
   window.deliveryTransition = deliveryTransition;
+  window.createRoundGate = createRoundGate;
 }

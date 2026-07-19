@@ -11,6 +11,7 @@ function normalizeBootSettings() {
   if (envelope && envelope._v === 2 && envelope.browser) {
     const b = envelope.browser;
     const legacy = Settings_Schema.browserToLegacy(b);
+    legacy.closureMode = envelope.closure?.mode || 'after-delivery';
     window.__ASKUSER_SETTINGS__ = legacy;
     return legacy;
   }
@@ -18,6 +19,12 @@ function normalizeBootSettings() {
 }
 const APP_SETTINGS = normalizeBootSettings();
 const currentAppSettings = () => window.__ASKUSER_SETTINGS__ || APP_SETTINGS;
+function shouldCloseAfterDelivery() {
+  return (
+    window.__ASKUSER_SETTINGS_V2__?.closure?.mode === 'after-delivery' ||
+    currentAppSettings().closureMode === 'after-delivery'
+  );
+}
 
 function createAnswerState(questions, draft) {
   const answers = {};
@@ -42,6 +49,7 @@ function App() {
     capability,
     revision,
     draftAnswers,
+    retireRound,
   } = useLiveQuestions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recoverableRounds, setRecoverableRounds] = useState(null);
@@ -77,6 +85,7 @@ function App() {
         capability={capability}
         revision={revision}
         draftAnswers={draftAnswers}
+        onDelivered={retireRound}
         key={id == null ? 'q' : 'round-' + id}
       />
     );
@@ -111,7 +120,15 @@ function App() {
   );
 }
 
-function Flow({ questions, roundId, durableRoundId, capability, revision, draftAnswers }) {
+function Flow({
+  questions,
+  roundId,
+  durableRoundId,
+  capability,
+  revision,
+  draftAnswers,
+  onDelivered,
+}) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
   const draftWriterKey = `${roundId}:${capability || ''}`;
@@ -437,10 +454,8 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           return acknowledgeDelivery(durableRoundId, capability)
             .then(() => {
               setDeliveryState('delivered');
-              if (
-                currentAppSettings().closureMode === 'after-delivery' &&
-                typeof attemptClose === 'function'
-              ) {
+              onDelivered?.();
+              if (shouldCloseAfterDelivery() && typeof attemptClose === 'function') {
                 const result = attemptClose();
                 setCloseDenied(result.denied);
               }
@@ -448,6 +463,10 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
             .catch(() => {
               setDeliveryState('delivery-uncertain');
             });
+        }
+        onDelivered?.();
+        if (shouldCloseAfterDelivery() && typeof attemptClose === 'function') {
+          setCloseDenied(attemptClose().denied);
         }
         setDeliveryState('delivered');
       })
@@ -461,7 +480,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           err && err.reason === 'stale_round' ? 'stale' : err && err.server ? 'server' : 'network'
         );
       });
-  }, [capability, durableRoundId, mappedAnswers, roundId]);
+  }, [capability, durableRoundId, mappedAnswers, onDelivered, roundId]);
 
   const retryAcknowledgement = useCallback(() => {
     if (!durableRoundId || !capability || inflight.current) return;
@@ -470,10 +489,8 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
     acknowledgeDelivery(durableRoundId, capability)
       .then(() => {
         setDeliveryState('delivered');
-        if (
-          currentAppSettings().closureMode === 'after-delivery' &&
-          typeof attemptClose === 'function'
-        ) {
+        onDelivered?.();
+        if (shouldCloseAfterDelivery() && typeof attemptClose === 'function') {
           setCloseDenied(attemptClose().denied);
         }
       })
@@ -481,7 +498,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
       .finally(() => {
         inflight.current = false;
       });
-  }, [capability, durableRoundId]);
+  }, [capability, durableRoundId, onDelivered]);
 
   useEffect(() => {
     const onKey = (e) => {

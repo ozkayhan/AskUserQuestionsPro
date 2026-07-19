@@ -29,3 +29,10 @@ test('app: recovery chooser and delivery surfaces are explicit and keyboard-owne
   assert.match(app, /clearPendingDrafts/);
   assert.match(app, /createAnswerState\(QUESTIONS, draftAnswers\)/);
 });
+
+test('app: acknowledged delivery retires the tab and reads v2 closure settings', () => {
+  assert.match(app, /__ASKUSER_SETTINGS_V2__/);
+  assert.match(app, /retireRound/);
+  assert.match(app, /onDelivered\?\.\(\)|onDelivered\(\)/);
+  assert.match(app, /closure\?\.mode|closure\.mode/);
+});

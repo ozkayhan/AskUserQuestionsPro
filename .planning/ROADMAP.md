@@ -4,11 +4,13 @@
 
 **v1.2.0 Bug Fixes** — eliminate duplicate completed tabs and make local-server recovery prompts state-driven and understandable.
 
-### Phase 19: Browser Lifecycle and Recovery Corrections
+### Phase 19: Browser Lifecycle and Recovery Corrections `[x]`
 
 **Goal:** A successfully delivered round ends its owning tab cleanly, and recovery UI appears only for a real recoverable interruption.
 
 **Requirements:** TAB-01, TAB-02, REC-01, REC-02
+
+**Status:** Complete — 2026-07-19
 
 **Success criteria:**
 

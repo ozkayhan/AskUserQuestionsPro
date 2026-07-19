@@ -6,13 +6,13 @@ This milestone fixes two browser lifecycle regressions in the existing local sin
 
 ## Browser Tab Lifecycle
 
-- [ ] **TAB-01**: After a round is successfully delivered and acknowledged, the browser tab that owns that round closes automatically.
-- [ ] **TAB-02**: When a later round is opened after a successful delivery, exactly one browser tab represents the active round; the previously completed tab does not render the new round or create a duplicate.
+- [x] **TAB-01**: After a round is successfully delivered and acknowledged, the browser tab that owns that round closes automatically.
+- [x] **TAB-02**: When a later round is opened after a successful delivery, exactly one browser tab represents the active round; the previously completed tab does not render the new round or create a duplicate.
 
 ## Recovery UX
 
-- [ ] **REC-01**: The browser shows a local-server recovery prompt only when the current round has a genuine recoverable state, such as an interrupted or detached round that can be resumed.
-- [ ] **REC-02**: Recovery messaging identifies what happened and offers only actions valid for the current state; normal successful completion and delivery do not produce an unrelated recovery prompt.
+- [x] **REC-01**: The browser shows a local-server recovery prompt only when the current round has a genuine recoverable state, such as an interrupted or detached round that can be resumed.
+- [x] **REC-02**: Recovery messaging identifies what happened and offers only actions valid for the current state; normal successful completion and delivery do not produce an unrelated recovery prompt.
 
 ## Future Requirements
 
