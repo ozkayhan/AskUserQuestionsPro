@@ -45,9 +45,21 @@ function useModalFocus(ref, onEscape) {
   }, [onEscape, ref]);
 }
 
-function RecoveryChooser({ rounds, onSelect, onRetry, onDismiss, error }) {
+function RecoveryChooser({
+  mode = 'interrupted',
+  discoveryState,
+  recoverableRounds,
+  selectedRecovery,
+  recoveryError,
+  handleSelectRecovery,
+  handleContinueRecovery,
+  handleRequestDelete,
+  handleStartNewRound,
+}) {
   const titleRef = useRefView(null);
-  useModalFocus(titleRef, onDismiss);
+  useModalFocus(titleRef, handleStartNewRound);
+  if (discoveryState === 'empty') return null;
+  const uncertain = mode === 'uncertain';
   return (
     <div
       className="recovery-overlay"
@@ -58,37 +70,98 @@ function RecoveryChooser({ rounds, onSelect, onRetry, onDismiss, error }) {
     >
       <div className="recovery-panel">
         <h2 id="recovery-title" tabIndex="-1" ref={titleRef}>
-          Choose a round to recover
+          A question round was interrupted.
         </h2>
-        <p id="recovery-description">
-          Select the exact saved round. The newest round is never selected automatically.
-        </p>
-        {error && <p role="alert">{error}</p>}
-        <div className="recovery-list">
-          {(rounds || []).map((round) => (
+        <p id="recovery-description">Choose what to do with the saved round.</p>
+        {discoveryState === 'loading' && <p>Checking for saved rounds…</p>}
+        {discoveryState === 'error' && (
+          <p>
+            We couldn't load a saved round right now.
+            <br />A new round can still appear here when the agent is ready.
+          </p>
+        )}
+        {uncertain && discoveryState === 'populated' && (
+          <p role="status" aria-live="polite">
+            Delivery status is uncertain. Your answer is preserved.
+          </p>
+        )}
+        {recoveryError && <p role="status">{recoveryError}</p>}
+        {discoveryState === 'populated' && (
+          <div className="recovery-list">
+            {recoverableRounds.map((round) => {
+              const identity =
+                selectedRecovery &&
+                selectedRecovery.roundId === round.roundId &&
+                selectedRecovery.requestId === round.requestId;
+              return (
+                <button
+                  type="button"
+                  className="recovery-choice"
+                  aria-pressed={identity}
+                  key={round.roundId || round.requestId}
+                  onClick={() => handleSelectRecovery(round)}
+                >
+                  <strong>{round.state || 'Saved round'}</strong>
+                  <span className="recovery-choice__meta">
+                    {round.updatedAt || 'Saved locally'} · {round.questionCount ?? '?'} questions
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {discoveryState === 'populated' && (
+          <div className="recovery-actions">
             <button
               type="button"
-              className="recovery-choice"
-              key={round.roundId || round.requestId}
-              onClick={() => onSelect(round)}
+              className="btn btn--primary"
+              disabled={!selectedRecovery}
+              onClick={handleContinueRecovery}
             >
-              <strong>{round.state || 'Saved round'}</strong>
-              <span>
-                {round.updatedAt || 'Saved locally'} · {round.questionCount ?? '?'} questions
-              </span>
+              Continue this exact round
             </button>
-          ))}
+            <button
+              type="button"
+              className="btn btn--danger"
+              disabled={!selectedRecovery}
+              onClick={handleRequestDelete}
+            >
+              Cancel/Delete it
+            </button>
+            <button type="button" className="btn" onClick={handleStartNewRound}>
+              Start a new round
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RecoveryDeleteDialog({ onConfirm, onCancel }) {
+  const titleRef = useRefView(null);
+  useModalFocus(titleRef, onCancel);
+  return (
+    <div
+      className="recovery-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-title"
+      aria-describedby="delete-description"
+    >
+      <div className="recovery-panel">
+        <h2 id="delete-title" tabIndex="-1" ref={titleRef}>
+          Delete this saved round?
+        </h2>
+        <p id="delete-description">This removes the retained round and cannot be undone.</p>
+        <div className="recovery-actions">
+          <button type="button" className="btn btn--danger" onClick={onConfirm}>
+            Delete this round
+          </button>
+          <button type="button" className="btn" onClick={onCancel}>
+            Keep this round
+          </button>
         </div>
-        {onRetry && (
-          <button type="button" className="btn" onClick={onRetry}>
-            Retry recovery
-          </button>
-        )}
-        {onDismiss && (
-          <button type="button" className="btn" onClick={onDismiss}>
-            Continue without recovery
-          </button>
-        )}
       </div>
     </div>
   );
@@ -129,62 +202,21 @@ function ReconciliationPanel({ conflict, onKeepServer, onReview, onDiscard }) {
   );
 }
 
-function DeliveryPanel({ state = 'saved', onRetry, onAcknowledge, closeDenied, opening }) {
-  const copy = {
-    saved: ['Saved locally on the bridge.', 'Continue editing or submit'],
-    'delivery-pending': ['Saving your answer for delivery…', 'Wait; duplicate submit is disabled'],
-    delivered: ['Delivered to the host.', 'Close when allowed; reopen result'],
-    'delivery-uncertain': [
-      'Delivery status is uncertain. Your answer is preserved.',
-      'Check status, retry acknowledgement, or recover exact round',
-    ],
-    cancelled: ['This round was cancelled.', 'Start a new round or view retained record'],
-    'recovery-error': [
-      'This round could not be recovered safely. Your current work was not replaced.',
-      'Retry, choose another round, or copy support-safe diagnostics',
-    ],
-  }[state] || ['Saved locally on the bridge.', 'Continue editing or submit'];
+function DeliveryPanel({ state = 'saved' }) {
+  if (state !== 'delivery-pending') return null;
   return (
-    <section className="delivery-panel" aria-labelledby="delivery-title">
-      <h2 id="delivery-title">Delivery status</h2>
-      <p role="status" aria-live="polite">
-        {copy[0]}
-      </p>
-      <p>{copy[1]}</p>
-      {state === 'delivery-pending' && (
-        <button type="button" disabled>
-          Saving…
-        </button>
-      )}
-      {state === 'delivery-uncertain' && (
-        <button type="button" onClick={onRetry}>
-          Retry acknowledgement
-        </button>
-      )}
-      {state === 'delivered' && onAcknowledge && (
-        <button type="button" onClick={onAcknowledge}>
-          Reopen result
-        </button>
-      )}
-      {closeDenied && (
-        <p role="alert">
-          The browser did not allow automatic close. You may safely close this tab now; your result
-          remains available.
-        </p>
-      )}
-      {opening?.failed && (
-        <div className="opening-fallback">
-          <p>Browser opening failed for {opening.strategy || 'the configured strategy'}.</p>
-          <input
-            readOnly
-            value={opening.url || ''}
-            aria-label="Local URL"
-            onFocus={(e) => e.target.select()}
-          />
-          <p>Copy the localhost URL and open it manually.</p>
-        </div>
-      )}
-    </section>
+    <p className="delivery-pending" role="status" aria-live="polite">
+      Sending answers…
+    </p>
+  );
+}
+
+function RetiredState() {
+  return (
+    <main className="retired-state">
+      <h1>This round is complete.</h1>
+      <p>This tab is no longer waiting for new questions. You can close it when convenient.</p>
+    </main>
   );
 }
 
