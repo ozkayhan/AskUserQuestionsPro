@@ -17,13 +17,6 @@ const CANCEL_REASON_MAP = new Map([
 ]);
 
 const DEFAULT_DETACHED_TTL_MS = 60 * 60 * 1000;
-const BROWSER_RECOVERY_STATES = new Set([
-  'drafting',
-  'detached',
-  'reconnecting',
-  'delivery-pending',
-  'delivery-uncertain',
-]);
 
 function terminalReason(reason) {
   return CANCEL_REASON_MAP.get(String(reason || '').toLowerCase()) || 'bridge_error';
@@ -471,8 +464,7 @@ class Bridge {
   }
 
   listRecoverable() {
-    if (!this._store) return [];
-    return this._store.list().filter((record) => BROWSER_RECOVERY_STATES.has(record.state));
+    return this._store ? this._store.list() : [];
   }
 
   durableRoundId(id) {

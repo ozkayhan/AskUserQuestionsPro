@@ -13,7 +13,6 @@ const {
   getRecoverableRounds,
   selectRecoveryRound,
   acknowledgeDelivery,
-  createRoundGate,
 } = require('../web/live.js');
 
 // fetch'i mock'la, t.after ile geri yükle (DOM/global kirliliği bırakma — Contract T ruhu).
@@ -136,14 +135,6 @@ test('reconnectDelay: full-jitter [0, exp) ve 30s tavanı aşmaz', () => {
     const big = reconnectDelay(20);
     assert.ok(big >= 0 && big < 30000, 'tavan 30s, negatif değil');
   }
-});
-
-test('completed browser round gate rejects later SSE rounds after retirement', () => {
-  const gate = createRoundGate();
-  assert.equal(gate.accepts(), true);
-  gate.retire();
-  assert.equal(gate.accepts(), false);
-  assert.equal(gate.accepts(), false);
 });
 
 test('recovery requires exact selection and never chooses latest implicitly', async (t) => {

@@ -158,7 +158,7 @@ test('delivery.mode confirm retires a successfully delivered host response', asy
     assert.deepEqual((await (await ask).json()).answers, { 'CONFIRM?': 'A' });
     await waitForCondition(async () => {
       const rounds = (await (await fetch(`${childBase}/rounds`)).json()).rounds;
-      return rounds.length === 0;
+      return rounds.length === 1 && rounds[0].state === 'delivered';
     });
     assert.equal((await (await fetch(`${childBase}/current`)).json()).questions, null);
   } finally {

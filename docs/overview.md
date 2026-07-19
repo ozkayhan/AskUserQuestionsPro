@@ -68,20 +68,17 @@ evidence exists. `Unsupported` and `Unavailable` are explicit non-support
 states, not promises based on MCP discovery.
 
 Refresh, reconnect, and origin changes use the durable bridge record as the
-authority. The browser chooser includes only rounds with a live recovery path;
-successfully delivered records are not offered again. When more than one
-recoverable round exists, the browser presents a redacted exact-round chooser
-rather than silently selecting the latest. Cached drafts are best-effort mirrors
-keyed by opaque round/capability and revision; conflicts are explicit and never
-silently merged.
+authority. When more than one recoverable round exists, the browser presents a
+redacted exact-round chooser rather than silently selecting the latest. Cached
+drafts are best-effort mirrors keyed by opaque round/capability and revision;
+conflicts are explicit and never silently merged.
 
 The browser status vocabulary is text-backed: saved, delivery-pending,
 delivered, delivery-uncertain, cancelled, and recovery-error. Delivery remains
-visible until durable acknowledgement succeeds. After acknowledgement, the
-current tab retires before it can render a later round and the default lifecycle
-setting attempts to close it. A denied `window.close()` leaves the result open
-with safe-to-close guidance. If the configured browser or profile cannot be
-opened, the UI gives a copyable `127.0.0.1` URL and manual next step.
+visible until durable acknowledgement succeeds. A denied `window.close()`
+leaves the result open with safe-to-close guidance. If the configured browser
+or profile cannot be opened, the UI gives a copyable `127.0.0.1` URL and
+manual next step.
 
 Recovery metadata and support-safe diagnostics contain opaque identifiers and
 lifecycle data only. Question and answer content is not rendered in recovery

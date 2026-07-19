@@ -2,17 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2.0
 milestone_name: Bug Fixes
-current_phase: 19
-status: completed
-stopped_at: Completed Phase 19 verification
-last_updated: "2026-07-19T03:22:46.354Z"
+status: planning
+last_updated: "2026-07-19T03:08:35.007Z"
 last_activity: 2026-07-19
-last_activity_desc: Phase 19 complete
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -22,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Users must be able to complete and safely deliver a long, multi-question round without losing answers, regardless of which supported AI coding host initiated it.
-**Current focus:** v1.2.0 Bug Fixes — complete
+**Current focus:** Phase 19 — Final Release Readiness & Ship Gates
 
 ## Current Position
 
-Phase: 19
-Plan: 01
-Status: All phases complete
-Last activity: 2026-07-19 — Phase 19 complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-19 — Milestone v1.2.0 started
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 27 (v1.1)
+- Total plans completed: 26 (v1.1)
 - Average duration: -
 - Total execution time: -
 
@@ -50,7 +48,6 @@ Last activity: 2026-07-19 — Phase 19 complete
 | 11 | 4 | - | - |
 | 12 | 4 | - | - |
 | 13 | 5 | - | - |
-| 19 | 1 | - | - |
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
@@ -133,4 +130,5 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Review and ship the v1.2.0 browser lifecycle and recovery fixes.
+- Merge the release PR, then merge the generated Version Packages PR to publish v1.1.1.
+- Start the next milestone with /gsd-new-milestone after publication.
