@@ -1,16 +1,20 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Multilingual, Responsive, and Branching Question Experience
-status: planning
-last_updated: "2026-07-18T17:20:22.944Z"
+milestone: v1.1.1
+milestone_name: Release Hardening
+current_phase: none
+current_phase_name: Final Release Readiness & Ship Gates
+status: milestone_complete
+stopped_at: v1.1.1 release-hardening archive — publication delegated to Changesets workflow
+last_updated: "2026-07-18T15:10:00.000Z"
 last_activity: 2026-07-18
+last_activity_desc: Phase 18 documentation and release evidence sync completed
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 15
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State
@@ -20,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Users must be able to complete and safely deliver a long, multi-question round without losing answers, regardless of which supported AI coding host initiated it.
-**Current focus:** Phase 20 — Language and Presentation Contract Foundations
+**Current focus:** Phase 19 — Final Release Readiness & Ship Gates
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-18 — v1.2 requirements and roadmap defined
+Phase: v1.1.1 milestone closed with override closeout
+Plan: Release preparation complete; generated Version Packages PR remains post-merge
+Status: All locally executable gates pass. External validation and npm publication remain explicit handoffs.
+Last activity: 2026-07-18 — v1.1.1 release-hardening archive prepared
 
 ## Performance Metrics
 
