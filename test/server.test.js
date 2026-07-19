@@ -104,6 +104,49 @@ async function askAndAnswer(questions, answers) {
   return (await askPromise).json();
 }
 
+let seededRoundSequence = 100;
+function seedHttpDurable({
+  roundId,
+  requestId,
+  state = 'drafting',
+  answers = null,
+  retentionMs = 60000,
+}) {
+  const now = Date.now();
+  let lifecycle = createRecord({
+    id: seededRoundSequence++,
+    capability: `${roundId}-capability`,
+    now,
+  });
+  if (state === 'detached') {
+    lifecycle = transition(lifecycle, 'detach', {
+      now,
+      deadlineOwner: 'host',
+      reason: 'host_disconnect',
+    }).record;
+  }
+  const created = bridge._store.create({
+    roundId,
+    requestId,
+    capability: `${roundId}-private-capability`,
+    questions: [{ question: `${roundId}-private-question` }],
+    lifecycle,
+    retentionMs,
+  });
+  assert.equal(created.ok, true);
+  if (answers) {
+    const finalized = bridge._store.mutate(roundId, (record, at) =>
+      Record.finalize(record, answers, record.revision, at)
+    );
+    assert.equal(finalized.ok, true);
+    const delivered = bridge._store.mutate(roundId, (record, at) =>
+      Record.transition(record, 'delivered', record.revision, at)
+    );
+    assert.equal(delivered.ok, true);
+  }
+  return created.record;
+}
+
 test('requestTimeout devre dışı (uzun /ask beklemesi Node 5dk tavanına takılmaz)', () => {
   assert.strictEqual(server.requestTimeout, 0);
 });
@@ -158,7 +201,7 @@ test('delivery.mode confirm retires a successfully delivered host response', asy
     assert.deepEqual((await (await ask).json()).answers, { 'CONFIRM?': 'A' });
     await waitForCondition(async () => {
       const rounds = (await (await fetch(`${childBase}/rounds`)).json()).rounds;
-      return rounds.length === 1 && rounds[0].state === 'delivered';
+      return rounds.length === 0;
     });
     assert.equal((await (await fetch(`${childBase}/current`)).json()).questions, null);
   } finally {
@@ -198,6 +241,143 @@ test('durable discovery is redacted and result acknowledgement is idempotent', a
     await post(`/rounds/${current.roundId}/ack`, { capability: current.capability })
   ).json();
   assert.deepEqual(replay, first);
+});
+
+test('recovery discovery retains uncertain delivery but excludes delivered records', async () => {
+  const request = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  request.on('error', () => {});
+  request.end(
+    JSON.stringify({
+      requestId: 'uncertain-http',
+      questions: [{ question: 'UNCERTAIN?', options: [{ label: 'A' }] }],
+    })
+  );
+  const current = await waitForPending();
+  request.destroy();
+  await waitForLifecycle('detached');
+  await post('/answer', {
+    id: current.id,
+    capability: current.capability,
+    answers: { 'UNCERTAIN?': 'A' },
+  });
+  await waitForLifecycle('delivery-uncertain');
+
+  const rounds = (await (await fetch(`${base}/rounds`)).json()).rounds;
+  assert.equal(rounds.length, 1);
+  assert.equal(rounds[0].roundId, current.roundId);
+  assert.equal(rounds[0].state, 'delivery-uncertain');
+  assert.doesNotMatch(JSON.stringify(rounds[0]), /UNCERTAIN\?|secret|capability|answer/);
+
+  const acknowledgement = await post(`/rounds/${current.roundId}/ack`, {
+    capability: current.capability,
+  });
+  assert.equal(acknowledgement.status, 200);
+  assert.deepEqual((await (await fetch(`${base}/rounds`)).json()).rounds, []);
+});
+
+test('exact durable deletion clears the selected owner, current snapshot, and SSE state', async () => {
+  const requestId = 'delete-http';
+  const request = http.request(`${base}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  request.on('error', () => {});
+  request.end(
+    JSON.stringify({
+      requestId,
+      questions: [{ question: 'DELETE?', options: [{ label: 'A' }] }],
+    })
+  );
+  const current = await waitForPending();
+  request.destroy();
+  await waitForLifecycle('detached');
+
+  const listed = (await (await fetch(`${base}/rounds`)).json()).rounds;
+  assert.deepEqual(
+    listed.map((round) => round.roundId),
+    [current.roundId]
+  );
+  assert.doesNotMatch(JSON.stringify(listed), /DELETE\?|capability|answer/);
+
+  const sse = await fetch(`${base}/events`);
+  const reader = sse.body.getReader();
+  const decoder = new TextDecoder();
+  const events = [];
+  (async () => {
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value).split('\n')) {
+          if (line.startsWith('data:')) events.push(JSON.parse(line.slice(5).trim()));
+        }
+      }
+    } catch {
+      // The test deliberately closes the SSE stream after observing deletion.
+    }
+  })();
+  await waitForCondition(() => events.length > 0);
+  assert.equal(events.at(-1).id, current.id);
+
+  const deleted = await post(`/rounds/${current.roundId}/delete`, {
+    capability: 'must-not-be-read',
+    answers: { private: 'must-not-be-read' },
+  });
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(await deleted.json(), { ok: true });
+  await waitForCondition(() =>
+    events.some((event) => event.id === null && event.questions === null)
+  );
+  assert.deepEqual((await (await fetch(`${base}/rounds`)).json()).rounds, []);
+  assert.deepEqual(await (await fetch(`${base}/current`)).json(), {
+    id: null,
+    questions: null,
+    lifecycle: null,
+  });
+  await reader.cancel();
+
+  const malformed = await post('/rounds/not-a-round/delete', {});
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).reason, 'invalid_selector');
+  const missing = await post('/rounds/round_missingxxxxxxxxx/delete', {});
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).reason, 'not_found');
+
+  const unrelated = seedHttpDurable({
+    roundId: 'round_httpunrelatedxxx',
+    requestId: 'unrelated-http',
+    state: 'detached',
+  });
+  const selected = seedHttpDurable({
+    roundId: 'round_httpselectedxxxx',
+    requestId: 'selected-http',
+  });
+  const delivered = seedHttpDurable({
+    roundId: 'round_httpdeliveredxxx',
+    requestId: 'delivered-http',
+    answers: { private: 'answer' },
+  });
+  const expired = seedHttpDurable({
+    roundId: 'round_httpexpiredxxxxxx',
+    requestId: 'expired-http',
+    retentionMs: 1,
+  });
+  const deliveredDelete = await post(`/rounds/${delivered.roundId}/delete`, {});
+  assert.equal(deliveredDelete.status, 409);
+  assert.equal((await deliveredDelete.json()).reason, 'stale_round');
+  await waitForCondition(() => Date.now() >= expired.expiresAt);
+  const expiredDelete = await post(`/rounds/${expired.roundId}/delete`, {});
+  assert.equal(expiredDelete.status, 410);
+  assert.equal((await expiredDelete.json()).reason, 'expired');
+  const selectedDelete = await post(`/rounds/${selected.roundId}/delete`, {});
+  assert.equal(selectedDelete.status, 200);
+  assert.deepEqual(
+    (await (await fetch(`${base}/rounds`)).json()).rounds.map((round) => round.roundId),
+    [unrelated.roundId]
+  );
 });
 
 test('/draft persists capability/revision guarded browser state and rejects a stale edit', async () => {
