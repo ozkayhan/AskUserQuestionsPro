@@ -2,17 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.2.0
 milestone_name: Bug Fixes
-current_phase_name: defining requirements
-status: planning
-stopped_at: Phase 19 plans verified
-last_updated: "2026-07-19T16:38:57.937Z"
+current_phase: 19
+current_phase_name: browser-lifecycle-recovery-corrections
+status: executing
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-07-19T17:01:56.466Z"
 last_activity: 2026-07-19
-last_activity_desc: Milestone v1.2.0 started
+last_activity_desc: Phase 19 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -22,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Users must be able to complete and safely deliver a long, multi-question round without losing answers, regardless of which supported AI coding host initiated it.
-**Current focus:** Phase 19 — Final Release Readiness & Ship Gates
+**Current focus:** Phase 19 — browser-lifecycle-recovery-corrections
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-19 — Milestone v1.2.0 started
+Phase: 19 (browser-lifecycle-recovery-corrections) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-07-19 — Phase 19 execution started
 
 ## Performance Metrics
 
@@ -72,6 +73,7 @@ Last activity: 2026-07-19 — Milestone v1.2.0 started
 | Phase 18 P00 | 1 | 2 tasks | 3 files |
 | Phase 18 P01 | 20m | 2 tasks | 12 files |
 | Phase 18 P02 | 2m | 2 tasks | 4 files |
+| Phase 19 P01 | 21m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -102,6 +104,9 @@ Recent decisions affecting current work:
 - [Phase ?]: DOC-01 maintained documentation and release evidence boundaries synchronized; DOC-02 remains for Plan 18-02.
 - [Phase ?]: Authenticated Claude/Codex and native Windows/Linux evidence remain UNAVAILABLE until owner-supplied runs.
 - [Phase ?]: DOC-02 complete: the v1.1.1 release handoff and executable validation manifest preserve provenance, bounded external gaps, redaction, archive, protected-file, and source-boundary checks.
+- [Phase ?]: Bridge recovery discovery filters to non-expired drafting, detached, reconnecting, and delivery-uncertain redacted metadata; delivered and terminal records stay out of /rounds.
+- [Phase ?]: Exact durable deletion validates the path/state/expiry, unlinks before map mutation, rejects matching waiters, clears timers and ownership, invalidates current snapshots, and broadcasts only after success.
+- [Phase ?]: The v2 closure default is after-delivery while explicit never remains valid; acknowledgement is the sole terminal delivery boundary and uncertain delivery remains retained.
 
 ### Pending Todos
 
@@ -126,9 +131,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-19T16:38:57.926Z
-Stopped at: Phase 19 plans verified
-Resume file: .planning/phases/19-browser-lifecycle-recovery-corrections/19-01-PLAN.md
+Last session: 2026-07-19T17:01:56.460Z
+Stopped at: Completed 19-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
