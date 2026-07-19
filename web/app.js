@@ -1,6 +1,7 @@
-/* global React, ReactDOM, AnswerMap, DraftWriter, Settings_Schema, useLiveQuestions, postAnswers, postDraft, fullOptions,
-   Check, Waiting, Sidebar, Hints, QuestionCard, CustomPopup, Summary, RecoveryChooser, ReconciliationPanel, DeliveryPanel,
-   SettingsButton, SettingsModal */
+/* global React, ReactDOM, AnswerMap, DraftWriter, Settings_Schema, useLiveQuestions, postAnswers, postDraft,
+   deleteRecoverableRound, getRecoverableRounds, selectRecoveryRound, fullOptions, Check, Waiting, Sidebar, Hints,
+   QuestionCard, CustomPopup, Summary, RecoveryChooser, RecoveryDeleteDialog, ReconciliationPanel, DeliveryPanel,
+   RetiredState, SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -18,6 +19,23 @@ function normalizeBootSettings() {
 }
 const APP_SETTINGS = normalizeBootSettings();
 const currentAppSettings = () => window.__ASKUSER_SETTINGS__ || APP_SETTINGS;
+function currentClosureMode() {
+  const mode = window.__ASKUSER_SETTINGS_V2__?.closure?.mode;
+  return mode === 'never' || mode === 'after-delivery' ? mode : 'after-delivery';
+}
+function recoveryIdentity(round) {
+  if (!round || typeof round !== 'object') return null;
+  const identity = {};
+  if (round.roundId != null) identity.roundId = round.roundId;
+  if (round.requestId != null) identity.requestId = round.requestId;
+  return Object.keys(identity).length ? identity : null;
+}
+function isRecoverableRecord(round) {
+  return (
+    !!recoveryIdentity(round) &&
+    ['drafting', 'detached', 'reconnecting', 'delivery-uncertain'].includes(round.state)
+  );
+}
 
 function createAnswerState(questions, draft) {
   const answers = {};
@@ -42,34 +60,94 @@ function App() {
     capability,
     revision,
     draftAnswers,
+    retireRound,
   } = useLiveQuestions();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [recoverableRounds, setRecoverableRounds] = useState(null);
+  const [discoveryState, setDiscoveryState] = useState('loading');
+  const [recoverableRounds, setRecoverableRounds] = useState([]);
   const [recoveryError, setRecoveryError] = useState(null);
   const [selectedRecovery, setSelectedRecovery] = useState(null);
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [recoveryRequested, setRecoveryRequested] = useState(false);
   const settingsFabRef = useRef(null);
 
-  useEffect(() => {
-    if (id != null || typeof getRecoverableRounds !== 'function') return undefined;
+  const loadRecoverableRounds = useCallback(() => {
+    if (typeof getRecoverableRounds !== 'function') return;
+    setDiscoveryState('loading');
     getRecoverableRounds()
-      .then(setRecoverableRounds)
-      .catch((error) => setRecoveryError(error.message));
+      .then((rounds) => {
+        const safeRounds = rounds.filter(isRecoverableRecord);
+        setRecoverableRounds(safeRounds);
+        setDiscoveryState(safeRounds.length ? 'populated' : 'empty');
+      })
+      .catch((error) => {
+        setDiscoveryState('error');
+        setRecoveryError(error.message);
+      });
+  }, []);
+  useEffect(() => {
+    if (id != null && !recoveryRequested) {
+      setDiscoveryState('empty');
+      return undefined;
+    }
+    loadRecoverableRounds();
     return undefined;
-  }, [id]);
+  }, [id, loadRecoverableRounds, recoveryRequested]);
 
-  const chooseRecovery = (round) => {
+  const handleSelectRecovery = (round) => {
+    const identity = recoveryIdentity(round);
+    if (!identity) return;
+    setSelectedRecovery(identity);
     setRecoveryError(null);
-    setSelectedRecovery(round);
-    selectRecoveryRound(round).catch((error) => setRecoveryError(error.message));
   };
+  const handleContinueRecovery = () => {
+    if (!selectedRecovery) return;
+    selectRecoveryRound(selectedRecovery)
+      .then(() => {
+        setRecoveryRequested(false);
+        setRecoveryDismissed(true);
+      })
+      .catch((error) => setRecoveryError(error.message));
+  };
+  const handleRequestDelete = () => {
+    if (selectedRecovery) setDeleteTarget(selectedRecovery);
+  };
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteRecoverableRound(deleteTarget.roundId)
+      .then(() => {
+        const remaining = recoverableRounds.filter(
+          (round) => round.roundId !== deleteTarget.roundId
+        );
+        setRecoverableRounds(remaining);
+        setDiscoveryState(remaining.length ? 'populated' : 'empty');
+        setSelectedRecovery(null);
+        setDeleteTarget(null);
+        setRecoveryError(null);
+      })
+      .catch((error) => setRecoveryError(error.message));
+  };
+  const handleStartNewRound = () => {
+    setRecoveryDismissed(true);
+    setSelectedRecovery(null);
+    setDeleteTarget(null);
+    setRecoveryError(null);
+  };
+  const handleDeliveryUncertain = useCallback(() => {
+    setRecoveryRequested(true);
+    setRecoveryDismissed(false);
+    setSelectedRecovery(null);
+    setDeleteTarget(null);
+    setDiscoveryState('loading');
+  }, []);
 
   const screen =
-    !questions || questions.length === 0 ? (
+    recoveryRequested || !questions || questions.length === 0 ? (
       <div className="app app--waiting">
         <Waiting />
       </div>
     ) : (
-      // key = tur kimliği: aynı metinli ardışık soru setleri bile temiz remount olur (B10).
       <Flow
         questions={questions}
         roundId={id}
@@ -77,10 +155,13 @@ function App() {
         capability={capability}
         revision={revision}
         draftAnswers={draftAnswers}
+        retireRound={retireRound}
+        onDeliveryUncertain={handleDeliveryUncertain}
         key={id == null ? 'q' : 'round-' + id}
       />
     );
-
+  const showChooser =
+    (id == null || recoveryRequested) && !recoveryDismissed && discoveryState !== 'empty';
   return (
     <React.Fragment>
       {screen}
@@ -93,25 +174,40 @@ function App() {
           }}
         />
       )}
-      {id == null && recoverableRounds && recoverableRounds.length > 0 && !selectedRecovery && (
+      {showChooser && (
         <RecoveryChooser
-          rounds={recoverableRounds}
-          error={recoveryError}
-          onSelect={chooseRecovery}
-          onDismiss={() => setRecoverableRounds([])}
-          onRetry={() => {
-            setRecoveryError(null);
-            getRecoverableRounds()
-              .then(setRecoverableRounds)
-              .catch((error) => setRecoveryError(error.message));
-          }}
+          mode={recoveryRequested ? 'uncertain' : 'interrupted'}
+          discoveryState={discoveryState}
+          recoverableRounds={recoverableRounds}
+          selectedRecovery={selectedRecovery}
+          recoveryError={recoveryError}
+          handleSelectRecovery={handleSelectRecovery}
+          handleContinueRecovery={handleContinueRecovery}
+          handleRequestDelete={handleRequestDelete}
+          handleStartNewRound={handleStartNewRound}
+        />
+      )}
+      {deleteTarget && (
+        <RecoveryDeleteDialog
+          deleteTarget={deleteTarget}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </React.Fragment>
   );
 }
 
-function Flow({ questions, roundId, durableRoundId, capability, revision, draftAnswers }) {
+function Flow({
+  questions,
+  roundId,
+  durableRoundId,
+  capability,
+  revision,
+  draftAnswers,
+  retireRound,
+  onDeliveryUncertain,
+}) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
   const draftWriterKey = `${roundId}:${capability || ''}`;
@@ -148,7 +244,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
   const [popup, setPopup] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [deliveryState, setDeliveryState] = useState('saved');
-  const [closeDenied, setCloseDenied] = useState(false);
+  const [retired, setRetired] = useState(false);
   const [conflict, setConflict] = useState(null);
   const [recoveryReview, setRecoveryReview] = useState(false);
   const resolvedConflictKey = useRef(null);
@@ -427,6 +523,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
       return;
     }
     setSendError(null);
+    retireRound(roundId);
     setSubmitted(true);
     setDeliveryState('delivery-pending');
     inflight.current = true;
@@ -437,31 +534,30 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           return acknowledgeDelivery(durableRoundId, capability)
             .then(() => {
               setDeliveryState('delivered');
-              if (
-                currentAppSettings().closureMode === 'after-delivery' &&
-                typeof attemptClose === 'function'
-              ) {
-                const result = attemptClose();
-                setCloseDenied(result.denied);
-              }
+              setRetired(true);
+              if (currentClosureMode() === 'after-delivery' && typeof attemptClose === 'function')
+                attemptClose();
             })
             .catch(() => {
               setDeliveryState('delivery-uncertain');
+              onDeliveryUncertain?.();
             });
         }
         setDeliveryState('delivered');
+        setRetired(true);
       })
       .catch((err) => {
         // B6: hata → kilidi aç, uyar. Ağ (TypeError/abort, kurtarılabilir) ile sunucu
         // (HTTP 4xx/5xx, err.server) ayrılır; 4xx'te sonsuz retry yerine "server" mesajı.
         inflight.current = false;
-        setSubmitted(false);
+        setSubmitted(true);
         setDeliveryState(err?.server ? 'recovery-error' : 'delivery-uncertain');
+        onDeliveryUncertain?.();
         setSendError(
           err && err.reason === 'stale_round' ? 'stale' : err && err.server ? 'server' : 'network'
         );
       });
-  }, [capability, durableRoundId, mappedAnswers, roundId]);
+  }, [capability, durableRoundId, mappedAnswers, onDeliveryUncertain, retireRound, roundId]);
 
   const retryAcknowledgement = useCallback(() => {
     if (!durableRoundId || !capability || inflight.current) return;
@@ -470,18 +566,18 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
     acknowledgeDelivery(durableRoundId, capability)
       .then(() => {
         setDeliveryState('delivered');
-        if (
-          currentAppSettings().closureMode === 'after-delivery' &&
-          typeof attemptClose === 'function'
-        ) {
-          setCloseDenied(attemptClose().denied);
-        }
+        setRetired(true);
+        if (currentClosureMode() === 'after-delivery' && typeof attemptClose === 'function')
+          attemptClose();
       })
-      .catch(() => setDeliveryState('delivery-uncertain'))
+      .catch(() => {
+        setDeliveryState('delivery-uncertain');
+        onDeliveryUncertain?.();
+      })
       .finally(() => {
         inflight.current = false;
       });
-  }, [capability, durableRoundId]);
+  }, [capability, durableRoundId, onDeliveryUncertain]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -547,6 +643,14 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
   // "answered" = AnswerMap.isAnswered ile tüm tipler için doğru sayım (B16 + yeni tipler).
   const answered = QUESTIONS.filter((q) => AnswerMap.isAnswered(q, answers[q.question])).length;
   const canSubmit = answered > 0;
+
+  if (retired) {
+    return (
+      <div className="app app--retired">
+        <RetiredState />
+      </div>
+    );
+  }
 
   // qid'e bağlı setQ helper: QuestionCard'a prop olarak geçilir.
   const makeSetQ = useCallback((qid) => (patch) => setQ(qid, patch), [setQ]);
@@ -636,19 +740,7 @@ function Flow({ questions, roundId, durableRoundId, capability, revision, draftA
           onCancel={() => setPopup(null)}
         />
       )}
-      {submitted && (
-        <div className="toast" role="status" aria-live="polite" aria-atomic="true">
-          <span className="ok">
-            <Check c="var(--success)" />
-          </span>
-          Answers sent back to the agent.
-        </div>
-      )}
-      <DeliveryPanel
-        state={deliveryState}
-        closeDenied={closeDenied}
-        onRetry={retryAcknowledgement}
-      />
+      <DeliveryPanel state={deliveryState} onRetry={retryAcknowledgement} />
       {conflict && !recoveryReview && (
         <ReconciliationPanel
           conflict={conflict}
