@@ -644,14 +644,6 @@ function Flow({
   const answered = QUESTIONS.filter((q) => AnswerMap.isAnswered(q, answers[q.question])).length;
   const canSubmit = answered > 0;
 
-  if (retired) {
-    return (
-      <div className="app app--retired">
-        <RetiredState />
-      </div>
-    );
-  }
-
   // qid'e bağlı setQ helper: QuestionCard'a prop olarak geçilir.
   const makeSetQ = useCallback((qid) => (patch) => setQ(qid, patch), [setQ]);
 
@@ -679,6 +671,14 @@ function Flow({
   useEffect(() => {
     if (!isSummary) setConfirmArmed(false);
   }, [isSummary]);
+
+  if (retired) {
+    return (
+      <div className="app app--retired">
+        <RetiredState />
+      </div>
+    );
+  }
 
   return (
     <div className="app" data-panel="left" data-align="center">
