@@ -10,12 +10,12 @@
 
 **Requirements:** TAB-01, TAB-02, REC-01, REC-02
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed
 
 Plans:
 
 - [x] 19-01-PLAN.md — Establish exact server/store recovery filtering, deletion cleanup, and API/settings contracts
-- [ ] 19-02-PLAN.md — Implement dependent browser retirement, explicit recovery states, and UI/host verification
+- [x] 19-02-PLAN.md — Implement dependent browser retirement, explicit recovery states, and UI/host verification
 
 **Success criteria:**
 

@@ -4,16 +4,16 @@ milestone: v1.2.0
 milestone_name: Bug Fixes
 current_phase: 19
 current_phase_name: browser-lifecycle-recovery-corrections
-status: executing
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-07-19T17:01:56.466Z"
+status: verifying
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-07-19T17:55:42.592Z"
 last_activity: 2026-07-19
 last_activity_desc: Phase 19 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 
 Phase: 19 (browser-lifecycle-recovery-corrections) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-19 — Phase 19 execution started
 
 ## Performance Metrics
@@ -74,6 +74,7 @@ Last activity: 2026-07-19 — Phase 19 execution started
 | Phase 18 P01 | 20m | 2 tasks | 12 files |
 | Phase 18 P02 | 2m | 2 tasks | 4 files |
 | Phase 19 P01 | 21m | 2 tasks | 8 files |
+| Phase 19 P02 | 52m | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Bridge recovery discovery filters to non-expired drafting, detached, reconnecting, and delivery-uncertain redacted metadata; delivered and terminal records stay out of /rounds.
 - [Phase ?]: Exact durable deletion validates the path/state/expiry, unlinks before map mutation, rejects matching waiters, clears timers and ownership, invalidates current snapshots, and broadcasts only after success.
 - [Phase ?]: The v2 closure default is after-delivery while explicit never remains valid; acknowledgement is the sole terminal delivery boundary and uncertain delivery remains retained.
+- [Phase ?]: Retire the owning tab before delivery and permanently reject later snapshots, callbacks, and reconnect timers for that tab.
+- [Phase ?]: Use only exact {roundId, requestId} recovery identity and keep recovery action failures inside the chooser state.
+- [Phase ?]: Keep acknowledgement as the sole close boundary, default closure to after-delivery, and render a quiet passive state when close is denied or disabled.
 
 ### Pending Todos
 
@@ -131,8 +135,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-19T17:01:56.460Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-07-19T17:55:42.586Z
+Stopped at: Completed 19-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
