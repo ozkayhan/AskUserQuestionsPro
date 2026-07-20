@@ -1920,7 +1920,7 @@ button {
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: var(--panel);
+  background: var(--surface-1);
   box-shadow: 0 20px 70px rgb(0 0 0 / 35%);
 }
 .retired-state {
@@ -1937,8 +1937,13 @@ button {
 .recovery-list,
 .recovery-actions {
   display: grid;
-  gap: 12px;
   margin: 20px 0;
+}
+.recovery-list {
+  gap: 12px;
+}
+.recovery-actions {
+  gap: 16px;
 }
 .recovery-choice {
   display: grid;
@@ -1948,7 +1953,7 @@ button {
   text-align: left;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--surface-2);
   color: inherit;
   cursor: pointer;
 }
