@@ -5,15 +5,15 @@ milestone_name: Bug Fixes
 current_phase: 19
 current_phase_name: browser-lifecycle-recovery-corrections
 status: verifying
-stopped_at: Completed 19-02-PLAN.md
-last_updated: "2026-07-19T17:55:42.592Z"
-last_activity: 2026-07-19
-last_activity_desc: Phase 19 execution started
+stopped_at: Completed 19-03-PLAN.md
+last_updated: "2026-07-20T15:33:14.691Z"
+last_activity: 2026-07-20
+last_activity_desc: Phase 19 Plan 03 completed
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 ## Current Position
 
 Phase: 19 (browser-lifecycle-recovery-corrections) — EXECUTING
-Plan: 2 of 2
+Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-07-19 — Phase 19 execution started
+Last activity: 2026-07-20 — Phase 19 Plan 03 completed
 
 ## Performance Metrics
 
@@ -75,6 +75,7 @@ Last activity: 2026-07-19 — Phase 19 execution started
 | Phase 18 P02 | 2m | 2 tasks | 4 files |
 | Phase 19 P01 | 21m | 2 tasks | 8 files |
 | Phase 19 P02 | 52m | 3 tasks | 9 files |
+| Phase 19 P03 | 20m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Retire the owning tab before delivery and permanently reject later snapshots, callbacks, and reconnect timers for that tab.
 - [Phase ?]: Use only exact {roundId, requestId} recovery identity and keep recovery action failures inside the chooser state.
 - [Phase ?]: Keep acknowledgement as the sole close boundary, default closure to after-delivery, and render a quiet passive state when close is denied or disabled.
+- [Phase ?]: RecoveryChooser now selects a complete approved copy pair from the existing uncertain mode boundary, preserving interruption copy and the exact recovery state machine.
+- [Phase ?]: Recovery surfaces reuse defined --surface-1 and --surface-2 theme tokens, with recovery actions isolated at the approved 16px gap.
 
 ### Pending Todos
 
@@ -135,8 +138,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-19T17:55:42.586Z
-Stopped at: Completed 19-02-PLAN.md
+Last session: 2026-07-20T15:33:14.685Z
+Stopped at: Completed 19-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
