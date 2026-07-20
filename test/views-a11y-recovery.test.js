@@ -20,17 +20,36 @@ test('views: review ve grouped controls button type/current semantics taşır', 
 });
 
 test('views: recovery copy and actions stay exact and selection-gated', () => {
-  assert.match(views, /function RecoveryChooser/);
-  assert.match(views, /role="dialog"[\s\S]{0,80}aria-modal="true"/);
-  assert.match(views, /A question round was interrupted\./);
-  assert.match(views, /Choose what to do with the saved round\./);
-  assert.match(views, /Checking for saved rounds…/);
-  assert.match(views, /We couldn't load a saved round right now\./);
-  assert.match(views, /Continue this exact round/);
-  assert.match(views, /Cancel\/Delete it/);
-  assert.match(views, /Start a new round/);
-  assert.match(views, /disabled=\{!selectedRecovery\}/);
-  assert.doesNotMatch(views, /Retry recovery|Continue without recovery/);
+  const start = views.indexOf('function RecoveryChooser(');
+  const end = views.indexOf('\nfunction RecoveryDeleteDialog', start);
+  assert.notEqual(start, -1, 'RecoveryChooser tanımı bulunmalı');
+  assert.notEqual(end, -1, 'RecoveryChooser sınırı bulunmalı');
+  const chooser = views.slice(start, end);
+  const copy = chooser.slice(chooser.indexOf('const recoveryCopy'), chooser.indexOf('  return ('));
+
+  assert.match(chooser, /role="dialog"[\s\S]{0,80}aria-modal="true"/);
+  assert.match(
+    copy,
+    /const recoveryCopy = uncertain\s*\?\s*\{[\s\S]*heading: "We couldn't confirm delivery\."[\s\S]*description:\s*'Your answers are preserved\. Continue this exact round to check again, cancel\/delete it, or start a new round\.'[\s\S]*\}\s*:\s*\{[\s\S]*heading: 'A question round was interrupted\.'[\s\S]*description: 'Choose what to do with the saved round\.'/
+  );
+  assert.equal((copy.match(/We couldn't confirm delivery\./g) || []).length, 1);
+  assert.equal((copy.match(/A question round was interrupted\./g) || []).length, 1);
+  assert.equal((copy.match(/Choose what to do with the saved round\./g) || []).length, 1);
+  const actionStart = chooser.indexOf('<div className="recovery-actions">');
+  const actionEnd = chooser.indexOf('</div>', actionStart);
+  assert.notEqual(actionStart, -1, 'recovery action row bulunmalı');
+  assert.notEqual(actionEnd, -1, 'recovery action row sınırı bulunmalı');
+  const actions = chooser.slice(actionStart, actionEnd);
+  assert.match(chooser, /Checking for saved rounds…/);
+  assert.match(chooser, /We couldn't load a saved round right now\./);
+  for (const label of ['Continue this exact round', 'Cancel/Delete it', 'Start a new round']) {
+    assert.equal(
+      (actions.match(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length,
+      1
+    );
+  }
+  assert.match(chooser, /disabled=\{!selectedRecovery\}/);
+  assert.doesNotMatch(chooser, /Retry recovery|Continue without recovery/);
 });
 
 test('views: deletion confirmation and passive delivery states are accessible', () => {

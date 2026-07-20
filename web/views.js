@@ -60,6 +60,16 @@ function RecoveryChooser({
   useModalFocus(titleRef, handleStartNewRound);
   if (discoveryState === 'empty') return null;
   const uncertain = mode === 'uncertain';
+  const recoveryCopy = uncertain
+    ? {
+        heading: "We couldn't confirm delivery.",
+        description:
+          'Your answers are preserved. Continue this exact round to check again, cancel/delete it, or start a new round.',
+      }
+    : {
+        heading: 'A question round was interrupted.',
+        description: 'Choose what to do with the saved round.',
+      };
   return (
     <div
       className="recovery-overlay"
@@ -70,9 +80,9 @@ function RecoveryChooser({
     >
       <div className="recovery-panel">
         <h2 id="recovery-title" tabIndex="-1" ref={titleRef}>
-          A question round was interrupted.
+          {recoveryCopy.heading}
         </h2>
-        <p id="recovery-description">Choose what to do with the saved round.</p>
+        <p id="recovery-description">{recoveryCopy.description}</p>
         {discoveryState === 'loading' && <p>Checking for saved rounds…</p>}
         {discoveryState === 'error' && (
           <p>

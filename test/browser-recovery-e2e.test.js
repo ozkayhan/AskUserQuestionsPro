@@ -17,6 +17,11 @@ test('browser recovery integration contract keeps recovery surfaces redacted and
   assert.match(app, /currentClosureMode\(\)/);
   assert.match(views, /aria-modal="true"/);
   assert.match(views, /aria-live="polite"/);
+  assert.match(views, /We couldn't confirm delivery\./);
+  assert.match(
+    views,
+    /Your answers are preserved\. Continue this exact round to check again, cancel\/delete it, or start a new round\./
+  );
   assert.match(views, /A question round was interrupted\./);
   assert.match(views, /Choose what to do with the saved round\./);
   for (const label of [
