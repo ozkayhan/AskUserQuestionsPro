@@ -130,7 +130,7 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260724-s68 | repair release CI lockfile and nondeterministic lifecycle test | 2026-07-24 | 44d05cb | [260724-s68-repair-release-ci-lockfile-and-nondeterm](./quick/260724-s68-repair-release-ci-lockfile-and-nondeterm/) |
+| 260724-s68 | repair release CI lockfile and nondeterministic lifecycle test | 2026-07-24 | 6846082 | [260724-s68-repair-release-ci-lockfile-and-nondeterm](./quick/260724-s68-repair-release-ci-lockfile-and-nondeterm/) |
 
 ## Deferred Items
 
