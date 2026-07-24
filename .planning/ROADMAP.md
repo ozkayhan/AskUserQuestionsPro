@@ -15,6 +15,10 @@ No milestone is active. v1.2.0 is archived and the repository is ready for `/gsd
 
 Full phase detail is preserved under `.planning/milestones/`, including the v1.2.0 phase archive at `milestones/v1.2.0-phases/`.
 
+### Archived v1.2.0 phase
+
+- [x] Phase 19: Browser Lifecycle and Recovery Corrections (3/3 plans) — shipped 2026-07-24; runtime host/browser evidence remains explicitly human-needed.
+
 ## Next steps
 
 - Run `/gsd-new-milestone` to define the next milestone’s requirements and roadmap.

@@ -80,6 +80,13 @@ leaves the result open with safe-to-close guidance. If the configured browser
 or profile cannot be opened, the UI gives a copyable `127.0.0.1` URL and
 manual next step.
 
+After answer submission the owning tab is retired before delivery completes, so
+later rounds cannot remount it. A normal draft acknowledgement is settled before
+conflict reconciliation, so the server's revision broadcast does not create a
+false “Saved round changed” prompt during ordinary answer confirmation and
+navigation. Recovery remains exact-round and state-driven; normal completion
+does not open the recovery chooser.
+
 Recovery metadata and support-safe diagnostics contain opaque identifiers and
 lifecycle data only. Question and answer content is not rendered in recovery
 lists or error diagnostics. Keyboard focus belongs to the active recovery,

@@ -91,6 +91,11 @@ confirmation, or start a new round without silently deleting the retained
 record. Browser-opening failures expose only the loopback URL and manual
 guidance, never executable host commands.
 
+The browser draft writer treats a normal `/draft` response as pending until its
+revision acknowledgement settles. This prevents the SSE revision broadcast
+from racing local replay reconciliation and showing a false “Saved round
+changed” conflict during ordinary answer confirmation and navigation.
+
 Snapshots are retained initially for the resolved detached-round TTL
 (`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). Invalid
 individual snapshot files are quarantined; they do not suppress healthy rounds.
