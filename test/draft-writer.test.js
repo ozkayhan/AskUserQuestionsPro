@@ -158,6 +158,32 @@ test('draft writer re-keys a queued edit after an earlier save and replays it af
   assert.equal(readPendingDraft(roundKey, 1, storage), null);
 });
 
+test('draft writer reports normal autosave as pending until its revision acknowledgement settles', async () => {
+  let resolveSave;
+  let revision = 0;
+  const writer = createDraftWriter({
+    save: () =>
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      }),
+    getRevision: () => revision,
+    setRevision: (next) => {
+      revision = next;
+    },
+    roundKey: 'round-pending:capability-pending',
+    storage: memoryStorage(),
+  });
+
+  writer.write({ Q: { sel: [0], confirmed: true } });
+  assert.equal(writer.isPending(), true);
+
+  resolveSave({ revision: 1 });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(writer.isPending(), false);
+  assert.equal(revision, 1);
+});
+
 test('draft reconciliation preserves both versions until explicit choice', () => {
   const result = reconcileDraft({ Q: { sel: [0] } }, { Q: { sel: [1] } }, 4, 3);
   assert.equal(result.state, 'conflict');

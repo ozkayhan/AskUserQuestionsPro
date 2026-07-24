@@ -30,6 +30,11 @@ test('app: recovery chooser and delivery surfaces are explicit and keyboard-owne
   assert.match(app, /createAnswerState\(QUESTIONS, draftAnswers\)/);
 });
 
+test('app: normal draft broadcasts wait for the autosave request to settle before reconciling', () => {
+  assert.match(app, /writer\.isPending\?\.\(\)/);
+  assert.match(app, /draftStatusVersion/);
+});
+
 test('app: recovery discovery has explicit loading, error, empty, and populated states', () => {
   assert.match(app, /useState\(['"]loading['"]\)/);
   assert.match(app, /setDiscoveryState\(['"]error['"]\)/);

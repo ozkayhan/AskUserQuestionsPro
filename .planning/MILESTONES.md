@@ -1,5 +1,16 @@
 # Milestones
 
+## v1.2.0 Bug Fixes (Shipped: 2026-07-24)
+
+**Phases completed:** 1 phases, 3 plans, 7 tasks
+
+**Key accomplishments:**
+
+- Redacted exact-round recovery discovery and deletion over the loopback bridge, with complete runtime cleanup and after-delivery closure defaults
+- 1. [Rule 1 - Bug] Preserved React hook ordering in retired Flow state
+
+---
+
 ## v1.1.1 Release Hardening (Prepared: 2026-07-18)
 
 **Closeout:** Override closeout; local release gates pass, while package publication/tag and external validation remain explicit handoffs.

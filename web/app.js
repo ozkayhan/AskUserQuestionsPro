@@ -222,6 +222,7 @@ function Flow({
   });
   const draftRevision = useRef(revision);
   const draftWriter = useRef(null);
+  const [draftStatusVersion, setDraftStatusVersion] = useState(0);
   if (draftWriter.current?.key !== draftWriterKey) {
     draftWriter.current = {
       key: draftWriterKey,
@@ -232,6 +233,7 @@ function Flow({
           draftRevision.current = nextRevision;
         },
         roundKey: draftWriterKey,
+        onSettled: () => setDraftStatusVersion((version) => version + 1),
       }),
     };
   }
@@ -258,6 +260,10 @@ function Flow({
     setConflict(null);
   }, [QUESTIONS, conflict, draftAnswers, draftWriterKey, revision]);
   useEffect(() => {
+    // /draft broadcasts its new revision before the fetch response can clear
+    // the matching local mirror. While that request is still pending, the
+    // apparent mismatch is the normal autosave race, not an external edit.
+    if (draftWriter.current?.writer.isPending?.()) return;
     const local = DraftWriter.readLatestPendingDraft
       ? DraftWriter.readLatestPendingDraft(draftWriterKey)
       : null;
@@ -269,7 +275,7 @@ function Flow({
         );
       }
     }
-  }, [draftAnswers, draftWriterKey, revision]);
+  }, [draftAnswers, draftStatusVersion, draftWriterKey, revision]);
   useEffect(() => {
     if (!Number.isInteger(draftRevision.current) || !capability || submitted) return undefined;
     // Initial hydration is already durable. Every later material edit starts a

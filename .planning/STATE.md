@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.2.0
 milestone_name: Bug Fixes
-current_phase: 19
-current_phase_name: browser-lifecycle-recovery-corrections
-status: verifying
+status: Awaiting next milestone
 stopped_at: Completed 19-03-PLAN.md
-last_updated: "2026-07-20T15:33:14.691Z"
-last_activity: 2026-07-20
-last_activity_desc: Phase 19 Plan 03 completed
+last_updated: "2026-07-24T17:02:04.550Z"
+last_activity: 2026-07-24
+last_activity_desc: Milestone v1.2.0 completed and archived
 progress:
   total_phases: 1
   completed_phases: 1
   total_plans: 3
   completed_plans: 3
+current_phase: 19
+current_phase_name: browser-lifecycle-recovery-corrections
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 
 ## Current Position
 
-Phase: 19 (browser-lifecycle-recovery-corrections) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-07-20 — Phase 19 Plan 03 completed
+Phase: Milestone v1.2.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-24 — Milestone v1.2.0 completed and archived
 
 ## Performance Metrics
 
@@ -135,6 +135,9 @@ None yet.
 | Verification | Authenticated Claude/Codex and native Windows/Linux acceptance | Owner environment unavailable in this Mac workspace | 2026-07-18 |
 | Release | npm publication, package metadata bump, and v1.1.1 tag | GitHub Changesets workflow after merge; local npm auth unavailable | 2026-07-18 |
 | Evidence | Historical Phase 16 duplicate roadmap status and Phase 17 trailing whitespace | Preserved as historical evidence; current validators pass | 2026-07-18 |
+| Verification | Phase 19 host/browser lifecycle and recovery UAT lanes | 5/12 local browser checks passed; 7 configured-host, visual, or AT lanes require `/gsd-verify-work 19` in an external environment | 2026-07-24 |
+| Verification | Phase 19 remains `human_needed` rather than `passed` | Milestone closeout accepted as an override; audit preserved in `milestones/v1.2.0-MILESTONE-AUDIT.md` | 2026-07-24 |
+| Documentation | Pre-existing v1.1.1 release handoff link targets missing archived Phase 16 verification | Full `npm test` retains one docs-integrity failure until the historical link is repaired or its artifact is restored | 2026-07-24 |
 
 ## Session Continuity
 
@@ -144,5 +147,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Merge the release PR, then merge the generated Version Packages PR to publish v1.1.1.
-- Start the next milestone with /gsd-new-milestone after publication.
+- Start the next milestone with /gsd-new-milestone
