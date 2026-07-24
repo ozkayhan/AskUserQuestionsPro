@@ -4,7 +4,7 @@ milestone: v1.2.0
 milestone_name: Bug Fixes
 status: Awaiting next milestone
 stopped_at: Completed 19-03-PLAN.md
-last_updated: "2026-07-24T17:02:04.550Z"
+last_updated: "2026-07-24T17:18:30.000Z"
 last_activity: 2026-07-24
 last_activity_desc: Milestone v1.2.0 completed and archived
 progress:
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 Phase: Milestone v1.2.0 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-24 — Milestone v1.2.0 completed and archived
+Last activity: 2026-07-24 — Completed quick task 260724-s68: repair release CI lockfile and lifecycle test stability
 
 ## Performance Metrics
 
@@ -125,6 +125,12 @@ None yet.
 - Phase 9 and Phase 13 require macOS, Linux, and Windows recovery validation before cross-platform reliability claims.
 - Candidate-host promotion is contingent on fresh official documentation, installed-host evidence, conformance, and manual long-round validation.
 - The approved requirement set contains 40 unique active IDs; all 40 are mapped to the roadmap.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260724-s68 | repair release CI lockfile and nondeterministic lifecycle test | 2026-07-24 | 44d05cb | [260724-s68-repair-release-ci-lockfile-and-nondeterm](./quick/260724-s68-repair-release-ci-lockfile-and-nondeterm/) |
 
 ## Deferred Items
 

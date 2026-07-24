@@ -130,6 +130,7 @@ test('lifecycle redaction drops nested unknown values, secrets, commands, and pa
     adapter: 'mcp',
     requestId: 'opaque-request',
     roundId: 9,
+    now: () => 10,
     logger: (_scope, detail) => seen.push(JSON.parse(detail)),
   });
 
