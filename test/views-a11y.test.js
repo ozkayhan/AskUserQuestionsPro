@@ -65,3 +65,28 @@ test("M-24: number-key kısayolu yalnızca 1-9 için (10+ option undefined → D
     'kısayol i<9 ile sınırlanmalı (klavye 1-9 ile uyumlu)'
   );
 });
+
+test('recovery actions have the locked touch target and responsive layout rules', () => {
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'web', 'styles.css'), 'utf8');
+  const recoveryStart = styles.indexOf('.recovery-panel,');
+  assert.notEqual(recoveryStart, -1, 'recovery styling region bulunmalı');
+  const recovery = styles.slice(recoveryStart);
+  const panel = recovery.slice(0, recovery.indexOf('}', recovery.indexOf('.recovery-panel,')) + 1);
+  const choice = recovery.slice(
+    recovery.indexOf('.recovery-choice {'),
+    recovery.indexOf('}', recovery.indexOf('.recovery-choice {')) + 1
+  );
+  const actions = recovery.slice(
+    recovery.lastIndexOf('.recovery-actions {'),
+    recovery.indexOf('}', recovery.lastIndexOf('.recovery-actions {')) + 1
+  );
+
+  assert.match(styles, /\.btn\s*\{[\s\S]{0,260}min-height: 44px;/);
+  assert.match(styles, /\.recovery-panel[\s\S]{0,140}width: min\(620px, 100%\)/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]{0,260}\.recovery-actions \.btn/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(panel, /background: var\(--surface-1\);/);
+  assert.match(choice, /background: var\(--surface-2\);/);
+  assert.match(actions, /gap: 16px;/);
+  assert.doesNotMatch(recovery, /var\(--panel\)|var\(--surface\)(?!-[123])/);
+});

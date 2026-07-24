@@ -2,7 +2,12 @@
 /* askuseroz · live — köprüyle I/O: bekleyen soruları SSE ile al, cevabı POST et */
 // ponytail: React tarayıcıda global; node:test postAnswers'ı izole çağırabilsin diye guard.
 const _React = typeof React !== 'undefined' ? React : {};
-const { useState: useStateLive, useEffect: useEffectLive, useRef: useRefLive } = _React;
+const {
+  useState: useStateLive,
+  useEffect: useEffectLive,
+  useRef: useRefLive,
+  useCallback: useCallbackLive,
+} = _React;
 
 // Yeniden bağlanma backoff'u: 1s tabanlı, 30s tavanlı üstel + jitter (thundering herd'i kır).
 const RECONNECT_BASE_MS = 1000;
@@ -11,6 +16,49 @@ function reconnectDelay(attempt) {
   const exp = Math.min(RECONNECT_CAP_MS, RECONNECT_BASE_MS * 2 ** attempt);
   // ponytail: tek satır full-jitter — [0, exp) aralığı thundering herd'i dağıtmaya yeter.
   return Math.random() * exp;
+}
+
+// A tab that submitted a round is permanently retired.  The gate deliberately
+// owns both round and generation identity so stale EventSource callbacks cannot
+// resurrect a later round after a browser-denied close.
+function createRoundAcceptanceGate() {
+  let currentRoundId = null;
+  let currentGeneration = 0;
+  let retiredRoundId = null;
+
+  return {
+    beginGeneration() {
+      currentGeneration += 1;
+      return currentGeneration;
+    },
+    acceptSnapshot(roundId, generation) {
+      if (retiredRoundId != null) return false;
+      if (generation != null && generation !== currentGeneration) return false;
+      if (roundId != null) currentRoundId = roundId;
+      return true;
+    },
+    canReconnect(generation) {
+      return retiredRoundId == null && generation === currentGeneration;
+    },
+    retireRound(roundId) {
+      if (retiredRoundId != null) return false;
+      retiredRoundId = roundId ?? currentRoundId;
+      currentGeneration += 1;
+      return true;
+    },
+    retire(roundId) {
+      return this.retireRound(roundId);
+    },
+    isRetired() {
+      return retiredRoundId != null;
+    },
+    getRoundId() {
+      return currentRoundId;
+    },
+    getGeneration() {
+      return currentGeneration;
+    },
+  };
 }
 
 // SSE ile bekleyen turu canlı al: { id, questions } (questions null = bekliyor).
@@ -25,21 +73,30 @@ function useLiveQuestions() {
     draftAnswers: null,
   });
   const timerRef = useRefLive(null);
+  const sourceRef = useRefLive(null);
+  const gateRef = useRefLive(null);
+  if (!gateRef.current) gateRef.current = createRoundAcceptanceGate();
+  const retireRound = useCallbackLive((roundId) => {
+    const retired = gateRef.current.retireRound(roundId);
+    clearTimeout(timerRef.current);
+    if (sourceRef.current) sourceRef.current.close();
+    sourceRef.current = null;
+    return retired;
+  }, []);
   useEffectLive(() => {
-    let es;
     let closed = false;
     let attempt = 0;
-    let generation = 0;
     const connect = () => {
-      const currentGeneration = ++generation;
+      if (closed || gateRef.current.isRetired()) return;
+      const currentGeneration = gateRef.current.beginGeneration();
       const source = new EventSource('/events');
-      es = source;
+      sourceRef.current = source;
       source.onopen = () => {
-        if (closed || currentGeneration !== generation) return;
+        if (closed || !gateRef.current.canReconnect(currentGeneration)) return;
         attempt = 0; // başarılı bağlantı backoff'u sıfırlar.
       };
       source.onmessage = (e) => {
-        if (closed || currentGeneration !== generation) return;
+        if (closed || !gateRef.current.canReconnect(currentGeneration)) return;
         let d;
         try {
           d = JSON.parse(e.data);
@@ -57,30 +114,32 @@ function useLiveQuestions() {
           revision: d.revision ?? null,
           draftAnswers: d.draftAnswers ?? null,
         };
+        if (!gateRef.current.acceptSnapshot(next.id ?? next.roundId, currentGeneration)) return;
         // Round id state boundary'sidir: reconnect aynı round'u yeniden yayınlasa da
         // Flow içindeki cevaplar korunur; yeni id React key ile temiz remount eder.
         setRound((prev) => (prev.id === next.id ? { ...prev, ...next } : next));
       };
       source.onerror = () => {
-        if (closed || currentGeneration !== generation) return;
+        if (closed || !gateRef.current.canReconnect(currentGeneration)) return;
         source.close();
         // Orphan timer'ları önle: yeni timer kurmadan önce öncekini iptal et.
         clearTimeout(timerRef.current);
         const delay = reconnectDelay(attempt++);
         timerRef.current = setTimeout(() => {
-          if (!closed && currentGeneration === generation) connect();
+          if (!closed && gateRef.current.canReconnect(currentGeneration)) connect();
         }, delay);
       };
     };
     connect();
     return () => {
       closed = true;
-      generation += 1;
+      gateRef.current.retireRound();
       clearTimeout(timerRef.current);
-      if (es) es.close();
+      if (sourceRef.current) sourceRef.current.close();
+      sourceRef.current = null;
     };
-  }, []);
-  return round;
+  }, [gateRef]);
+  return { ...round, retireRound };
 }
 
 async function responseError(path, response) {
@@ -196,11 +255,39 @@ async function selectRecoveryRound(selector) {
     return body;
   } catch (error) {
     if (error instanceof RecoveryError) throw error;
-    throw new RecoveryError('Recovery failed. Retry or choose another round.', {
+    throw new RecoveryError('This saved round could not be continued safely.', {
       code: 'origin_or_network',
       cause: error,
     });
   }
+}
+
+async function deleteRecoverableRound(roundId) {
+  if (roundId == null || roundId === '') {
+    throw new RecoveryError('Choose an exact recoverable round before deleting it.', {
+      code: 'selection_required',
+    });
+  }
+  let response;
+  try {
+    response = await fetch(`/rounds/${encodeURIComponent(roundId)}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (cause) {
+    throw new RecoveryError('This saved round could not be deleted.', {
+      code: 'origin_or_network',
+      cause,
+    });
+  }
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new RecoveryError('This saved round could not be deleted.', {
+      code: body.reason || 'delete_failed',
+      status: response.status,
+    });
+  }
+  return body;
 }
 
 async function acknowledgeDelivery(id, capability) {
@@ -277,8 +364,10 @@ if (typeof module === 'object' && module.exports) {
     cancelRound,
     reconnectDelay,
     RecoveryError,
+    createRoundAcceptanceGate,
     getRecoverableRounds,
     selectRecoveryRound,
+    deleteRecoverableRound,
     acknowledgeDelivery,
     attemptClose,
     deliveryTransition,
@@ -288,6 +377,8 @@ if (typeof window !== 'undefined') {
   window.RecoveryError = RecoveryError;
   window.getRecoverableRounds = getRecoverableRounds;
   window.selectRecoveryRound = selectRecoveryRound;
+  window.deleteRecoverableRound = deleteRecoverableRound;
+  window.createRoundAcceptanceGate = createRoundAcceptanceGate;
   window.acknowledgeDelivery = acknowledgeDelivery;
   window.attemptClose = attemptClose;
   window.deliveryTransition = deliveryTransition;

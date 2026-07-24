@@ -3,6 +3,8 @@ const assert = require('node:assert');
 const { Bridge, terminalReason } = require('../server/bridge.js');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { RoundStore } = require('../lib/round-store.cjs');
+const DurableRecord = require('../lib/round-record.cjs');
+const { createRecord, transition } = require('../lib/round-state.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -129,6 +131,234 @@ function scheduler() {
     },
   };
 }
+
+function seedDurableRecord(store, { roundId, requestId, state, answers = null, expiresAt }) {
+  const now = 0;
+  let lifecycle = createRecord({
+    id: Number(roundId.slice(-2), 36) || 1,
+    capability: `${roundId}-cap`,
+    now,
+  });
+  for (const event of state === 'detached'
+    ? ['detach']
+    : state === 'reconnecting'
+      ? ['detach', 'resume']
+      : state === 'delivery-uncertain'
+        ? ['answerAccepted', 'uncertain']
+        : state === 'delivered'
+          ? ['answerAccepted', 'delivered']
+          : state === 'cancelled'
+            ? ['cancel']
+            : state === 'recovery-error'
+              ? ['recoveryError']
+              : []) {
+    lifecycle = transition(lifecycle, event, {
+      now,
+      reason: event === 'cancel' ? 'user_cancelled' : undefined,
+    }).record;
+  }
+  const created = store.create({
+    roundId,
+    requestId,
+    capability: `${roundId}-capability-private`,
+    questions: [{ question: `${roundId}-question-private` }],
+    lifecycle,
+    retentionMs: Math.max(1, (expiresAt ?? 100) - now),
+  });
+  assert.equal(created.ok, true);
+  if (answers) {
+    const finalized = store.mutate(roundId, (record, at) =>
+      DurableRecord.finalize(record, answers, record.revision, at)
+    );
+    assert.equal(finalized.ok, true);
+    if (state === 'delivery-uncertain') {
+      const uncertain = store.mutate(roundId, (record, at) =>
+        DurableRecord.transition(record, 'uncertain', record.revision, at)
+      );
+      assert.equal(uncertain.ok, true);
+    } else if (state === 'delivered') {
+      const delivered = store.mutate(roundId, (record, at) =>
+        DurableRecord.transition(record, 'delivered', record.revision, at)
+      );
+      assert.equal(delivered.ok, true);
+    }
+  }
+  return created.record;
+}
+
+test('Bridge.listRecoverable returns only redacted, live recoverable lifecycle records', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-recovery-list-'));
+  const store = new RoundStore({ root, now: () => 0 });
+  seedDurableRecord(store, {
+    roundId: 'round_draftingxxxxxxxx',
+    requestId: 'drafting',
+    state: 'drafting',
+  });
+  seedDurableRecord(store, {
+    roundId: 'round_detachedxxxxxxxx',
+    requestId: 'detached',
+    state: 'detached',
+  });
+  seedDurableRecord(store, {
+    roundId: 'round_reconnectingxxxx',
+    requestId: 'reconnecting',
+    state: 'reconnecting',
+  });
+  seedDurableRecord(store, {
+    roundId: 'round_uncertainxxxxxxxx',
+    requestId: 'uncertain',
+    state: 'delivery-uncertain',
+    answers: { secret: 'opaque answer' },
+  });
+  seedDurableRecord(store, {
+    roundId: 'round_deliveredxxxxxxx',
+    requestId: 'delivered',
+    state: 'delivered',
+    answers: { secret: 'opaque answer' },
+  });
+  seedDurableRecord(store, {
+    roundId: 'round_cancelledxxxxxxx',
+    requestId: 'cancelled',
+    state: 'cancelled',
+  });
+  seedDurableRecord(store, {
+    roundId: 'round_recoveryerrorxxx',
+    requestId: 'recovery-error',
+    state: 'recovery-error',
+  });
+
+  const rounds = new Bridge({ store, now: () => 0 }).listRecoverable();
+  assert.deepEqual(
+    rounds.map((round) => round.state).sort(),
+    ['delivery-uncertain', 'detached', 'drafting', 'reconnecting'].sort()
+  );
+  for (const round of rounds) {
+    assert.deepEqual(Object.keys(round).sort(), [
+      'createdAt',
+      'expiresAt',
+      'questionCount',
+      'requestId',
+      'revision',
+      'roundId',
+      'state',
+      'updatedAt',
+    ]);
+    assert.doesNotMatch(JSON.stringify(round), /private|capability|answer|secret|path|diagnostic/);
+  }
+});
+
+test('Bridge.deleteRecoverable removes one exact hydrated round and cleans all matching ownership', async () => {
+  const clock = scheduler();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-recovery-delete-'));
+  const store = new RoundStore({ root, now: clock.now });
+  const bridge = new Bridge({
+    store,
+    now: clock.now,
+    setTimer: clock.setTimer,
+    clearTimer: clock.clearTimer,
+  });
+  const owner = bridge.submitQuestions([{ question: 'delete-private' }], 'delete-request');
+  owner.catch(() => {});
+  const current = bridge.peek('delete-request');
+  assert.equal(bridge.detach('host disconnected', current.id, current.capability), true);
+  const waiter = bridge.waitForAnswers({ requestId: 'delete-request', roundId: current.roundId });
+  const stored = store.get(current.roundId);
+  assert.equal(stored.ok, true);
+  const deleted = bridge.deleteRecoverable(current.roundId);
+  assert.deepEqual(deleted, { ok: true });
+  await assert.rejects(waiter.promise, (error) => error.code === 'round_deleted');
+  assert.equal(store.get(current.roundId).code, 'not_found');
+  assert.equal(bridge.peek(), null);
+  assert.equal(bridge.getSnapshot(), null);
+  assert.equal(bridge._pending, null);
+  assert.equal(bridge._deliveries.size, 0);
+  assert.equal(bridge._completed.size, 0);
+  assert.equal(bridge._completedTimers.size, 0);
+
+  const unrelated = seedDurableRecord(store, {
+    roundId: 'round_unrelatedxxxxxxx',
+    requestId: 'unrelated',
+    state: 'drafting',
+  });
+  const delivered = seedDurableRecord(store, {
+    roundId: 'round_deliveredotherxx',
+    requestId: 'delivered-other',
+    state: 'delivered',
+    answers: { secret: 'answer' },
+  });
+  const expired = seedDurableRecord(store, {
+    roundId: 'round_expiredotherxxxx',
+    requestId: 'expired-other',
+    state: 'drafting',
+    expiresAt: 1,
+  });
+  assert.deepEqual(bridge.deleteRecoverable('malformed'), {
+    ok: false,
+    code: 'invalid_selector',
+  });
+  assert.deepEqual(bridge.deleteRecoverable('round_missingxxxxxxxxx'), {
+    ok: false,
+    code: 'not_found',
+  });
+  assert.equal(store.get(unrelated.roundId).ok, true);
+  assert.deepEqual(bridge.deleteRecoverable(delivered.roundId), {
+    ok: false,
+    code: 'stale_round',
+  });
+  assert.equal(store.get(delivered.roundId).ok, true);
+  clock.advance(2);
+  assert.deepEqual(bridge.deleteRecoverable(expired.roundId), {
+    ok: false,
+    code: 'expired',
+  });
+  assert.equal(store.get(expired.roundId).ok, true);
+
+  const deliveryOwner = bridge.submitQuestions(
+    [{ question: 'uncertain-private' }],
+    'uncertain-delete'
+  );
+  const deliveryRound = bridge.peek('uncertain-delete');
+  assert.equal(
+    bridge.detach('host disconnected', deliveryRound.id, deliveryRound.capability),
+    true
+  );
+  assert.equal(
+    bridge.provideAnswers(deliveryRound.id, { secret: 'opaque' }, deliveryRound.capability),
+    true
+  );
+  await deliveryOwner;
+  assert.equal(bridge.markDeliveryUncertain(deliveryRound.roundId), true);
+  assert.equal(bridge._deliveries.size, 1);
+  assert.equal(bridge._completed.size, 1);
+  assert.equal(bridge._completedTimers.size, 1);
+  assert.deepEqual(bridge.deleteRecoverable(deliveryRound.roundId), { ok: true });
+  assert.equal(bridge._deliveries.size, 0);
+  assert.equal(bridge._completed.size, 0);
+  assert.equal(bridge._completedTimers.size, 0);
+  assert.equal(bridge.getSnapshot(), null);
+});
+
+test('Bridge.deleteRecoverable clears a prior snapshot when deleting the current owner', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-recovery-snapshot-'));
+  const store = new RoundStore({ root });
+  const bridge = new Bridge({ store, detachedTtlMs: 1000 });
+  const deliveredOwner = bridge.submitQuestions([{ question: 'previous' }], 'previous-round');
+  const delivered = bridge.peek('previous-round');
+  assert.equal(
+    bridge.provideAnswers(delivered.id, { previous: 'answer' }, delivered.capability),
+    true
+  );
+  await deliveredOwner;
+  assert.equal(bridge.confirmDelivery(delivered.roundId), true);
+  assert.equal(bridge.getSnapshot().state, 'delivered');
+
+  const currentOwner = bridge.submitQuestions([{ question: 'current' }], 'current-round');
+  const current = bridge.peek('current-round');
+  assert.equal(bridge.detach('host disconnected', current.id, current.capability), true);
+  assert.deepEqual(bridge.deleteRecoverable(current.roundId), { ok: true });
+  await assert.rejects(currentOwner, (error) => error.code === 'round_deleted');
+  assert.equal(bridge.getSnapshot(), null);
+});
 
 test('Bridge snapshot uses opaque capability and deterministic detached expiry', async () => {
   const clock = scheduler();

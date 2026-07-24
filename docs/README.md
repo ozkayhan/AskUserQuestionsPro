@@ -1,6 +1,6 @@
 # docs — askuserquestionspro
 
-> **Synced:** 2026-07-16 against the current reliability-overhaul branch.
+> **Synced:** 2026-07-24 against the shipped v1.2.0 browser-lifecycle fixes.
 
 Read this folder before exploring the source — it maps the whole codebase.
 
@@ -34,6 +34,7 @@ bridge, and the browser UI.
 - [hardening.md](hardening.md) — 5-theme systemic hardening sprint: what was changed, why, and the CI guards
 - [maintenance.md](maintenance.md) — documentation ownership, naming, archive, and verification rules
 - [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md) — current bounded UAT, security, quality, and external-release evidence
+- [v1.2.0 milestone audit](../.planning/milestones/v1.2.0-MILESTONE-AUDIT.md) — archived browser-lifecycle evidence boundary and blocked host/browser lanes
 - [archive/README.md](archive/README.md) — historical reports and plans retained for provenance
 
 ## Note on existing in-repo docs

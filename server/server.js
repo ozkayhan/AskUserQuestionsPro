@@ -57,6 +57,7 @@ function recoveryError(res, code) {
       expired: 410,
       not_found: 404,
       recovery_error: 409,
+      stale_round: 409,
     }[code] || 409;
   return sendJson(res, status, { error: 'round recovery unavailable', reason: code });
 }
@@ -261,7 +262,7 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { rounds: bridge.listRecoverable() });
   }
 
-  const roundMatch = /^\/rounds\/(round_[A-Za-z0-9_-]+)(?:\/(result|ack))?$/.exec(url);
+  const roundMatch = /^\/rounds\/([^/]+)(?:\/(result|ack|delete))?$/.exec(url);
   if (roundMatch && req.method === 'GET' && !roundMatch[2]) {
     const found = bridge.getDurable(roundMatch[1]);
     if (!found.ok) return recoveryError(res, found.code);
@@ -277,6 +278,13 @@ async function handleRequest(req, res) {
       expiresAt,
       questionCount: questions.length,
     });
+  }
+
+  if (roundMatch && req.method === 'POST' && roundMatch[2] === 'delete') {
+    const deleted = bridge.deleteRecoverable(roundMatch[1]);
+    if (!deleted.ok) return recoveryError(res, deleted.code);
+    broadcastCurrent();
+    return sendJson(res, 200, { ok: true });
   }
 
   if (

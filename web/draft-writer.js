@@ -73,11 +73,12 @@
     setRevision,
     roundKey,
     storage = browserStorage(),
+    onSettled,
   }) {
     const settings = typeof window !== 'undefined' && window.__ASKUSER_SETTINGS_V2__;
     const autosave = settings && settings.autosave;
     if (autosave && autosave.enabled === false) {
-      return { write() {}, replay() {} };
+      return { write() {}, replay() {}, isPending: () => false };
     }
     let inFlight = false;
     let queued = null;
@@ -136,6 +137,7 @@
         .finally(() => {
           inFlight = false;
           drain();
+          onSettled?.();
         });
     }
 
@@ -153,6 +155,9 @@
           queued = { draft: pending, revision };
           drain();
         }
+      },
+      isPending() {
+        return inFlight || queued != null;
       },
     };
   }

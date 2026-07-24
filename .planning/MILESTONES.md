@@ -1,5 +1,20 @@
 # Milestones
 
+## v1.2.0 Bug Fixes (Shipped: 2026-07-24)
+
+**Phases completed:** 1 phases, 3 plans, 7 tasks
+
+**Closeout:** Override closeout; implementation and local browser smoke passed, while seven configured-host, visual, and assistive-technology lanes remain explicitly human-needed in the archived audit.
+
+**Key accomplishments:**
+
+- Redacted exact-round recovery discovery and deletion over the loopback bridge, with complete runtime cleanup and after-delivery closure defaults
+- Retired submitted browser tabs before delivery and kept later rounds out of completed tabs.
+- Made recovery discovery/action surfaces state-driven, exact-round, redacted, and mode-specific.
+- Fixed the normal draft revision acknowledgement race that produced false “Saved round changed” prompts.
+
+---
+
 ## v1.1.1 Release Hardening (Prepared: 2026-07-18)
 
 **Closeout:** Override closeout; local release gates pass, while package publication/tag and external validation remain explicit handoffs.

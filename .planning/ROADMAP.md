@@ -1,21 +1,25 @@
 # Roadmap: AskUserQuestionsPro
 
-## Current milestone
+## Milestones
 
-No active milestone. v1.1.1 release hardening is archived and prepared for the post-merge Changesets publication workflow.
+- ✅ **v1.2.0 Bug Fixes** — Phase 19 shipped 2026-07-24. [Archived roadmap](milestones/v1.2.0-ROADMAP.md) · [Archived requirements](milestones/v1.2.0-REQUIREMENTS.md) · [Audit](milestones/v1.2.0-MILESTONE-AUDIT.md)
+- ✅ **v1.1.1 Release Hardening** — Phases 14–18 prepared 2026-07-18. [Archived roadmap](milestones/v1.1.1-ROADMAP.md) · [Archived requirements](milestones/v1.1.1-REQUIREMENTS.md) · [Audit](v1.1.1-MILESTONE-AUDIT.md)
+- ✅ **v1.1 Reliability, Extensibility, and Productization** — Phases 8–13 shipped 2026-07-17. [Archived roadmap](milestones/v1.1-ROADMAP.md) · [Audit](milestones/v1.1-MILESTONE-AUDIT.md)
+- ✅ **v1.0.0 Reliability and Documentation Overhaul** — Phases 1–7 shipped 2026-07-16. [Archived roadmap](milestones/v1.0.0-ROADMAP.md) · [Archived requirements](milestones/v1.0.0-REQUIREMENTS.md)
 
-## Completed Milestones
+## Current status
 
-- [x] **v1.0.0 — AskUserQuestionsPro Reliability and Documentation Overhaul** (2026-07-16) — Phases 1–7 complete. [Archived roadmap](milestones/v1.0.0-ROADMAP.md) · [Archived requirements](milestones/v1.0.0-REQUIREMENTS.md)
-- [x] **v1.1 — Reliability, Extensibility, and Productization** (2026-07-17) — Phases 8–13 complete; implementation and local integration shipped with explicit external evidence limitations. [Archived roadmap](milestones/v1.1-ROADMAP.md) · [Audit](milestones/v1.1-MILESTONE-AUDIT.md) · [UAT summary](milestones/v1.1-UAT-SUMMARY.md)
-- [x] **v1.1.1 — Release Hardening** (2026-07-18) — Quality, browser/UAT, security, documentation, packaging, installer, and release gates assembled; npm publication and tag delegated to Changesets after merge. [Archived roadmap](milestones/v1.1.1-ROADMAP.md) · [Archived requirements](milestones/v1.1.1-REQUIREMENTS.md) · [Audit](v1.1.1-MILESTONE-AUDIT.md)
+No milestone is active. v1.2.0 is archived and the repository is ready for `/gsd-new-milestone`.
 
 ## Historical detail
 
-Full v1.0.0, v1.1, and v1.1.1 phase detail is preserved in `.planning/milestones/`.
+Full phase detail is preserved under `.planning/milestones/`, including the v1.2.0 phase archive at `milestones/v1.2.0-phases/`.
+
+### Archived v1.2.0 phase
+
+- [x] Phase 19: Browser Lifecycle and Recovery Corrections (3/3 plans) — shipped 2026-07-24; runtime host/browser evidence remains explicitly human-needed.
 
 ## Next steps
 
-- Merge the release-preparation PR.
-- Merge the generated Version Packages PR created by the Changesets action.
-- Start the next milestone with `$gsd-new-milestone` after v1.1.1 is published.
+- Run `/gsd-new-milestone` to define the next milestone’s requirements and roadmap.
+- Before making public cross-host/browser claims, run `/gsd-verify-work 19` in an environment with the configured Claude/Codex host connector and complete the archived blocked UAT lanes.

@@ -29,13 +29,16 @@ Keep absent hosts `Researching`/`Unavailable` and Aider `Unsupported`.
 
 The current release evidence is indexed in the
 [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md), with source links
-to the Phase 14–17 artifacts. Phase 19 owns complete clean-install, upgrade,
-uninstall, and final ship-gate proof; this page and the handoff must not imply
-that those lifecycle gates are already complete.
+to the archived Phase 14–19 artifacts. v1.2.0 adds the browser-lifecycle and
+recovery corrections; its audit keeps the seven host/browser/AT lanes explicitly
+human-needed rather than presenting source contracts as runtime proof.
 
 Durable rationale remains in [decisions.md](decisions.md), the [timeout
 runbook](timeout-runbook.md), and the v1.1 milestone [audit](../.planning/milestones/v1.1-MILESTONE-AUDIT.md)
 and [integration check](../.planning/milestones/v1.1-INTEGRATION-CHECK.md).
+The v1.2.0 audit and Phase 19 UAT are archived under
+`../.planning/milestones/` and are the authority for the latest lifecycle
+evidence boundary.
 
 Add a link to `docs/README.md` for every new maintained document. Prefer updating
 the existing owner over creating a second document with overlapping scope.

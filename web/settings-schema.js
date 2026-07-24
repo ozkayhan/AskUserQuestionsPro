@@ -411,7 +411,7 @@
     autosave: { enabled: true, debounceMs: 750 },
     diagnostics: { enabled: false, includePaths: false },
     delivery: { mode: 'auto', retryMs: 1000 },
-    closure: { mode: 'never' },
+    closure: { mode: 'after-delivery' },
     adapters: { claudeEnabled: true, codexEnabled: true },
   };
   var FIELD_META = [
@@ -424,7 +424,14 @@
     ['diagnostics.includePaths', 'boolean', false, null, 'runtime', 'round-lifecycle'],
     ['delivery.mode', 'select', 'auto', ['auto', 'confirm'], 'runtime', 'live'],
     ['delivery.retryMs', 'number', 1000, [250, 30000], 'runtime', 'live'],
-    ['closure.mode', 'select', 'never', ['never', 'after-delivery'], 'runtime', 'lifecycle'],
+    [
+      'closure.mode',
+      'select',
+      'after-delivery',
+      ['never', 'after-delivery'],
+      'runtime',
+      'lifecycle',
+    ],
     ['adapters.claudeEnabled', 'boolean', true, null, 'runtime', 'claude-hook'],
     ['adapters.codexEnabled', 'boolean', true, null, 'runtime', 'mcp-server'],
   ];

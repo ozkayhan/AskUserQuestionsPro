@@ -58,6 +58,7 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `ui-kit.test.js`                 | Shared UI primitives and type-specific Other-option behavior.                             |
 | `views-a11y.test.js`             | Accessibility structure and annotations.                                                  |
 | `views-a11y-recovery.test.js`    | Stable browser IDs, button semantics, and recovery annotations.                           |
+| `draft-writer.test.js`           | Autosave settlement and revision acknowledgement ordering during normal navigation.       |
 | `views.test.js`                  | Question and summary view rendering behavior.                                             |
 | `workflows-ci.test.js`           | CI workflow guards.                                                                       |
 | `workflows-release.test.js`      | Release workflow guards.                                                                  |
@@ -167,10 +168,17 @@ Phase 12 acceptance separates deterministic local evidence from authenticated ho
 
 The Tier 1 matrix is maintained in `test/tier1-acceptance-evidence.md` and checked by `node --test test/tier1-acceptance.test.js`. It covers idle, reconnect, restart-shaped recovery, cancellation, exact recovery selection, result replay, and delivery acknowledgement for Claude Code and Codex. Missing authentication or host binaries produce `Unavailable`, not a passing live row.
 
-The dated [Phase 16 verification](../.planning/phases/16-cross-phase-uat-full-verification/16-VERIFICATION.md)
+The dated [Phase 16 verification](../.planning/milestones/v1.1.1-phases/16-cross-phase-uat-full-verification/16-VERIFICATION.md)
 records the current full-suite, focused-suite, lint, format, browser-smoke,
-package, audit, Bash, and ShellCheck results. The [Phase 17 verification](../.planning/phases/17-security-privacy-audit/17-VERIFICATION.md)
-and [security summary](../.planning/phases/17-security-privacy-audit/17-SECURITY-SUMMARY.md)
+package, audit, Bash, and ShellCheck results. The [Phase 17 verification](../.planning/milestones/v1.1.1-phases/17-security-privacy-audit/17-VERIFICATION.md)
+and [security summary](../.planning/milestones/v1.1.1-phases/17-security-privacy-audit/17-SECURITY-SUMMARY.md)
 record the local security, privacy, redaction, archive, protected-file, and
 fail-closed gates. These local results do not promote unavailable authenticated
 host or native-OS evidence.
+
+The shipped v1.2.0 browser-lifecycle evidence is archived in the [Phase 19
+verification](../.planning/milestones/v1.2.0-phases/19-browser-lifecycle-recovery-corrections/19-VERIFICATION.md),
+[UAT](../.planning/milestones/v1.2.0-phases/19-browser-lifecycle-recovery-corrections/19-UAT.md),
+and [milestone audit](../.planning/milestones/v1.2.0-MILESTONE-AUDIT.md).
+Five of twelve available localhost/browser checks passed; seven host, visual,
+and assistive-technology lanes remain explicitly human-needed.

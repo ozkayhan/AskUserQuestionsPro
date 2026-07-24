@@ -12,6 +12,8 @@ const {
   attemptClose,
   getRecoverableRounds,
   selectRecoveryRound,
+  deleteRecoverableRound,
+  createRoundAcceptanceGate,
   acknowledgeDelivery,
 } = require('../web/live.js');
 
@@ -148,6 +150,17 @@ test('recovery requires exact selection and never chooses latest implicitly', as
   assert.equal(deliveryTransition('delivery-uncertain', 'retry'), 'delivery-pending');
 });
 
+test('round acceptance gate permanently rejects stale snapshots and reconnects', () => {
+  const gate = createRoundAcceptanceGate();
+  const generation = gate.beginGeneration();
+  assert.equal(gate.acceptSnapshot('round-a', generation), true);
+  assert.equal(gate.retireRound('round-a'), true);
+  assert.equal(gate.isRetired(), true);
+  assert.equal(gate.acceptSnapshot('round-b', generation), false);
+  assert.equal(gate.canReconnect(generation), false);
+  assert.equal(gate.retireRound('round-b'), false);
+});
+
 test('selectRecoveryRound sends exact round selector to the supported resume route', async (t) => {
   let seen;
   withFetch(t, async (url, opts) => {
@@ -183,4 +196,18 @@ test('acknowledgeDelivery uses the durable round id and is replayable', async (t
   await acknowledgeDelivery('round_opaque_42', 'capability');
   assert.equal(seen.url, '/rounds/round_opaque_42/ack');
   assert.deepEqual(seen.body, { capability: 'capability' });
+});
+
+test('deleteRecoverableRound uses the exact opaque round identity', async (t) => {
+  let seen;
+  withFetch(t, async (url, opts) => {
+    seen = { url, method: opts.method, body: opts.body };
+    return { ok: true, status: 200, json: async () => ({ ok: true, roundId: 'round_exact_42' }) };
+  });
+  await deleteRecoverableRound('round_exact_42');
+  assert.deepEqual(seen, {
+    url: '/rounds/round_exact_42/delete',
+    method: 'POST',
+    body: undefined,
+  });
 });

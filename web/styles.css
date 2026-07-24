@@ -107,6 +107,9 @@ button {
 .app--waiting {
   grid-template-columns: 1fr;
 }
+.app--retired {
+  grid-template-columns: 1fr;
+}
 
 /* faint grid texture, very subtle */
 .app::before {
@@ -703,6 +706,7 @@ button {
   color: var(--fg);
   border-radius: var(--radius-sm);
   padding: 9px 15px;
+  min-height: 44px;
   font-size: 13.5px;
   font-weight: 500;
   transition: all 140ms ease;
@@ -1916,14 +1920,30 @@ button {
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: var(--panel);
+  background: var(--surface-1);
   box-shadow: 0 20px 70px rgb(0 0 0 / 35%);
+}
+.retired-state {
+  width: min(620px, 100%);
+  margin: auto;
+  padding: 32px;
+  text-align: center;
+}
+.retired-state p {
+  margin-top: 12px;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
 }
 .recovery-list,
 .recovery-actions {
   display: grid;
-  gap: 12px;
   margin: 20px 0;
+}
+.recovery-list {
+  gap: 12px;
+}
+.recovery-actions {
+  gap: 16px;
 }
 .recovery-choice {
   display: grid;
@@ -1933,13 +1953,27 @@ button {
   text-align: left;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--surface-2);
   color: inherit;
   cursor: pointer;
 }
 .recovery-choice:hover,
 .recovery-choice:focus-visible {
   border-color: var(--accent);
+}
+.recovery-choice[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.recovery-choice__meta {
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+.delivery-pending {
+  width: min(620px, 100%);
+  margin: 16px auto;
+  color: var(--fg-muted);
+  text-align: center;
 }
 .delivery-panel {
   margin: 16px auto;
@@ -1954,5 +1988,14 @@ button {
   }
   .recovery-panel {
     padding: 18px;
+  }
+}
+@media (max-width: 760px) {
+  .recovery-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .recovery-choice {
+    overflow-wrap: anywhere;
   }
 }

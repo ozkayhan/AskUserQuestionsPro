@@ -1,20 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1.1
-milestone_name: Release Hardening
-current_phase: none
-current_phase_name: Final Release Readiness & Ship Gates
-status: milestone_complete
-stopped_at: v1.1.1 release-hardening archive — publication delegated to Changesets workflow
-last_updated: "2026-07-18T15:10:00.000Z"
-last_activity: 2026-07-18
-last_activity_desc: Phase 18 documentation and release evidence sync completed
+milestone: v1.2.0
+milestone_name: Bug Fixes
+status: Awaiting next milestone
+stopped_at: Completed 19-03-PLAN.md
+last_updated: "2026-07-24T17:02:04.550Z"
+last_activity: 2026-07-24
+last_activity_desc: Milestone v1.2.0 completed and archived
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
+current_phase: 19
+current_phase_name: browser-lifecycle-recovery-corrections
 ---
 
 # Project State
@@ -24,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-18)
 
 **Core value:** Users must be able to complete and safely deliver a long, multi-question round without losing answers, regardless of which supported AI coding host initiated it.
-**Current focus:** Phase 19 — Final Release Readiness & Ship Gates
+**Current focus:** Phase 19 — browser-lifecycle-recovery-corrections
 
 ## Current Position
 
-Phase: v1.1.1 milestone closed with override closeout
-Plan: Release preparation complete; generated Version Packages PR remains post-merge
-Status: All locally executable gates pass. External validation and npm publication remain explicit handoffs.
-Last activity: 2026-07-18 — v1.1.1 release-hardening archive prepared
+Phase: Milestone v1.2.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-24 — Milestone v1.2.0 completed and archived
 
 ## Performance Metrics
 
@@ -74,6 +73,9 @@ Last activity: 2026-07-18 — v1.1.1 release-hardening archive prepared
 | Phase 18 P00 | 1 | 2 tasks | 3 files |
 | Phase 18 P01 | 20m | 2 tasks | 12 files |
 | Phase 18 P02 | 2m | 2 tasks | 4 files |
+| Phase 19 P01 | 21m | 2 tasks | 8 files |
+| Phase 19 P02 | 52m | 3 tasks | 9 files |
+| Phase 19 P03 | 20m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -104,6 +106,14 @@ Recent decisions affecting current work:
 - [Phase ?]: DOC-01 maintained documentation and release evidence boundaries synchronized; DOC-02 remains for Plan 18-02.
 - [Phase ?]: Authenticated Claude/Codex and native Windows/Linux evidence remain UNAVAILABLE until owner-supplied runs.
 - [Phase ?]: DOC-02 complete: the v1.1.1 release handoff and executable validation manifest preserve provenance, bounded external gaps, redaction, archive, protected-file, and source-boundary checks.
+- [Phase ?]: Bridge recovery discovery filters to non-expired drafting, detached, reconnecting, and delivery-uncertain redacted metadata; delivered and terminal records stay out of /rounds.
+- [Phase ?]: Exact durable deletion validates the path/state/expiry, unlinks before map mutation, rejects matching waiters, clears timers and ownership, invalidates current snapshots, and broadcasts only after success.
+- [Phase ?]: The v2 closure default is after-delivery while explicit never remains valid; acknowledgement is the sole terminal delivery boundary and uncertain delivery remains retained.
+- [Phase ?]: Retire the owning tab before delivery and permanently reject later snapshots, callbacks, and reconnect timers for that tab.
+- [Phase ?]: Use only exact {roundId, requestId} recovery identity and keep recovery action failures inside the chooser state.
+- [Phase ?]: Keep acknowledgement as the sole close boundary, default closure to after-delivery, and render a quiet passive state when close is denied or disabled.
+- [Phase ?]: RecoveryChooser now selects a complete approved copy pair from the existing uncertain mode boundary, preserving interruption copy and the exact recovery state machine.
+- [Phase ?]: Recovery surfaces reuse defined --surface-1 and --surface-2 theme tokens, with recovery actions isolated at the approved 16px gap.
 
 ### Pending Todos
 
@@ -125,14 +135,16 @@ None yet.
 | Verification | Authenticated Claude/Codex and native Windows/Linux acceptance | Owner environment unavailable in this Mac workspace | 2026-07-18 |
 | Release | npm publication, package metadata bump, and v1.1.1 tag | GitHub Changesets workflow after merge; local npm auth unavailable | 2026-07-18 |
 | Evidence | Historical Phase 16 duplicate roadmap status and Phase 17 trailing whitespace | Preserved as historical evidence; current validators pass | 2026-07-18 |
+| Verification | Phase 19 host/browser lifecycle and recovery UAT lanes | 5/12 local browser checks passed; 7 configured-host, visual, or AT lanes require `/gsd-verify-work 19` in an external environment | 2026-07-24 |
+| Verification | Phase 19 remains `human_needed` rather than `passed` | Milestone closeout accepted as an override; audit preserved in `milestones/v1.2.0-MILESTONE-AUDIT.md` | 2026-07-24 |
+| Documentation | Pre-existing v1.1.1 release handoff link targets missing archived Phase 16 verification | Full `npm test` retains one docs-integrity failure until the historical link is repaired or its artifact is restored | 2026-07-24 |
 
 ## Session Continuity
 
-Last session: 2026-07-18T13:19:57.288Z
-Stopped at: Completed 18-02-PLAN.md
+Last session: 2026-07-20T15:33:14.685Z
+Stopped at: Completed 19-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
 
-- Merge the release PR, then merge the generated Version Packages PR to publish v1.1.1.
-- Start the next milestone with /gsd-new-milestone after publication.
+- Start the next milestone with /gsd-new-milestone
