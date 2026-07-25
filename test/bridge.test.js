@@ -737,6 +737,10 @@ test('reconnecting durable round survives cleanup and remains answerable after T
   const saved = b.saveDraft(current.id, { 'Q?': 'draft' }, current.capability, current.revision);
   assert.equal(saved.ok, true);
   assert.equal(b.provideAnswers(round.id, { 'Q?': 'A' }, round.capability), true);
+  assert.equal(store.get(round.roundId).record.expiresAt, 200);
+  clock.advance(99);
+  assert.deepEqual(store.cleanupExpired(), []);
+  assert.equal(store.get(round.roundId).record.answers['Q?'], 'A');
   assert.deepEqual(await resumed.promise, { 'Q?': 'A' });
   assert.deepEqual(await owner, { 'Q?': 'A' });
 });

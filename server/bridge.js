@@ -250,9 +250,24 @@ class Bridge {
     if (!this._owns(this._pending, id, capability)) return false;
     const p = this._pending;
     if (p.durable) {
-      const persisted = this._store.mutate(p.durable.roundId, (record, now) =>
-        Record.finalize(record, answers, record.revision, now)
-      );
+      const persisted = this._store.mutate(p.durable.roundId, (record, now) => {
+        const finalized = Record.finalize(record, answers, record.revision, now);
+        // A reconnecting round may answer after its original detached deadline.
+        // Start the result-replay window from answer time so periodic cleanup
+        // cannot delete delivery-pending state before the host acknowledges it.
+        if (
+          finalized.ok &&
+          !finalized.replayed &&
+          record.lifecycle.state === 'reconnecting' &&
+          record.expiresAt <= now
+        ) {
+          finalized.record = {
+            ...finalized.record,
+            expiresAt: now + this._detachedTtlMs,
+          };
+        }
+        return finalized;
+      });
       if (!persisted.ok) return false;
       p.durable = persisted.record;
     }
