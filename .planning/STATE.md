@@ -130,6 +130,7 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260725-tkh | refactor backend route boundaries and record long reconnecting rounds as non-terminal | 2026-07-26 | 3f9eb64 | [260725-tkh-execute-modernization-and-refactor-passe](./quick/260725-tkh-execute-modernization-and-refactor-passe/) |
 | 260724-s68 | repair release CI lockfile and nondeterministic lifecycle test | 2026-07-24 | 07273e5 | [260724-s68-repair-release-ci-lockfile-and-nondeterm](./quick/260724-s68-repair-release-ci-lockfile-and-nondeterm/) |
 
 ## Deferred Items
