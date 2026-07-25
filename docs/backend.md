@@ -29,7 +29,9 @@ Responsibilities:
 - On a requestId-bearing client disconnect during an open `/ask`, call
   `bridge.detach('host disconnected', myId)` where `myId` is the round id
   captured at submit time. The browser round remains available to `/resume`
-  for the bounded detached TTL. Requests without a requestId retain
+  for the bounded detached TTL; once `/resume` moves it to `reconnecting`, the
+  resumed waiter and durable snapshot are intentionally not expired by that
+  TTL. Requests without a requestId retain
   `bridge.cancel('client disconnected', myId)` (Contract R).
 - `POST /resume` waits on a detached round, or returns its short-lived cached
   answer if the browser submitted just before the new host connected. Closing

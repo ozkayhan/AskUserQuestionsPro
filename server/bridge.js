@@ -25,6 +25,10 @@ const CANCEL_REASON_MAP = new Map([
 
 const DEFAULT_DETACHED_TTL_MS = 60 * 60 * 1000;
 
+function isReconnecting(record) {
+  return record?.lifecycle?.state === 'reconnecting';
+}
+
 function terminalReason(reason) {
   return CANCEL_REASON_MAP.get(String(reason || '').toLowerCase()) || 'bridge_error';
 }
@@ -127,7 +131,8 @@ class Bridge {
     if (!found.ok) return found;
     if (selected.requestId && found.record.requestId !== selected.requestId)
       return { ok: false, code: 'ownership_conflict' };
-    if (found.record.expiresAt <= this._now()) return { ok: false, code: 'expired' };
+    if (found.record.expiresAt <= this._now() && !isReconnecting(found.record))
+      return { ok: false, code: 'expired' };
     return found;
   }
 
@@ -476,7 +481,11 @@ class Bridge {
     // exact, redacted metadata for states that still need a user decision.
     return this._store
       .list()
-      .filter((record) => record.expiresAt > now && RECOVERABLE_STATES.includes(record.state));
+      .filter(
+        (record) =>
+          (record.expiresAt > now || record.state === 'reconnecting') &&
+          RECOVERABLE_STATES.includes(record.state)
+      );
   }
 
   deleteRecoverable(roundId) {
@@ -486,7 +495,8 @@ class Bridge {
     }
     const found = this._store.get(roundId);
     if (!found.ok) return found;
-    if (found.record.expiresAt <= this._now()) return { ok: false, code: 'expired' };
+    if (found.record.expiresAt <= this._now() && !isReconnecting(found.record))
+      return { ok: false, code: 'expired' };
     if (!RECOVERABLE_STATES.includes(found.record.lifecycle.state)) {
       return { ok: false, code: 'stale_round' };
     }
@@ -542,7 +552,8 @@ class Bridge {
     if (!this._store) return { ok: false, code: 'not_found' };
     const found = this._store.get(roundId);
     if (!found.ok) return found;
-    if (found.record.expiresAt <= this._now()) return { ok: false, code: 'expired' };
+    if (found.record.expiresAt <= this._now() && !isReconnecting(found.record))
+      return { ok: false, code: 'expired' };
     return found;
   }
 
@@ -580,6 +591,11 @@ class Bridge {
   expire(expectedId, capability) {
     if (!this._owns(this._pending, expectedId, capability)) return false;
     const p = this._pending;
+    // A resumed browser round is intentionally not bounded by the detached
+    // TTL. Its waiter may remain open indefinitely while the user is away.
+    // Guard before _transition so the durable snapshot cannot be made terminal
+    // while the in-memory state remains reconnecting.
+    if (p.record.state === 'reconnecting' || isReconnecting(p.durable)) return false;
     if (
       !this._transition(p, 'expire', {
         reason: 'application_timeout',

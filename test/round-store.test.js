@@ -6,6 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { RoundStore } = require('../lib/round-store.cjs');
+const { createRecord, transition } = require('../lib/round-state.cjs');
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-round-store-'));
@@ -85,4 +86,27 @@ test('startup cleanup removes only expired records', () => {
   const later = new RoundStore({ root: store.root, now: () => 102 });
   assert.equal(later.get(expired.record.roundId).ok, false);
   assert.equal(later.get(fresh.record.roundId).ok, true);
+});
+
+test('cleanup retains expired reconnecting snapshots for long-round recovery', () => {
+  let now = 0;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-round-store-reconnecting-'));
+  const store = new RoundStore({ root, now: () => now });
+  let lifecycle = createRecord({ id: 1, capability: 'cap', now });
+  lifecycle = transition(lifecycle, 'detach', { now }).record;
+  lifecycle = transition(lifecycle, 'resume', { now }).record;
+  const created = store.create({
+    roundId: 'round_reconnecting_store',
+    requestId: 'reconnecting-store',
+    capability: 'cap',
+    questions: [{ question: 'Q?' }],
+    lifecycle,
+    retentionMs: 100,
+  });
+  assert.equal(created.ok, true);
+
+  now = 100;
+  assert.deepEqual(store.cleanupExpired(), []);
+  assert.equal(store.get(created.record.roundId).ok, true);
+  assert.equal(store.recoverable()[0].roundId, created.record.roundId);
 });

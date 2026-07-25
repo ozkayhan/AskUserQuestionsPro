@@ -31,21 +31,23 @@ All on `127.0.0.1`. No auth (localhost-only, single user).
 | `GET *`                        | —                                              | static file                                                           | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Request bodies are capped at 8 MB. If a requestId-bearing `/ask` client
-disconnects, the server detaches rather than cancels the pending set. The
-browser may continue collecting answers for up to one hour; a new host process
-can call `/resume` to receive them. Hydrated drafting, detached, and reconnecting
-rounds remain browser-owned and resumable across repeated bridge restarts. Detached rounds are bounded by
-`ASKUSER_DETACHED_ROUND_TTL_MS` (default one hour), so they cannot become
-unbounded orphans. Requests without a requestId preserve the original
+disconnects, the server detaches rather than cancels the pending set. A new host
+process can call `/resume` during the bounded detached TTL. Once resumed, the
+round enters `reconnecting`; its waiter and durable snapshot remain open until
+the browser answers or an explicit cancellation occurs, including across
+multi-day gaps and bridge restarts. Detached rounds that are never resumed are
+bounded by `ASKUSER_DETACHED_ROUND_TTL_MS` (default one hour), so they cannot
+become unbounded orphans. Requests without a requestId preserve the original
 cancel-on-disconnect behavior. The explicit `/cancel` route uses the same id
 ownership check and is safe to repeat after the first terminal transition.
 
 ### Durable recovery API
 
 The Node bridge owns a versioned local snapshot for each recoverable round.
-Browser storage is a mirror only. `GET /rounds` returns only non-expired
-records in `drafting`, `detached`, `reconnecting`, or `delivery-uncertain`
-state. Delivered, cancelled, expired, recovery-error, and other terminal
+Browser storage is a mirror only. `GET /rounds` returns non-expired records in
+`drafting`, `detached`, or `delivery-uncertain` state plus `reconnecting`
+records whose initial detached TTL has elapsed. Delivered, cancelled, expired,
+recovery-error, and other terminal
 records never reach the chooser. Each item contains redacted exact-round
 metadata (`roundId`, optional request id, lifecycle state, revision, timestamps,
 expiry, and question count); it never returns question text, answers,
@@ -97,10 +99,13 @@ from racing local replay reconciliation and showing a false “Saved round
 changed” conflict during ordinary answer confirmation and navigation.
 
 Snapshots are retained initially for the resolved detached-round TTL
-(`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). Invalid
-individual snapshot files are quarantined; they do not suppress healthy rounds.
-Startup and a bounded background schedule delete expired snapshots; round and
-quarantine directories are tightened to `0700` even when they already exist.
+(`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). A snapshot
+that has entered `reconnecting` is retained beyond that initial deadline until
+answer delivery or explicit cancellation; only never-resumed detached/drafting
+snapshots are removed by expiry cleanup. Invalid individual snapshot files are
+quarantined; they do not suppress healthy rounds. Startup and a bounded
+background schedule delete eligible expired snapshots; round and quarantine
+directories are tightened to `0700` even when they already exist.
 
 ### Question shape
 
