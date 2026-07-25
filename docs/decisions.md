@@ -77,11 +77,19 @@ resolved detached-round TTL: a valid `ASKUSER_DETACHED_ROUND_TTL_MS`, otherwise
 `DEFAULT_DETACHED_TTL_MS`. Settings v2 is the sole future user-facing retention
 owner. Browser storage is only a mirror and cannot replace the Node record.
 
+When a detached round is resumed, it enters `reconnecting`. The existing expiry
+callback is deliberately non-terminal in that state: it must not reject the
+resumed waiter or close the browser round. This preserves long-running work,
+including multi-day question rounds, until the user answers or explicitly
+cancels. This decision does not change the detached-round TTL or introduce a
+new retention setting.
+
 This is macOS filesystem evidence, not Linux/Windows validation or a universal
 power-loss/directory-durability guarantee.
 
 **Evidence:** `test/round-record.test.js`, `test/round-store.test.js`,
-`test/bridge.test.js`, `test/server.test.js`, and
+`test/bridge.test.js` (including the reconnecting-round expiry
+characterization), `test/server.test.js`, and
 `docs/evidence/phase-09-durable-recovery.md`.
 
 ## D-005 — Host capabilities are intentionally asymmetric
@@ -130,15 +138,19 @@ Round identity plus an opaque capability guard localhost browser mutations. This
 When a host-owned `/ask` connection carrying a `requestId` disappears without
 an explicit cancellation, the bridge marks the round detached instead of
 rejecting it. The browser remains authoritative for the answer; a later
-`resume` call receives the answer while the bridge enforces a one-hour bounded
-TTL. Explicit MCP cancellation still calls `/cancel` first and remains
-terminal. Legacy requests without a `requestId` retain cancel-on-disconnect.
+`resume` call receives the answer during the one-hour bounded detached period.
+Once resumed, the lifecycle is `reconnecting` and remains non-terminal until
+the browser answers or an explicit cancellation occurs. Explicit MCP
+cancellation still calls `/cancel` first and remains terminal. Legacy requests
+without a `requestId` retain cancel-on-disconnect.
 
 **Why:** the real Codex CLI 0.144.4 reproduction closes the MCP call at 300
 seconds even when the registered `tool_timeout_sec` is 3600. A server-side
 request timeout change cannot prevent that host boundary, but detaching the
-round prevents the browser page and answer state from being destroyed. The
-recovery is bounded and observable rather than an unbounded orphan.
+round prevents the browser page and answer state from being destroyed. Never-
+resumed recovery is bounded and observable rather than an unbounded orphan;
+an explicitly resumed round is intentionally allowed to remain open for
+multi-day user work.
 
 **Evidence:** `server/bridge.js`, `server/server.js`,
 `mcp-server/askuserquestionspro-mcp.mjs`, `test/mcp-long-round.test.js`, and

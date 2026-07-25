@@ -8,27 +8,30 @@ dependencies — Node core only.
 
 `node:http` server. Port from `ASKUSER_PORT` (default `4517`); serves static
 files from `../web`. Exports `server` and `bridge` (a shared `Bridge`
-instance).
+instance) and composes the authoritative per-round `RoundStore`.
 
 Responsibilities:
 
-- Route the HTTP endpoints (see [api.md](api.md)).
-- Maintain `sseClients` (a `Set`) and `broadcastCurrent()` → push
-  `bridge.peek()` to every SSE client whenever state changes. Dead-write
-  guard: checks `res.writable` before writing; the `/events` `close` listener
-  removes the client (no zombie accumulation).
+- Compose the HTTP endpoint modules (see [api.md](api.md)), static serving,
+  `/health`, and the request-error boundary.
+- `server/round-routes.cjs` owns active-round, recovery, and SSE routes,
+  including its `sseClients` set and `broadcastCurrent()` dead-write/close
+  cleanup.
+- `server/settings-routes.cjs` owns settings cache state plus settings export,
+  doctor, preview, apply, and reset routes.
+- `server/http-io.cjs` provides the shared JSON response and bounded body-read
+  helpers used by the route modules.
 - `validQuestions()` — single validation authority for incoming question
   arrays. Validates types, field constraints, option label lengths (1–500
   chars via `validLabel()`), and performs **recursive** tree-node label
   checking (`checkTreeNodes`) so nested labels at any depth are validated,
   not just top-level ones.
-- `readBody()` reads request bodies with an 8 MB cap (tracked by byte count;
-  `req.destroy()` on overflow; single-settle guard prevents double
-  reject/resolve on the concurrent `data`/`close`/`error` race).
 - On a requestId-bearing client disconnect during an open `/ask`, call
   `bridge.detach('host disconnected', myId)` where `myId` is the round id
   captured at submit time. The browser round remains available to `/resume`
-  for the bounded detached TTL. Requests without a requestId retain
+  for the bounded detached TTL; once `/resume` moves it to `reconnecting`, the
+  resumed waiter and durable snapshot are intentionally not expired by that
+  TTL. Requests without a requestId retain
   `bridge.cancel('client disconnected', myId)` (Contract R).
 - `POST /resume` waits on a detached round, or returns its short-lived cached
   answer if the browser submitted just before the new host connected. Closing
@@ -44,9 +47,8 @@ Responsibilities:
   request).
 - When serving `index.html`, inject `<script>window.__ASKUSER_SETTINGS__=…</script>`
   before `</head>` so the persisted settings (`Settings.read()`) are present
-  before the app boots (no theme/scale flash). Settings are memory-cached
-  (`settingsCache`) and invalidated on `POST /settings` to avoid repeated disk
-  reads.
+  before the app boots (no theme/scale flash). The settings route module owns
+  the memory cache and invalidates it after successful mutation.
 - `POST /settings` — accepts a JSON object patch, writes it via
   `Settings.write()` (schema-validated, Contract W). On disk-write failure
   returns HTTP 500 (not a silent fake success). Strips `_v` from the response.
@@ -66,7 +68,9 @@ Responsibilities:
 
 The single-flight coordinator. State: `_pending` (round ownership, lifecycle,
 detached flag, and resume waiters), `_completed` (short-lived requestId cache),
-and `_seq` (monotonic counter for ids).
+and `_seq` (monotonic counter for ids). Recoverable lifecycle, draft, and
+delivery data are persisted through `lib/round-store.cjs`; browser storage is
+only a replay mirror.
 
 | Method                        | Behavior                                                                                                                                            |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |

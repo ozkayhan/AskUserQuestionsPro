@@ -133,7 +133,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 ## Pattern Overview
 
 - Claude hook and MCP server converge on the shared `lib/bridge-client.mjs` path.
-- `server/bridge.js` is a single-flight in-memory coordinator with monotonic round IDs.
+- `server/bridge.js` is a single-flight in-memory coordinator with monotonic round IDs and authoritative durable per-round recovery snapshots.
 - `server/server.js` exposes a localhost HTTP/SSE boundary and serves the static UI.
 - The browser owns type-aware answer state and sends opaque question-text-keyed answers back to the server.
 - There is no database, build pipeline, or remote application service.
@@ -148,8 +148,8 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 - Contains: `lib/bridge-client.mjs`.
 - Depends on: Node child-process, fetch, timeout, and platform opener APIs.
 - Used by both host adapters.
-- Purpose: Validate requests, maintain pending state, stream current rounds, persist settings, and serve assets.
-- Contains: `server/server.js`, `server/bridge.js`, `lib/question-contract.cjs`, `lib/settings.js`, and `lib/atomic-write.cjs`.
+- Purpose: Validate requests, maintain pending state, persist recoverable rounds and settings, stream current rounds, and serve assets.
+- Contains: `server/server.js`, `server/bridge.js`, `lib/round-store.cjs`, `lib/round-record.cjs`, `lib/question-contract.cjs`, `lib/settings.js`, and `lib/atomic-write.cjs`.
 - Depends on: Node built-ins and browser asset files.
 - Used by the bridge client and browser UI.
 - Purpose: Render questions, navigation, review, settings, themes, accessibility semantics, and answer mapping.
@@ -158,7 +158,7 @@ AskUserQuestionsPro is a local browser-based question interface that replaces cr
 
 ## Data Flow
 
-- Active question state is process memory in `Bridge`; settings are validated JSON on disk.
+- Active question coordination is process memory in `Bridge`; recoverable round lifecycle, draft, and delivery state are authoritative versioned snapshots in `lib/round-store.cjs`; settings are separate validated JSON on disk.
 - The browser keeps transient selections and review state in React state; the server treats submitted answers as opaque.
 
 ## Key Abstractions

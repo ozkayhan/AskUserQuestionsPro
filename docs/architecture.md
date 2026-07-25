@@ -4,14 +4,14 @@
 
 Four cooperating runtime pieces plus host adapters and a shared client:
 
-| Component          | File(s)                                                         | Role                                                                                                      |
-| ------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Claude hook**    | `hooks/askuserquestionspro-bridge.mjs`, `hooks/hook-output.js`  | Claude-only `PreToolUse` interceptor for native `AskUserQuestion` calls.                                  |
-| **MCP server**     | `mcp-server/askuserquestionspro-mcp.mjs`                        | Host-neutral `ask` and detached-round `resume` tools used by Claude Code, Codex CLI, and ChatGPT Desktop. |
-| **Bridge server**  | `server/server.js`, `server/bridge.js`                          | Local HTTP server; holds one pending question set, serves the UI, streams via SSE.                        |
-| **Web UI**         | `web/*`                                                         | Browser app where the user answers.                                                                       |
-| **Shared client**  | `lib/bridge-client.mjs`                                         | Used by both hook and MCP: starts the server, opens the browser, POSTs questions.                         |
-| **Host installer** | `lib/host-platforms.cjs`, `bin/cli.js`, `skill/askpro/SKILL.md` | Selects Claude/Codex, registers MCP, and deploys host-native skill guidance.                              |
+| Component          | File(s)                                                                                                            | Role                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Claude hook**    | `hooks/askuserquestionspro-bridge.mjs`, `hooks/hook-output.js`                                                     | Claude-only `PreToolUse` interceptor for native `AskUserQuestion` calls.                                                                     |
+| **MCP server**     | `mcp-server/askuserquestionspro-mcp.mjs`                                                                           | Host-neutral `ask` and detached-round `resume` tools used by Claude Code, Codex CLI, and ChatGPT Desktop.                                    |
+| **Bridge server**  | `server/server.js`, `server/{http-io,round-routes,settings-routes}.cjs`, `server/bridge.js`, `lib/round-store.cjs` | Local HTTP composition root; coordinates one pending question set, persists recoverable round snapshots, serves the UI, and streams via SSE. |
+| **Web UI**         | `web/*`                                                                                                            | Browser app where the user answers.                                                                                                          |
+| **Shared client**  | `lib/bridge-client.mjs`                                                                                            | Used by both hook and MCP: starts the server, opens the browser, POSTs questions.                                                            |
+| **Host installer** | `lib/host-platforms.cjs`, `bin/cli.js`, `skill/askpro/SKILL.md`                                                    | Selects Claude/Codex, registers MCP, and deploys host-native skill guidance.                                                                 |
 
 ## Data flow
 
@@ -45,12 +45,12 @@ Step by step (both entry paths are identical after `bridge-client`):
    applying a separate server-side request deadline. If a requestId-bearing
    host disappears first, the bridge detaches the round for a bounded one-hour
    resume window.
-5. `server.js` validates and calls `bridge.submitQuestions()`, which stores
+5. `server/round-routes.cjs` validates and calls `bridge.submitQuestions()`, which stores
    ownership, lifecycle, and resume state and returns a promise. The server
    broadcasts the new state to all SSE clients via `broadcastCurrent()`.
 6. The browser (connected to `GET /events`) renders the questions, the user
    answers, and the UI does `POST /answer` with `{id, answers}`.
-7. `server.js` calls `bridge.provideAnswers(id, answers)`, resolving the promise;
+7. `server/round-routes.cjs` calls `bridge.provideAnswers(id, answers)`, resolving the promise;
    or `POST /cancel` calls `bridge.cancel(reason, id)`. Both paths require the
    current round id; stale operations return a deterministic conflict and leave
    the active round untouched. `POST /resume` attaches a separate waiter to a
@@ -92,10 +92,12 @@ Step by step (both entry paths are identical after `bridge-client`):
   in the browser. The server is raw `node:http`. This keeps install trivial
   (`npx` / `curl | bash`) and the package self-contained.
 
-- **In-memory, localhost-only.** Bound to `127.0.0.1`; answers exist only for
-  the lifetime of the bounded pending/detached request. The one persisted thing is UI settings —
-  a small JSON file in `~/.config/askuserquestionspro/` (`lib/settings.js`),
-  not question/answer data.
+- **Localhost-only with bounded recovery.** Bound to `127.0.0.1`; the active
+  coordinator is in memory, while recoverable per-round lifecycle, draft, and
+  delivery snapshots are persisted privately by `lib/round-store.cjs` under
+  the local application configuration area. Those snapshots are the authority
+  for recovery; browser storage is only a replay mirror. UI settings remain a
+  separate JSON persistence contract in `lib/settings.js`.
 
 ## Failure & edge handling
 

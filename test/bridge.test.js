@@ -523,8 +523,9 @@ test('wrong id or capability cannot mutate a later round', async () => {
   await second;
 });
 
-test('submitQuestions, provideAnswers(id) gelince resolve olur', async () => {
+test('Bridge.getCurrent remains a synchronous public accessor for the active round', async () => {
   const b = new Bridge();
+  assert.equal(typeof b.getCurrent, 'function');
   const p = b.submitQuestions([{ question: 'Q?' }]);
   const { id } = b.peek();
   assert.deepStrictEqual(b.getCurrent(), [{ question: 'Q?' }]);
@@ -677,4 +678,69 @@ test('detached round TTL sonunda typed application timeout ile temizlenir', asyn
   await new Promise((resolve) => setTimeout(resolve, 30));
   await rejection;
   assert.equal(b.peek(), null);
+});
+
+test('resume edilen reconnecting round TTL dolunca waiter ve tur acik kalir', async () => {
+  const clock = scheduler();
+  const b = new Bridge({
+    detachedTtlMs: 100,
+    now: clock.now,
+    setTimer: clock.setTimer,
+    clearTimer: clock.clearTimer,
+  });
+  const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
+  const round = b.peek('owner-a');
+  assert.equal(b.detach('host disconnected', round.id, round.capability), true);
+
+  const resumed = b.waitForAnswers('owner-a');
+  let waiterSettled = false;
+  void resumed.promise.then(
+    () => {
+      waiterSettled = true;
+    },
+    () => {
+      waiterSettled = true;
+    }
+  );
+
+  clock.advance(100);
+  await Promise.resolve();
+
+  assert.equal(b.peek('owner-a').lifecycle.state, 'reconnecting');
+  assert.equal(waiterSettled, false);
+  assert.equal(b.provideAnswers(round.id, { 'Q?': 'A' }, round.capability), true);
+  assert.deepEqual(await resumed.promise, { 'Q?': 'A' });
+  assert.deepEqual(await owner, { 'Q?': 'A' });
+});
+
+test('reconnecting durable round survives cleanup and remains answerable after TTL', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-reconnecting-cleanup-'));
+  const clock = scheduler();
+  const store = new RoundStore({ root, now: clock.now });
+  const b = new Bridge({
+    detachedTtlMs: 100,
+    now: clock.now,
+    setTimer: clock.setTimer,
+    clearTimer: clock.clearTimer,
+    store,
+  });
+  const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-cleanup');
+  const round = b.peek('owner-cleanup');
+  assert.equal(b.detach('host disconnected', round.id, round.capability), true);
+  const resumed = b.waitForAnswers('owner-cleanup');
+
+  clock.advance(100);
+  assert.deepEqual(store.cleanupExpired(), []);
+  assert.equal(store.get(round.roundId).record.lifecycle.state, 'reconnecting');
+
+  const current = b.peek('owner-cleanup');
+  const saved = b.saveDraft(current.id, { 'Q?': 'draft' }, current.capability, current.revision);
+  assert.equal(saved.ok, true);
+  assert.equal(b.provideAnswers(round.id, { 'Q?': 'A' }, round.capability), true);
+  assert.equal(store.get(round.roundId).record.expiresAt, 200);
+  clock.advance(99);
+  assert.deepEqual(store.cleanupExpired(), []);
+  assert.equal(store.get(round.roundId).record.answers['Q?'], 'A');
+  assert.deepEqual(await resumed.promise, { 'Q?': 'A' });
+  assert.deepEqual(await owner, { 'Q?': 'A' });
 });

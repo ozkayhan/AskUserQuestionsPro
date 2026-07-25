@@ -15,7 +15,7 @@ All on `127.0.0.1`. No auth (localhost-only, single user).
 | `GET /health`                  | —                                              | `{ ok: true, app: "<APP_ID>" }`                                       | Liveness probe (used by `ensureServer`). Includes `app` field so the client can distinguish this server from any other process that happens to own the port.                                                                                                                                                                                                                                                                                                                                                       |
 | `GET /current`                 | —                                              | `{ id, questions }` or `{ id: null, questions: null }`                | Peek at the pending set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `GET /events`                  | —                                              | `text/event-stream`                                                   | SSE: pushes `{ id, questions }` on change + ~25s keepalive.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `GET /rounds`                  | —                                              | `{ rounds: [...] }`                                                   | List only non-expired drafting, detached, reconnecting, and delivery-uncertain records as redacted exact-round metadata.                                                                                                                                                                                                                                                                                                                                                                                           |
+| `GET /rounds`                  | —                                              | `{ rounds: [...] }`                                                   | List non-expired drafting, detached, and delivery-uncertain records plus reconnecting records retained beyond their initial detached TTL, as redacted exact-round metadata.                                                                                                                                                                                                                                                                                                                                        |
 | `POST /ask`                    | `{ questions: [...] }`                         | `{ answers: {...} }` (blocks until answered) or error                 | Submit a question set; request stays open until answered or the caller's deadline. Returns HTTP 400 on validation failure, 409 if a set is already pending.                                                                                                                                                                                                                                                                                                                                                        |
 | `POST /resume`                 | `{ roundId?, requestId? }` (one required)      | `{ answers: {...} }` (blocks until answered) or typed error           | Resume only an exact durable round or a uniquely matching request id; no recency selection.                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `POST /draft`                  | `{ id, capability, revision, answers: {...} }` | `{ ok, revision, replayed }` or typed error                           | Persist each material browser edit immediately when the capability and expected revision match. Writes are serialized so revisions remain ordered; identical retries are idempotent and a different stale edit returns `stale_revision`. The browser retains an unacknowledged local replay mirror keyed by round, capability, and expected revision; it uses `fetch(..., { keepalive: true })` for small teardown-time requests and replays after reload/reconnect until this response acknowledges the revision. |
@@ -31,21 +31,23 @@ All on `127.0.0.1`. No auth (localhost-only, single user).
 | `GET *`                        | —                                              | static file                                                           | Serves `web/` (traversal-guarded). `GET /` (index.html) is rewritten to inject `window.__ASKUSER_SETTINGS__`.                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Request bodies are capped at 8 MB. If a requestId-bearing `/ask` client
-disconnects, the server detaches rather than cancels the pending set. The
-browser may continue collecting answers for up to one hour; a new host process
-can call `/resume` to receive them. Hydrated drafting, detached, and reconnecting
-rounds remain browser-owned and resumable across repeated bridge restarts. Detached rounds are bounded by
-`ASKUSER_DETACHED_ROUND_TTL_MS` (default one hour), so they cannot become
-unbounded orphans. Requests without a requestId preserve the original
+disconnects, the server detaches rather than cancels the pending set. A new host
+process can call `/resume` during the bounded detached TTL. Once resumed, the
+round enters `reconnecting`; its waiter and durable snapshot remain open until
+the browser answers or an explicit cancellation occurs, including across
+multi-day gaps and bridge restarts. Detached rounds that are never resumed are
+bounded by `ASKUSER_DETACHED_ROUND_TTL_MS` (default one hour), so they cannot
+become unbounded orphans. Requests without a requestId preserve the original
 cancel-on-disconnect behavior. The explicit `/cancel` route uses the same id
 ownership check and is safe to repeat after the first terminal transition.
 
 ### Durable recovery API
 
 The Node bridge owns a versioned local snapshot for each recoverable round.
-Browser storage is a mirror only. `GET /rounds` returns only non-expired
-records in `drafting`, `detached`, `reconnecting`, or `delivery-uncertain`
-state. Delivered, cancelled, expired, recovery-error, and other terminal
+Browser storage is a mirror only. `GET /rounds` returns non-expired records in
+`drafting`, `detached`, or `delivery-uncertain` state plus `reconnecting`
+records whose initial detached TTL has elapsed. Delivered, cancelled, expired,
+recovery-error, and other terminal
 records never reach the chooser. Each item contains redacted exact-round
 metadata (`roundId`, optional request id, lifecycle state, revision, timestamps,
 expiry, and question count); it never returns question text, answers,
@@ -97,10 +99,14 @@ from racing local replay reconciliation and showing a false “Saved round
 changed” conflict during ordinary answer confirmation and navigation.
 
 Snapshots are retained initially for the resolved detached-round TTL
-(`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). Invalid
+(`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). A snapshot
+that has entered `reconnecting` is retained beyond that initial deadline until
+answer delivery or explicit cancellation; snapshots that never enter that
+state remain eligible for expiry cleanup according to their lifecycle. Invalid
 individual snapshot files are quarantined; they do not suppress healthy rounds.
-Startup and a bounded background schedule delete expired snapshots; round and
-quarantine directories are tightened to `0700` even when they already exist.
+Startup and a bounded background schedule delete eligible expired snapshots;
+round and quarantine directories are tightened to `0700` even when they
+already exist.
 
 ### Question shape
 

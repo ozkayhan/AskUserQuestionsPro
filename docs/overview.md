@@ -58,7 +58,9 @@ step, richer input types, and larger batches. Install is
   `AskUserQuestion`; MCP errors tell the agent to use Codex
   `request_user_input` or Claude `AskUserQuestion` as appropriate.
 - **Single-flight** — exactly one question set is in play at a time.
-- **In-memory only** — no database; answers live in RAM until delivered.
+- **Local, bounded persistence** — no database or remote service. The active
+  coordinator is in memory, while each recoverable round has a private,
+  versioned Node-side snapshot; browser storage is only a replay mirror.
 
 ## Browser recovery and delivery
 

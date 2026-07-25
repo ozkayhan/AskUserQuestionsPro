@@ -22,8 +22,10 @@ wall-clock deadline.
 
 The real Codex CLI 0.144.4 check in Phase 7 reproduced a hard disconnect at
 300 seconds. A requestId-bearing round is now detached and kept in the browser
-bridge for up to one hour; call the MCP `resume` tool before starting a new
-round to collect its answer. An explicit Codex cancellation remains terminal.
+bridge for up to one hour. Call the MCP `resume` tool before starting a new
+round; after that transition, the `reconnecting` round remains open until the
+browser answers or an explicit cancellation occurs, even if the original
+detached deadline has elapsed. An explicit Codex cancellation remains terminal.
 The actionable native fallback is `request_user_input` when resume reports no
 available round.
 
