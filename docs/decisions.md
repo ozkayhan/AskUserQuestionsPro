@@ -77,11 +77,19 @@ resolved detached-round TTL: a valid `ASKUSER_DETACHED_ROUND_TTL_MS`, otherwise
 `DEFAULT_DETACHED_TTL_MS`. Settings v2 is the sole future user-facing retention
 owner. Browser storage is only a mirror and cannot replace the Node record.
 
+When a detached round is resumed, it enters `reconnecting`. The existing expiry
+callback is deliberately non-terminal in that state: it must not reject the
+resumed waiter or close the browser round. This preserves long-running work,
+including multi-day question rounds, until the user answers or explicitly
+cancels. This decision does not change the detached-round TTL or introduce a
+new retention setting.
+
 This is macOS filesystem evidence, not Linux/Windows validation or a universal
 power-loss/directory-durability guarantee.
 
 **Evidence:** `test/round-record.test.js`, `test/round-store.test.js`,
-`test/bridge.test.js`, `test/server.test.js`, and
+`test/bridge.test.js` (including the reconnecting-round expiry
+characterization), `test/server.test.js`, and
 `docs/evidence/phase-09-durable-recovery.md`.
 
 ## D-005 — Host capabilities are intentionally asymmetric

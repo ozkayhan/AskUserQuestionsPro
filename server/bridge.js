@@ -3,7 +3,6 @@
 const { randomBytes } = require('node:crypto');
 const { createRecord, transition, snapshot } = require('../lib/round-state.cjs');
 const Record = require('../lib/round-record.cjs');
-const { deliveryPolicy, closurePolicy } = require('../lib/runtime-settings.cjs');
 
 const RECOVERABLE_STATES = Object.freeze([
   'drafting',
@@ -54,7 +53,6 @@ class Bridge {
     setTimer = setTimeout,
     clearTimer = clearTimeout,
     store = null,
-    settings,
   } = {}) {
     this._pending = null; // { id, questions, resolve, reject, waiters, detached }
     this._seq = 0;
@@ -69,8 +67,6 @@ class Bridge {
     this._completedTimers = new Map();
     this._deliveries = new Map();
     this._store = store;
-    this._delivery = deliveryPolicy(settings);
-    this._closure = closurePolicy(settings);
     this._hydrateUniqueRecovery();
   }
 
@@ -471,17 +467,6 @@ class Bridge {
     const item = this._completed.get(selector.requestId) || null;
     if (item && selector.roundId && item.roundId !== selector.roundId) return null;
     return item;
-  }
-
-  _findPersisted(requestId) {
-    if (!this._store || requestId == null) return null;
-    const found = this._store.findByRequestId(requestId);
-    if (!found.ok || !found.record.answers || found.record.expiresAt <= this._now()) return null;
-    return {
-      answers: found.record.answers,
-      roundId: found.record.roundId,
-      expiresAt: found.record.expiresAt,
-    };
   }
 
   listRecoverable() {
