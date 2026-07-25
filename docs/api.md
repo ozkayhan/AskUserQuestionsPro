@@ -101,11 +101,12 @@ changed” conflict during ordinary answer confirmation and navigation.
 Snapshots are retained initially for the resolved detached-round TTL
 (`ASKUSER_DETACHED_ROUND_TTL_MS` when valid, otherwise the default). A snapshot
 that has entered `reconnecting` is retained beyond that initial deadline until
-answer delivery or explicit cancellation; only never-resumed detached/drafting
-snapshots are removed by expiry cleanup. Invalid individual snapshot files are
-quarantined; they do not suppress healthy rounds. Startup and a bounded
-background schedule delete eligible expired snapshots; round and quarantine
-directories are tightened to `0700` even when they already exist.
+answer delivery or explicit cancellation; snapshots that never enter that
+state remain eligible for expiry cleanup according to their lifecycle. Invalid
+individual snapshot files are quarantined; they do not suppress healthy rounds.
+Startup and a bounded background schedule delete eligible expired snapshots;
+round and quarantine directories are tightened to `0700` even when they
+already exist.
 
 ### Question shape
 
