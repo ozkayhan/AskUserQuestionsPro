@@ -218,3 +218,17 @@ Do not make direct repo edits outside a GSD workflow unless the user explicitly 
 > This section is managed by `generate-claude-profile` -- do not edit manually.
 
 <!-- GSD:profile-end -->
+
+## Maintainer release guardrails
+
+Before publishing this npm package, inspect `.github/workflows/release.yml`,
+`package.json`, `package-lock.json`, and `.changeset/`. This repository has a
+working GitHub Actions trusted-publishing path through npm OIDC (`id-token:
+write`); it is the default publisher. Never begin with local `npm publish`.
+
+If local npm publish is explicitly requested, treat `EOTP` as a signal to stop
+and use the GitHub Actions path, not as a prompt to ask the user for an
+authenticator code. Do not claim success until the workflow and
+`npm view askuserquestionspro version dist-tags --json` both confirm the
+expected release. The detailed procedure and incident learning live in
+[`docs/release.md`](docs/release.md).

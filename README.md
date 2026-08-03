@@ -252,8 +252,9 @@ install/doctor/uninstall isolation, and MCP instructions, `outputSchema`, and
 annotations.
 
 Before contributing, run `npm run lint`, `npm run format:check`, and
-`npm test`. Releases use Changesets: add a changeset, merge it, then merge the
-generated Version Packages PR to publish.
+`npm test`. Releases use the repository-native GitHub Actions trusted-publishing
+path: add a changeset, merge it, then merge the generated Version Packages PR
+to publish. Do not start with local `npm publish`; see the [release runbook](docs/release.md).
 
 The maintained [v1.1.1 release handoff](docs/evidence/v1.1.1-release-handoff.md)
 indexes current Phase 14–17 evidence and separates local PASS results from

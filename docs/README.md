@@ -31,6 +31,7 @@ bridge, and the browser UI.
 - [timeout-runbook.md](timeout-runbook.md) — long-round reproduction, lifecycle interpretation, and recovery
 - [api.md](api.md) — HTTP endpoints, MCP tool contract, hook I/O shapes
 - [testing.md](testing.md) — test suite layout and how to run it
+- [release.md](release.md) — canonical GitHub Actions/npm publishing path and release guardrails
 - [hardening.md](hardening.md) — 5-theme systemic hardening sprint: what was changed, why, and the CI guards
 - [maintenance.md](maintenance.md) — documentation ownership, naming, archive, and verification rules
 - [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md) — current bounded UAT, security, quality, and external-release evidence

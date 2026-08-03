@@ -38,13 +38,13 @@ Fonts come from Google Fonts, loaded dynamically per theme (see
 - **CI:** GitHub Actions — two jobs on every push/PR:
   - `lint` (`ci.yml`): `npm ci` → ESLint + Prettier check + `shellcheck install.sh reinstall.sh` + `npm audit --audit-level=high --omit=dev` on Node 20. `shellcheck` runs on every CI invocation so shell-quoting regressions are caught machine-side.
   - `test` (`ci.yml`): `npm ci` + `npm test` matrix on Node `18`, `20`, `22` (`fail-fast: false`).
-  - `release` (`release.yml`): Changesets action — merges Version Packages PRs and runs `npm publish` + creates GitHub Release.
+  - `release` (`release.yml`): Changesets action — merges Version Packages PRs and runs `changeset publish` + creates a GitHub Release. The job has `id-token: write` and uses npm trusted publishing through GitHub OIDC.
   - Workflow action pins: `actions/checkout` and `actions/setup-node` are pinned to SHA digests (not floating tags) to prevent supply-chain substitution attacks.
 - **Linting/formatting:** ESLint 9 (flat config `eslint.config.js`):
   - Node files (`**/*.{js,cjs,mjs}` excluding `web/`): `@eslint/js` recommended + `no-empty { allowEmptyCatch: false }` (all former silent-swallow catch blocks are now errors).
   - Browser files (`web/**/*.js` excluding `web/vendor/`): parsed by `@babel/eslint-parser` with `@babel/preset-react`; rules: `react-hooks/rules-of-hooks` (error), `react-hooks/exhaustive-deps` (warn), `no-empty { allowEmptyCatch: false }`.
   - Prettier 3 (`.prettierrc.json`) compat via `eslint-config-prettier`.
-- **Release management:** Changesets (`@changesets/cli`). Workflow: add a changeset → merge → bot opens Version Packages PR → merge that → auto-publish to npm.
+- **Release management:** Changesets (`@changesets/cli`). Workflow: add a changeset → merge → bot opens Version Packages PR → merge that → GitHub Actions publishes to npm through trusted OIDC publishing. A local `npm publish` is not the default path; see [release.md](release.md).
 - **Packaging:** npm. `bin` exposes two executables:
   - `askuserquestionspro` → `bin/cli.js`
   - `askuserquestionspro-mcp` → `mcp-server/askuserquestionspro-mcp.mjs`

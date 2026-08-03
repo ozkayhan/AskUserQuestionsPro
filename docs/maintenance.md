@@ -16,7 +16,7 @@ Use descriptive lowercase kebab-case names. One document owns one topic:
 - runtime operations: `backend.md`, `hosts.md`, `timeout-runbook.md`
 - interfaces: `api.md`
 - UI behavior: `frontend.md`
-- verification and release: `testing.md`, `tech-stack.md`
+- verification and release: `testing.md`, `tech-stack.md`, `release.md`
 
 ## Phase 13 launch checklist
 

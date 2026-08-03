@@ -4,9 +4,9 @@ milestone: v1.2.0
 milestone_name: Bug Fixes
 status: Awaiting next milestone
 stopped_at: Completed 19-03-PLAN.md
-last_updated: "2026-07-24T17:18:30.000Z"
-last_activity: 2026-07-24
-last_activity_desc: Milestone v1.2.0 completed and archived
+last_updated: "2026-08-03T15:20:00.000Z"
+last_activity: 2026-08-03
+last_activity_desc: Quick task 260803-pao documented the GitHub trusted-publishing release path
 progress:
   total_phases: 1
   completed_phases: 1
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-18)
 Phase: Milestone v1.2.0 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-24 — Completed quick task 260724-s68: repair release CI lockfile and lifecycle test stability
+Last activity: 2026-08-03 — Completed quick task 260803-pao: document the GitHub trusted-publishing release path
 
 ## Performance Metrics
 
@@ -130,6 +130,7 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
+| 260803-pao | document the release-path learning so future agents use GitHub Actions trusted publishing and never attempt local npm publish first | 2026-08-03 | pending | [260803-pao-document-the-release-path-learning-so-fu](./quick/260803-pao-document-the-release-path-learning-so-fu/) |
 | 260725-tkh | refactor backend route boundaries and record long reconnecting rounds as non-terminal | 2026-07-26 | 3f9eb64 | [260725-tkh-execute-modernization-and-refactor-passe](./quick/260725-tkh-execute-modernization-and-refactor-passe/) |
 | 260724-s68 | repair release CI lockfile and nondeterministic lifecycle test | 2026-07-24 | 07273e5 | [260724-s68-repair-release-ci-lockfile-and-nondeterm](./quick/260724-s68-repair-release-ci-lockfile-and-nondeterm/) |
 

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const docs = fs.readFileSync('docs/testing.md', 'utf8');
+const releaseDocs = fs.readFileSync('docs/release.md', 'utf8');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 test('npm test keeps optional Playwright CLI evidence on its dedicated command', () => {
@@ -28,6 +29,13 @@ test('release gate preserves package boundary and no new installs', () => {
   assert.match(docs, /zero\s+production dependencies/i);
   assert.match(docs, /file allowlist/i);
   assert.match(docs, /changeset.*release workflow/i);
+});
+test('release guidance preserves the repository-native OTP-free publisher', () => {
+  assert.match(releaseDocs, /canonical npm publishing path is GitHub Actions/i);
+  assert.match(releaseDocs, /id-token:\s*write/i);
+  assert.match(releaseDocs, /trusted publishing/i);
+  assert.match(releaseDocs, /Do not\s+start a release with a local `npm publish`/i);
+  assert.match(releaseDocs, /EOTP/);
 });
 test('release gate executes the locally available package and shell checks', () => {
   const pack = spawnSync('npm', ['pack', '--dry-run', '--json'], { encoding: 'utf8' });

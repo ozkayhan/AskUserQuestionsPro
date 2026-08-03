@@ -92,6 +92,24 @@ power-loss/directory-durability guarantee.
 characterization), `test/server.test.js`, and
 `docs/evidence/phase-09-durable-recovery.md`.
 
+## D-011 — GitHub Actions is the canonical npm publisher
+
+Package publication uses the repository's Changesets workflow and npm trusted
+publishing through GitHub OIDC. The release job must retain `id-token: write`,
+the npm registry configuration, and the Changesets publish command. Local npm
+publication is an explicit exception, not an agent default.
+
+**Why:** the repository already has a working OTP-free publisher. Starting
+with local `npm publish` couples a release to the operator's npm session and
+can produce misleading failures: local provenance has no supported CI
+provider, while the non-provenance retry can require an authenticator OTP.
+On 2026-08-03 this path was attempted before the workflow/history audit and
+caused avoidable failure and user friction. The corrective learning is to
+inspect the release workflow first and select the repository-native publisher.
+
+**Evidence:** `.github/workflows/release.yml`, `docs/release.md`,
+`test/workflows-release.test.js`, and the successful Release workflow history.
+
 ## D-005 — Host capabilities are intentionally asymmetric
 
 Claude Code can use a `PreToolUse` hook to replace the native
