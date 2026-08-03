@@ -130,7 +130,7 @@ None yet.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260803-pao | document the release-path learning so future agents use GitHub Actions trusted publishing and never attempt local npm publish first | 2026-08-03 | pending | [260803-pao-document-the-release-path-learning-so-fu](./quick/260803-pao-document-the-release-path-learning-so-fu/) |
+| 260803-pao | document the release-path learning so future agents use GitHub Actions trusted publishing and never attempt local npm publish first | 2026-08-03 | 24ede6c | [260803-pao-document-the-release-path-learning-so-fu](./quick/260803-pao-document-the-release-path-learning-so-fu/) |
 | 260725-tkh | refactor backend route boundaries and record long reconnecting rounds as non-terminal | 2026-07-26 | 3f9eb64 | [260725-tkh-execute-modernization-and-refactor-passe](./quick/260725-tkh-execute-modernization-and-refactor-passe/) |
 | 260724-s68 | repair release CI lockfile and nondeterministic lifecycle test | 2026-07-24 | 07273e5 | [260724-s68-repair-release-ci-lockfile-and-nondeterm](./quick/260724-s68-repair-release-ci-lockfile-and-nondeterm/) |
 
