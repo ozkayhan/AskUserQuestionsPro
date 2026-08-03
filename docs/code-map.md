@@ -76,6 +76,12 @@ paths), `cli.test.js` (Codex-only lifecycle isolation), and
 `mcp-server.test.js` (instructions, `outputSchema`, and annotations). See
 [testing.md](testing.md) for the full inventory.
 
+## Maintained operations documentation
+
+| Path              | What it is                                                               | Go here to…                                 |
+| ----------------- | ------------------------------------------------------------------------ | ------------------------------------------- |
+| `docs/release.md` | Canonical Changesets, GitHub Actions, and npm trusted-publishing runbook | prepare, publish, or verify an npm release. |
+
 ## Out of scope (not current runtime behavior)
 
 - `docs/archive/` — historical audit reports and workflow plans; not current
