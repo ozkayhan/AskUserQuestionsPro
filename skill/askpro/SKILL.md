@@ -52,6 +52,7 @@ the returned category once:
 - `bridge unavailable`, registration timeout, or user cancellation → use the native tool that exists in the current host.
 - `host cancelled` → treat the round as incomplete and use the native tool; do not claim the user submitted answers.
 - `host timeout` or a dropped MCP connection → call `mcp__askuserquestionspro__resume` before starting a new round; the browser round is retained for up to one hour.
+- `round_in_progress` → call `mcp__askuserquestionspro__list_recoverable_rounds`; resume an exact `roundId` only when its state is `detached` or `reconnecting`. A `drafting` round is still attached to its original ask call.
 - Never describe an input-validation error as a bridge outage or run local diagnostics for it.
 
 For long rounds, the MCP server may send optional progress notifications while
@@ -75,6 +76,10 @@ selector-less resume is rejected to avoid returning a different round. A success
 the original `{ "answers": ... }` object; a `no resumable browser round` error
 means the bounded one-hour window expired or the user explicitly cancelled the
 round, so use the native fallback.
+
+If the original request id is unavailable after a `round_in_progress` collision,
+call `mcp__askuserquestionspro__list_recoverable_rounds` to obtain redacted
+round metadata. It does not return question text, answers, or capabilities.
 
 ## Tool call shape
 

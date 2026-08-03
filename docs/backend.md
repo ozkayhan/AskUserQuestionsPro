@@ -241,10 +241,10 @@ reporting with a single consistent output line.
 ## MCP server (`mcp-server/askuserquestionspro-mcp.mjs`)
 
 JSON-RPC 2.0 over stdio (STDOUT = protocol, STDERR = logs). Zero deps.
-Exposes host-neutral `ask` and `resume` tools (full names
-`mcp__askuserquestionspro__ask` and `mcp__askuserquestionspro__resume`) to
-Claude Code, Codex CLI, and ChatGPT Desktop. The `ask` questions schema has no
-`maxItems` limit.
+Exposes host-neutral `ask`, `resume`, and `list_recoverable_rounds` tools (full
+names `mcp__askuserquestionspro__ask`, `mcp__askuserquestionspro__resume`, and
+`mcp__askuserquestionspro__list_recoverable_rounds`) to Claude Code, Codex CLI,
+and ChatGPT Desktop. The `ask` questions schema has no `maxItems` limit.
 
 Methods: `initialize`, `tools/list`, `tools/call`, `ping`. Notifications
 (`id === undefined`) are logged and ignored. Reads line-delimited JSON from

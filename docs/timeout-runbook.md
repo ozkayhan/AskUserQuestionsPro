@@ -18,6 +18,10 @@ The supported recovery paths are:
 - Either MCP host: call `mcp__askuserquestionspro__resume` with the original
   request id or exact durable round id after an unexpected host disconnect,
   before creating a new round. Selector-less recovery is rejected.
+- If a new ask reports `round_in_progress` and the original request id is not
+  available, call `mcp__askuserquestionspro__list_recoverable_rounds` and use
+  the exact `roundId` only for a `detached` or `reconnecting` round. The listing
+  is redacted and contains no question text, answers, or capabilities.
 - Codex: call `request_user_input` natively if resume reports no available
   round or the MCP round was explicitly cancelled.
 - Claude Code: call native `AskUserQuestion` if the hook cannot complete.

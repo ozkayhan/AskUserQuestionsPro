@@ -1,5 +1,12 @@
 # askuserquestionspro
 
+## 1.2.1
+
+### Patch Changes
+
+- Expose redacted recoverable-round discovery through MCP and give pending-round
+  collisions actionable exact-ID recovery guidance.
+
 ## 1.2.0
 
 ### Minor Changes

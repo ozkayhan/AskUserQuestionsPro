@@ -164,6 +164,43 @@ const RESUME_TOOL = {
   },
 };
 
+const LIST_RECOVERABLE_ROUNDS_TOOL = {
+  name: 'list_recoverable_rounds',
+  description:
+    'List redacted metadata for recoverable askuserquestionspro rounds. Use the exact roundId to resume a detached or reconnecting round. A drafting round is still attached to its original ask call.',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: 'object',
+    required: ['rounds'],
+    properties: {
+      rounds: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['roundId', 'state', 'questionCount'],
+          properties: {
+            roundId: { type: 'string' },
+            state: { type: 'string' },
+            questionCount: { type: 'number' },
+            createdAt: { type: 'number' },
+            updatedAt: { type: 'number' },
+            expiresAt: { type: 'number' },
+          },
+        },
+      },
+    },
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    openWorldHint: false,
+    idempotentHint: true,
+  },
+};
+
 // JSON-RPC yanıtı oluştur ve STDOUT'a yaz.
 // stdout broken pipe (EPIPE) atarsa logla — uncaughtException'a düşürmeyelim,
 // aksi halde tek bir yazma hatası tüm sunucuyu çökertir.
@@ -322,14 +359,18 @@ async function handleAsk(args, signal, { progressToken } = {}) {
       ? 'the host cancelled the pending request before the user submitted answers'
       : e?.name === 'BridgeError' && e.status === 400
         ? `invalid question input: ${e.message}`
-        : e?.name === 'TimeoutError'
-          ? 'timed out waiting for the user'
-          : `error: ${e?.message || e}`;
+        : e?.name === 'BridgeError' && e.body?.reason === 'round_in_progress'
+          ? 'round_in_progress: another browser question round is already pending'
+          : e?.name === 'TimeoutError'
+            ? 'timed out waiting for the user'
+            : `error: ${e?.message || e}`;
     const recovery = hostCancelled
       ? 'Retry with the host-native user-input tool or submit a shorter round.'
       : e?.name === 'BridgeError' && e.status === 400
         ? 'Use option objects such as {"label":"Option"}; do not pass string arrays.'
-        : 'Use the host-native user-input tool if it is available in the current host.';
+        : e?.name === 'BridgeError' && e.body?.reason === 'round_in_progress'
+          ? 'Call list_recoverable_rounds to inspect redacted round metadata. Resume only a detached or reconnecting round with its exact roundId; a drafting round is still attached to its original ask call.'
+          : 'Use the host-native user-input tool if it is available in the current host.';
     return {
       content: [
         {
@@ -409,6 +450,51 @@ async function handleResume(args, signal, { progressToken } = {}) {
   }
 }
 
+function redactedRecoveryMetadata(round) {
+  return {
+    roundId: round.roundId,
+    state: round.state,
+    questionCount: round.questionCount,
+    createdAt: round.createdAt,
+    updatedAt: round.updatedAt,
+    expiresAt: round.expiresAt,
+  };
+}
+
+async function handleListRecoverableRounds() {
+  const { ensureServer, listRecoverableRounds } = await import('../lib/bridge-client.mjs');
+  if (!(await ensureServer())) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'askuserquestionspro bridge unavailable — recoverable rounds cannot be discovered.',
+        },
+      ],
+      isError: true,
+    };
+  }
+  try {
+    const rounds = (await listRecoverableRounds()).map(redactedRecoveryMetadata);
+    const result = { rounds };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      structuredContent: result,
+    };
+  } catch (e) {
+    log('mcp', e);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'askuserquestionspro recovery discovery failed. Use the host-native user-input tool.',
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
 // Gelen JSON-RPC mesajını işle.
 async function handleMessage(msg) {
   const { id, method, params } = msg;
@@ -447,12 +533,20 @@ async function handleMessage(msg) {
   }
 
   if (method === 'tools/list') {
-    sendResponse({ jsonrpc: '2.0', id, result: { tools: [ASK_TOOL, RESUME_TOOL] } });
+    sendResponse({
+      jsonrpc: '2.0',
+      id,
+      result: { tools: [ASK_TOOL, RESUME_TOOL, LIST_RECOVERABLE_ROUNDS_TOOL] },
+    });
     return;
   }
 
   if (method === 'tools/call') {
-    if (params?.name !== 'ask' && params?.name !== 'resume') {
+    if (
+      params?.name !== 'ask' &&
+      params?.name !== 'resume' &&
+      params?.name !== 'list_recoverable_rounds'
+    ) {
       sendError(id, -32602, 'unknown tool');
       return;
     }
@@ -467,7 +561,9 @@ async function handleMessage(msg) {
       toolResult =
         params.name === 'resume'
           ? await handleResume(params?.arguments, controller.signal, progress)
-          : await handleAsk(params?.arguments, controller.signal, progress);
+          : params.name === 'list_recoverable_rounds'
+            ? await handleListRecoverableRounds()
+            : await handleAsk(params?.arguments, controller.signal, progress);
     } finally {
       activeRequests.delete(id);
     }

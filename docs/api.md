@@ -185,7 +185,7 @@ is answer-opaque.
   or a mutation had missing, stale, or wrong ownership credentials
   (`reason: "ownership_conflict"`)
 
-## MCP tools: `mcp__askuserquestionspro__ask` and `mcp__askuserquestionspro__resume`
+## MCP tools: `mcp__askuserquestionspro__ask`, `mcp__askuserquestionspro__resume`, and `mcp__askuserquestionspro__list_recoverable_rounds`
 
 Defined in `mcp-server/askuserquestionspro-mcp.mjs` as tool `ask`. Transport:
 JSON-RPC 2.0 over stdio.
@@ -268,6 +268,13 @@ notification, the detached round remains recoverable through `resume`.
 The `resume` tool requires an original `requestId` or an exact durable
 `roundId`; it never selects the latest detached round. It waits for the browser
 answer and returns the same `{ answers }` result shape as `ask`.
+
+When `ask` reports `round_in_progress`, call `list_recoverable_rounds` for
+redacted exact-round metadata (`roundId`, state, question count, and lifecycle
+timestamps). It never returns question text, answers, capabilities, paths, or
+diagnostics. A `drafting` round is still attached to its original `ask` call;
+only a `detached` or `reconnecting` round can be resumed with its exact
+`roundId`.
 
 ### Shared validation (`lib/question-contract.cjs`)
 

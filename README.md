@@ -118,8 +118,9 @@ the shared runtime and UI settings when the other host is still installed.
 
 ## MCP tool
 
-The installed tools are `mcp__askuserquestionspro__ask` and
-`mcp__askuserquestionspro__resume`. `ask` accepts one or many
+The installed tools are `mcp__askuserquestionspro__ask`,
+`mcp__askuserquestionspro__resume`, and
+`mcp__askuserquestionspro__list_recoverable_rounds`. `ask` accepts one or many
 questions; there is no schema-level `maxItems` limit. Six types are supported:
 
 | Type      | Result value                                    |
@@ -174,6 +175,10 @@ the browser from racing ahead and briefly rendering an empty state. The tool's
 own answer wait is bounded to one hour. If a host connection disappears without
 explicit cancellation, call `mcp__askuserquestionspro__resume` before starting a
 duplicate round; the browser round remains recoverable for that bounded window.
+If `ask` reports `round_in_progress`, use
+`mcp__askuserquestionspro__list_recoverable_rounds` to obtain only redacted
+round metadata. Resume an exact detached or reconnecting `roundId`; a drafting
+round is still owned by the original ask call.
 If resume is unavailable, the model is told to use the native fallback available
 in that host: `request_user_input` in Codex or `AskUserQuestion` in Claude Code.
 

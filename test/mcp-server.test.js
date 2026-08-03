@@ -104,9 +104,13 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
   assert.ok(Array.isArray(tools) && tools.length > 0, 'tools dizisi boş olmamalı');
   const askTool = tools.find((t) => t.name === 'ask');
   const resumeTool = tools.find((t) => t.name === 'resume');
+  const recoveryTool = tools.find((t) => t.name === 'list_recoverable_rounds');
   assert.ok(askTool, '"ask" adında araç olmalı');
   assert.ok(resumeTool, '"resume" adında araç olmalı');
+  assert.ok(recoveryTool, '"list_recoverable_rounds" adında araç olmalı');
   assert.match(resumeTool.description, /detached|timeout|resume/i);
+  assert.strictEqual(recoveryTool.annotations.readOnlyHint, true);
+  assert.deepStrictEqual(recoveryTool.outputSchema.required, ['rounds']);
   assert.match(askTool.description, /request_user_input/);
   assert.deepStrictEqual(askTool.outputSchema.required, ['answers']);
   assert.strictEqual(askTool.annotations.readOnlyHint, true);
@@ -167,6 +171,129 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
     undefined,
     'scale options kısıtı istemciye yalnızca koşullu bir ipucu olarak verilmemeli'
   );
+});
+
+test('mcp-server: pending collision exposes only redacted recovery discovery', async () => {
+  const probe = net.createServer();
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const port = probe.address().port;
+  await new Promise((resolve) => probe.close(resolve));
+  const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-mcp-recovery-'));
+  const env = {
+    ...process.env,
+    ASKUSER_PORT: String(port),
+    ASKUSER_OPEN_BROWSER: '0',
+    XDG_CONFIG_HOME: xdg,
+  };
+  const server = spawn(process.execPath, [SERVER_PATH], { stdio: 'ignore', env });
+  const mcp = spawn(process.execPath, [MCP_PATH], { stdio: ['pipe', 'pipe', 'pipe'], env });
+  let outBuf = '';
+  const replies = new Map();
+  mcp.stdout.setEncoding('utf8');
+  mcp.stdout.on('data', (chunk) => {
+    outBuf += chunk;
+    const lines = outBuf.split('\n');
+    outBuf = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const reply = JSON.parse(line);
+      replies.set(reply.id, reply);
+    }
+  });
+  const waitFor = async (id) => {
+    const deadline = Date.now() + 3000;
+    while (!replies.has(id)) {
+      if (Date.now() >= deadline) throw new Error(`MCP response ${id} timed out`);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return replies.get(id);
+  };
+  try {
+    const deadline = Date.now() + 3000;
+    for (;;) {
+      try {
+        const health = await fetch(`http://127.0.0.1:${port}/health`);
+        if (health.ok) break;
+      } catch {
+        // server henüz dinlemiyor
+      }
+      if (Date.now() >= deadline) throw new Error('test bridge başlamadı');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    mcp.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 71,
+        method: 'tools/call',
+        params: {
+          name: 'ask',
+          arguments: {
+            questions: [{ question: 'Private prompt', header: 'H', options: [{ label: 'Yes' }] }],
+          },
+        },
+      }) + '\n'
+    );
+    for (;;) {
+      const current = await (await fetch(`http://127.0.0.1:${port}/current`)).json();
+      if (current.id != null) break;
+      if (Date.now() >= deadline) throw new Error('pending MCP round was not registered');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    mcp.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 72,
+        method: 'tools/call',
+        params: {
+          name: 'ask',
+          arguments: {
+            questions: [
+              { question: 'Second private prompt', header: 'H', options: [{ label: 'No' }] },
+            ],
+          },
+        },
+      }) + '\n'
+    );
+    const collision = await waitFor(72);
+    const collisionText = collision.result.content[0].text;
+    assert.strictEqual(collision.result.isError, true);
+    assert.match(collisionText, /round_in_progress/);
+    assert.match(collisionText, /list_recoverable_rounds/);
+    assert.doesNotMatch(collisionText, /Private prompt|Second private prompt|capability/i);
+
+    mcp.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 73,
+        method: 'tools/call',
+        params: { name: 'list_recoverable_rounds', arguments: {} },
+      }) + '\n'
+    );
+    const discovery = await waitFor(73);
+    assert.deepStrictEqual(discovery.result.structuredContent.rounds.length, 1);
+    const [round] = discovery.result.structuredContent.rounds;
+    assert.equal(round.state, 'drafting');
+    assert.match(round.roundId, /^round_/);
+    assert.equal(round.questionCount, 1);
+    assert.doesNotMatch(JSON.stringify(discovery.result), /Private prompt|Yes|capability/i);
+  } finally {
+    mcp.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'notifications/cancelled',
+        params: { requestId: 71, reason: 'test cleanup' },
+      }) + '\n'
+    );
+    const exits = [mcp, server].map((child) =>
+      child.exitCode === null
+        ? new Promise((resolve) => child.once('exit', resolve))
+        : Promise.resolve()
+    );
+    mcp.kill();
+    server.kill();
+    await Promise.all(exits);
+    fs.rmSync(xdg, { recursive: true, force: true });
+  }
 });
 
 test('mcp-server: string options bridge timeoutuna düşmeden açık giriş hatası döndürür', async () => {
