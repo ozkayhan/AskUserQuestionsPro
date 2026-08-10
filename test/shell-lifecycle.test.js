@@ -60,7 +60,13 @@ test(
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-antigravity-shell-home-'));
     const fakeAgy = path.join(home, 'fake-agy');
     try {
-      fs.writeFileSync(fakeAgy, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+      fs.writeFileSync(
+        fakeAgy,
+        '#!/bin/sh\nif [ "$1 $2" = "plugin list" ]; then\n' +
+          '  printf \'{"imports":[{"name":"askuserquestionspro"}]}\\n\'\n' +
+          'fi\nexit 0\n',
+        { mode: 0o755 }
+      );
       const env = {
         ...process.env,
         HOME: home,
