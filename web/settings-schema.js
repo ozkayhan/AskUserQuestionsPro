@@ -38,6 +38,7 @@
     {
       key: 'theme',
       label: 'Theme',
+      description: 'Choose the visual theme for the question workspace.',
       group: 'Appearance',
       type: 'select',
       default: Themes.DEFAULT_ID,
@@ -53,6 +54,7 @@
     {
       key: 'accentColor',
       label: 'Accent color',
+      description: 'Choose the color used for focus, selection, and primary actions.',
       group: 'Appearance',
       type: 'select',
       default: 'theme',
@@ -84,6 +86,7 @@
     {
       key: 'cornerRadius',
       label: 'Corner radius',
+      description: 'Control how rounded controls and question cards appear.',
       group: 'Appearance',
       type: 'select',
       default: 'default',
@@ -114,6 +117,7 @@
     {
       key: 'motionSpeed',
       label: 'Motion speed',
+      description: 'Adjust interface transitions or turn them off completely.',
       group: 'Appearance',
       type: 'select',
       default: 'normal',
@@ -138,6 +142,7 @@
     {
       key: 'fontFamily',
       label: 'Font',
+      description: 'Choose the typeface used across the question workspace.',
       group: 'Appearance',
       type: 'select',
       default: 'system',
@@ -174,6 +179,7 @@
     {
       key: 'uiScale',
       label: 'Interface scale',
+      description: 'Make text and controls smaller or larger without changing content.',
       group: 'Appearance',
       type: 'select',
       default: 'md',
@@ -192,6 +198,7 @@
     {
       key: 'highContrast',
       label: 'High contrast',
+      description: 'Increase text and border contrast for easier reading.',
       group: 'Appearance',
       type: 'toggle',
       default: false,
@@ -204,6 +211,7 @@
     {
       key: 'reduceMotion',
       label: 'Reduce motion',
+      description: 'Minimize animation and transition effects after the next reload.',
       group: 'Appearance',
       type: 'toggle',
       default: false,
@@ -215,6 +223,7 @@
     {
       key: 'qtypeBinary',
       label: 'Binary (yes/no)',
+      description: 'Allow yes/no questions in new rounds.',
       group: 'Question types',
       type: 'toggle',
       default: true,
@@ -224,6 +233,7 @@
     {
       key: 'qtypeScale',
       label: 'Scale',
+      description: 'Allow rating and scale questions in new rounds.',
       group: 'Question types',
       type: 'toggle',
       default: true,
@@ -233,6 +243,7 @@
     {
       key: 'qtypeRanking',
       label: 'Ranking',
+      description: 'Allow ordering and ranking questions in new rounds.',
       group: 'Question types',
       type: 'toggle',
       default: true,
@@ -242,6 +253,7 @@
     {
       key: 'qtypeTree',
       label: 'Decision tree',
+      description: 'Allow branching decision-tree questions in new rounds.',
       group: 'Question types',
       type: 'toggle',
       default: true,
@@ -251,6 +263,7 @@
     {
       key: 'autoAdvance',
       label: 'Auto-advance single-select',
+      description: 'Move on immediately after a single choice is selected.',
       group: 'Behavior',
       type: 'toggle',
       default: false,
@@ -260,6 +273,7 @@
     {
       key: 'confirmSubmit',
       label: 'Confirm before submit',
+      description: 'Ask for confirmation before sending your completed answers.',
       group: 'Behavior',
       type: 'toggle',
       default: false,
@@ -269,6 +283,7 @@
     {
       key: 'showKeyHints',
       label: 'Show keyboard hints',
+      description: 'Show shortcut hints beside actions when they are available.',
       group: 'Interface',
       type: 'toggle',
       default: true,
@@ -281,6 +296,7 @@
     {
       key: 'showCounter',
       label: 'Show answered counter',
+      description: 'Show answered and total question counts in the workspace.',
       group: 'Interface',
       type: 'toggle',
       default: true,
@@ -293,6 +309,7 @@
     {
       key: 'focusMode',
       label: 'Focus mode',
+      description: 'Hide the question list so the current question gets all attention.',
       group: 'Interface',
       type: 'toggle',
       default: false,

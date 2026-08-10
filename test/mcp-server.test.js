@@ -124,12 +124,16 @@ test('mcp-server: initialize ve tools/list', async (_t) => {
   const askTool = tools.find((t) => t.name === 'ask');
   const resumeTool = tools.find((t) => t.name === 'resume');
   const recoveryTool = tools.find((t) => t.name === 'list_recoverable_rounds');
+  const cancelTool = tools.find((t) => t.name === 'cancel_round');
   assert.ok(askTool, '"ask" adında araç olmalı');
   assert.ok(resumeTool, '"resume" adında araç olmalı');
   assert.ok(recoveryTool, '"list_recoverable_rounds" adında araç olmalı');
+  assert.ok(cancelTool, '"cancel_round" adında araç olmalı');
   assert.match(resumeTool.description, /detached|timeout|resume/i);
   assert.strictEqual(recoveryTool.annotations.readOnlyHint, true);
   assert.deepStrictEqual(recoveryTool.outputSchema.required, ['rounds']);
+  assert.strictEqual(cancelTool.annotations.destructiveHint, true);
+  assert.deepStrictEqual(cancelTool.outputSchema.required, ['cancelled', 'roundId']);
   assert.match(askTool.description, /request_user_input/);
   assert.deepStrictEqual(askTool.outputSchema.required, ['answers']);
   assert.strictEqual(askTool.annotations.readOnlyHint, true);
@@ -295,6 +299,23 @@ test('mcp-server: pending collision exposes only redacted recovery discovery', a
     assert.match(round.roundId, /^round_/);
     assert.equal(round.questionCount, 1);
     assert.doesNotMatch(JSON.stringify(discovery.result), /Private prompt|Yes|capability/i);
+
+    mcp.stdin.write(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 74,
+        method: 'tools/call',
+        params: { name: 'cancel_round', arguments: { roundId: round.roundId } },
+      }) + '\n'
+    );
+    const cancelled = await waitFor(74);
+    assert.equal(cancelled.result.isError, undefined);
+    assert.deepEqual(cancelled.result.structuredContent, {
+      cancelled: true,
+      roundId: round.roundId,
+    });
+    const currentAfterCancel = await (await fetch(`http://127.0.0.1:${port}/current`)).json();
+    assert.equal(currentAfterCancel.id, null, 'cancel_round active roundu temizlemeli');
   } finally {
     mcp.stdin.write(
       JSON.stringify({

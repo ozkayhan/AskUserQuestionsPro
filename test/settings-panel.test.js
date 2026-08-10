@@ -104,6 +104,24 @@ test('[HIGH] SettingRow: role="switch" still present alongside aria-label', () =
   assert.ok(src.includes('aria-checked={value === true}'), 'aria-checked must remain');
 });
 
+test('[MEDIUM] select settings expose pressed state and readable descriptions', () => {
+  assert.ok(src.includes('aria-pressed={o.value === value}'));
+  assert.ok(src.includes('{entry.description}'));
+});
+
+test('[MEDIUM] destructive and close paths ask before discarding a dirty draft', () => {
+  assert.ok(src.includes('showDiscardPrompt'));
+  assert.ok(src.includes('Discard unsaved changes?'));
+  assert.ok(src.includes('setResetConfirm(true)'));
+  assert.ok(!src.includes('window.confirm('), 'settings should use an in-context confirmation');
+});
+
+test('[MEDIUM] data recovery is progressively disclosed', () => {
+  assert.ok(src.includes('className="settings__data"'));
+  assert.ok(src.includes('className="settings__data-summary"'));
+  assert.ok(src.includes('setDataOpen(true)'));
+});
+
 test('useRef imported (required for abortRef and sessionBaseline)', () => {
   assert.ok(src.includes('useRef'), 'useRef must be imported and used');
 });

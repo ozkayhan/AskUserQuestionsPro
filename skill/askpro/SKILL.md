@@ -1,6 +1,6 @@
 ---
 name: askpro
-description: 'Use the mcp__askuserquestionspro__ask tool for structured user questions in Codex App, Codex CLI, or Claude Code. It opens a full-screen local review UI with unlimited questions, grouped headers, and 6 rich types (binary, single, multi, scale, ranking, tree). Trigger when gathering requirements, preferences, surveys, onboarding data, or whenever choices and review improve the answer. Critical payload rule: every options entry must be an object with a string label, never a bare string; use the host-native tool only when askpro is unavailable or a short free-text question is clearer.'
+description: 'Use the mcp__askuserquestionspro__ask tool for structured user questions in Codex App, Codex CLI, or Claude Code. It opens a full-screen local review UI with unlimited questions, grouped headers, and 6 rich types (binary, single, multi, scale, ranking, tree). Match the user language when writing every question, header, option, and description. Trigger when gathering requirements, preferences, surveys, onboarding data, or whenever choices and review improve the answer. Critical payload rule: every options entry must be an object with a string label, never a bare string; use the host-native tool only when askpro is unavailable or a short free-text question is clearer.'
 ---
 
 # askpro — structured questions for Codex and Claude Code
@@ -53,7 +53,9 @@ the returned category once:
 - `host cancelled` → treat the round as incomplete and use the native tool; do not claim the user submitted answers.
 - `host timeout` or a dropped MCP connection → call `mcp__askuserquestionspro__resume` before starting a new round; the browser round is retained for up to one hour.
 - `round_in_progress` → call `mcp__askuserquestionspro__list_recoverable_rounds`; resume an exact `roundId` only when its state is `detached` or `reconnecting`. A `drafting` round is still attached to its original ask call.
+- If the user says to stop, close, replace, or translate the currently open round, call `mcp__askuserquestionspro__cancel_round` with its exact `roundId` (use recovery discovery if necessary), then issue a new `ask` in the user's requested language. Do not claim that an active round cannot be cancelled.
 - Never describe an input-validation error as a bridge outage or run local diagnostics for it.
+- An already-open round is immutable: do not pretend its questions can be edited in place. Cancel it explicitly and create a new round instead.
 
 For long rounds, the MCP server may send optional progress notifications while
 the browser is waiting. This keeps the request visibly active for hosts that

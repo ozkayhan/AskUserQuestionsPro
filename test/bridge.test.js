@@ -106,6 +106,30 @@ test('Bridge draft saves are capability/revision guarded, idempotent, and reload
   );
 });
 
+test('Bridge.cancelRecoverable cancels one exact active round and preserves newer ownership', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-cancel-control-'));
+  const store = new RoundStore({ root });
+  const bridge = new Bridge({ store });
+  const owner = bridge.submitQuestions([{ question: 'cancel me' }], 'cancel-control');
+  owner.catch(() => {});
+  const current = bridge.peek('cancel-control');
+
+  assert.deepEqual(bridge.cancelRecoverable(current.roundId), {
+    ok: true,
+    roundId: current.roundId,
+  });
+  assert.equal(bridge.peek(), null);
+  assert.equal(store.get(current.roundId).record.lifecycle.state, 'cancelled');
+  assert.equal(bridge.cancelRecoverable(current.roundId).code, 'stale_round');
+
+  const nextOwner = bridge.submitQuestions([{ question: 'keep me' }], 'next-round');
+  nextOwner.catch(() => {});
+  const next = bridge.peek('next-round');
+  assert.equal(bridge.cancelRecoverable(current.roundId).code, 'stale_round');
+  assert.equal(bridge.peek('next-round').roundId, next.roundId);
+  bridge.cancel('test cleanup', next.id, next.capability);
+});
+
 function scheduler() {
   let now = 0;
   const pending = new Map();
