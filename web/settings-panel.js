@@ -50,40 +50,59 @@ function SettingsButton({ onOpen, buttonRef }) {
   );
 }
 
+function settingValueLabel(entry, value) {
+  if (entry.type === 'toggle') return value ? 'On' : 'Off';
+  const option = entry.options.find((item) => item.value === value);
+  return option ? option.label : String(value);
+}
+
 /* Tek kontrol satırı — type'a göre select segment veya toggle switch. */
 function SettingRow({ entry, value, onChange }) {
+  const controlId = `setting-${entry.key}`;
+  const valueLabel = settingValueLabel(entry, value);
   return (
-    <div className="setting-row">
+    <div className="setting-row" data-setting={entry.key}>
       <div className="setting-row__copy">
-        <div className="setting-row__label">{entry.label}</div>
-        <div className="setting-row__description">
-          Configure {entry.label.toLowerCase()} for this round.
+        <div id={`${controlId}-label`} className="setting-row__label">
+          {entry.label}
         </div>
-        <div className="setting-row__effect">
-          Current value: <strong>{String(value)}</strong> · Applies{' '}
-          {entry.applies === 'reload' ? 'after reload' : 'now'}
+        <div id={`${controlId}-description`} className="setting-row__description">
+          {entry.description}
+        </div>
+        <div className="setting-row__meta">
+          <span>
+            Current: <strong>{valueLabel}</strong>
+          </span>
+          <span className="setting-row__effect" data-applies={entry.applies}>
+            {entry.applies === 'reload' ? 'After reload' : 'Applies now'}
+          </span>
         </div>
       </div>
       {entry.type === 'toggle' ? (
         <button
+          id={controlId}
           className="setting-toggle"
           data-on={value === true}
           type="button"
           role="switch"
           aria-checked={value === true}
           aria-label={entry.label}
+          aria-describedby={`${controlId}-description`}
           onClick={() => onChange(!value)}
         >
           <span className="setting-toggle__dot" />
         </button>
       ) : (
-        <div className="setting-seg">
+        <div className="setting-seg" role="group" aria-labelledby={`${controlId}-label`}>
           {entry.options.map((o) => (
             <button
               key={o.value}
               className="setting-seg__btn"
               data-active={o.value === value}
               type="button"
+              aria-pressed={o.value === value}
+              aria-label={`${entry.label}: ${o.label}`}
+              aria-describedby={`${controlId}-description`}
               onClick={() => onChange(o.value)}
             >
               {o.label}
@@ -104,6 +123,16 @@ const SETTINGS_NAMESPACES = [
   'closure',
   'adapters',
 ];
+
+const SETTINGS_NAMESPACE_LABELS = {
+  browser: 'Browser',
+  recovery: 'Recovery',
+  autosave: 'Autosave',
+  diagnostics: 'Diagnostics',
+  delivery: 'Delivery',
+  closure: 'Closure',
+  adapters: 'Adapters',
+};
 
 function currentEnvelope() {
   const value = typeof window !== 'undefined' && window.__ASKUSER_SETTINGS_V2__;
@@ -127,6 +156,8 @@ function SettingsDataPanel({ sessionBaseline, onSettingsChanged }) {
   const [error, setError] = useStateSet('');
   const [namespace, setNamespace] = useStateSet('browser');
   const [preview, setPreview] = useStateSet(null);
+  const [dataOpen, setDataOpen] = useStateSet(false);
+  const [resetConfirm, setResetConfirm] = useStateSet(false);
   const importRef = useRefSet(null);
 
   async function loadDoctor() {
@@ -197,6 +228,7 @@ function SettingsDataPanel({ sessionBaseline, onSettingsChanged }) {
     const file = event.target.files && event.target.files[0];
     event.target.value = '';
     if (!file) return;
+    setDataOpen(true);
     try {
       const payload = JSON.parse(await file.text());
       await previewPayload(payload, `Preview ready for ${file.name}.`);
@@ -206,7 +238,8 @@ function SettingsDataPanel({ sessionBaseline, onSettingsChanged }) {
   }
 
   async function resetNamespace() {
-    if (!doctor || !window.confirm(`Reset the ${namespace} settings to defaults?`)) return;
+    if (!doctor) return;
+    setResetConfirm(false);
     clearFeedback();
     setBusy(true);
     try {
@@ -226,136 +259,180 @@ function SettingsDataPanel({ sessionBaseline, onSettingsChanged }) {
   }
 
   function rollbackSession() {
+    setDataOpen(true);
     previewPayload(sessionBaseline, 'Session-start settings are ready to apply.');
   }
 
   const effective = doctor && doctor.effective;
   return (
-    <div className="settings__data" aria-labelledby="settings-data-title">
-      <div id="settings-data-title" className="settings__group-title">
-        Data & recovery
-      </div>
-      <p className="settings__data-copy">
-        Export a portable backup, review an import before it changes anything, or recover one
-        namespace without touching the others.
-      </p>
-      <div className="settings__data-actions">
-        <button
-          className="btn"
-          type="button"
-          onClick={() => {
-            const link = document.createElement('a');
-            link.href = '/settings/export';
-            link.download = 'askuserquestionspro-settings-v2.json';
-            link.click();
-          }}
-          disabled={busy}
-        >
-          Export backup
-        </button>
-        <button
-          className="btn"
-          type="button"
-          onClick={() => importRef.current?.click()}
-          disabled={busy}
-        >
-          Import backup
-        </button>
-        <input
-          ref={importRef}
-          className="sr-only"
-          type="file"
-          accept="application/json,.json"
-          onChange={handleImport}
-        />
-      </div>
-      {preview && (
-        <div className="settings__preview" role="status" aria-live="polite">
-          <strong>Import preview</strong>
-          <span>
-            {preview.result.valid ? 'Schema is valid.' : 'Schema needs attention.'}{' '}
-            {preview.result.migration ? 'Legacy format will be migrated safely.' : ''}
-          </span>
-          {preview.result.ignored && preview.result.ignored.count > 0 && (
-            <span>{preview.result.ignored.count} unknown field(s) will be ignored.</span>
-          )}
-          {preview.result.errors?.length > 0 && (
-            <span className="settings__notice--error">
-              {preview.result.errors.map((item) => item.error).join(', ')}
+    <details
+      className="settings__data"
+      open={dataOpen}
+      onToggle={(event) => setDataOpen(event.currentTarget.open)}
+    >
+      <summary id="settings-data-title" className="settings__data-summary">
+        <span>
+          <strong>Data & recovery</strong>
+          <small>Backups, imports, and targeted resets</small>
+        </span>
+        <span className="settings__summary-chevron" aria-hidden="true">
+          ›
+        </span>
+      </summary>
+      <div className="settings__data-body">
+        <p className="settings__data-copy">
+          Export a portable backup, review an import before it changes anything, or recover one
+          namespace without touching the others.
+        </p>
+        <div className="settings__data-actions">
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              const link = document.createElement('a');
+              link.href = '/settings/export';
+              link.download = 'askuserquestionspro-settings-v2.json';
+              link.click();
+            }}
+            disabled={busy}
+          >
+            Export backup
+          </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => importRef.current?.click()}
+            disabled={busy}
+          >
+            Import backup
+          </button>
+          <input
+            ref={importRef}
+            className="sr-only"
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImport}
+          />
+        </div>
+        {preview && (
+          <div className="settings__preview" role="status" aria-live="polite">
+            <strong>Import preview</strong>
+            <span>
+              {preview.result.valid ? 'Schema is valid.' : 'Schema needs attention.'}{' '}
+              {preview.result.migration ? 'Legacy format will be migrated safely.' : ''}
             </span>
-          )}
-          <div className="settings__data-actions">
-            <button
-              className="btn btn--primary"
-              type="button"
-              onClick={applyPreview}
-              disabled={busy || !preview.result.canApply}
-            >
-              Apply import
-            </button>
-            <button className="btn" type="button" onClick={() => setPreview(null)} disabled={busy}>
-              Discard
-            </button>
-          </div>
-        </div>
-      )}
-      <div className="settings__reset-row">
-        <select
-          aria-label="Settings namespace"
-          value={namespace}
-          onChange={(event) => setNamespace(event.target.value)}
-          disabled={busy}
-        >
-          {SETTINGS_NAMESPACES.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <button className="btn" type="button" onClick={resetNamespace} disabled={busy || !doctor}>
-          Reset namespace
-        </button>
-        <button className="btn" type="button" onClick={rollbackSession} disabled={busy}>
-          Undo session changes
-        </button>
-      </div>
-      {message && (
-        <div className="settings__notice" role="status" aria-live="polite">
-          {message}
-        </div>
-      )}
-      {error && (
-        <div
-          className="settings__notice settings__notice--error"
-          role="alert"
-          aria-live="assertive"
-        >
-          {error}
-        </div>
-      )}
-      {doctorError && (
-        <div className="settings__notice settings__notice--error" role="alert">
-          {doctorError}
-        </div>
-      )}
-      <details className="settings__doctor">
-        <summary>Effective settings & health</summary>
-        {effective ? (
-          <pre>
-            {JSON.stringify(
-              { status: doctor.status, migration: doctor.migration, effective },
-              null,
-              2
+            {preview.result.ignored && preview.result.ignored.count > 0 && (
+              <span>{preview.result.ignored.count} unknown field(s) will be ignored.</span>
             )}
-          </pre>
-        ) : (
-          <span>Loading…</span>
+            {preview.result.errors?.length > 0 && (
+              <span className="settings__notice--error">
+                {preview.result.errors.map((item) => item.error).join(', ')}
+              </span>
+            )}
+            <div className="settings__data-actions">
+              <button
+                className="btn btn--primary"
+                type="button"
+                onClick={applyPreview}
+                disabled={busy || !preview.result.canApply}
+              >
+                Apply import
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => setPreview(null)}
+                disabled={busy}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
         )}
-        <button className="btn" type="button" onClick={loadDoctor} disabled={busy}>
-          Refresh status
-        </button>
-      </details>
-    </div>
+        <div className="settings__reset-row">
+          <label htmlFor="settings-namespace">Reset one area</label>
+          <select
+            id="settings-namespace"
+            aria-label="Settings namespace"
+            value={namespace}
+            onChange={(event) => {
+              setNamespace(event.target.value);
+              setResetConfirm(false);
+            }}
+            disabled={busy}
+          >
+            {SETTINGS_NAMESPACES.map((item) => (
+              <option key={item} value={item}>
+                {SETTINGS_NAMESPACE_LABELS[item]}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn--danger-quiet"
+            type="button"
+            onClick={() => setResetConfirm(true)}
+            disabled={busy || !doctor}
+          >
+            Reset area
+          </button>
+          <button className="btn" type="button" onClick={rollbackSession} disabled={busy}>
+            Undo session changes
+          </button>
+        </div>
+        {resetConfirm && (
+          <div className="settings__confirm" role="alertdialog" aria-labelledby="reset-title">
+            <div>
+              <strong id="reset-title">Reset {SETTINGS_NAMESPACE_LABELS[namespace]}?</strong>
+              <span>This only changes this area. You can cancel before applying it.</span>
+            </div>
+            <div className="settings__data-actions">
+              <button className="btn" type="button" onClick={() => setResetConfirm(false)}>
+                Keep settings
+              </button>
+              <button className="btn btn--danger" type="button" onClick={resetNamespace}>
+                Reset area
+              </button>
+            </div>
+          </div>
+        )}
+        {message && (
+          <div className="settings__notice" role="status" aria-live="polite">
+            {message}
+          </div>
+        )}
+        {error && (
+          <div
+            className="settings__notice settings__notice--error"
+            role="alert"
+            aria-live="assertive"
+          >
+            {error}
+          </div>
+        )}
+        {doctorError && (
+          <div className="settings__notice settings__notice--error" role="alert">
+            {doctorError}
+          </div>
+        )}
+        <details className="settings__doctor">
+          <summary>Advanced: effective settings & health</summary>
+          {effective ? (
+            <pre>
+              {JSON.stringify(
+                { status: doctor.status, migration: doctor.migration, effective },
+                null,
+                2
+              )}
+            </pre>
+          ) : (
+            <span>Loading…</span>
+          )}
+          <button className="btn" type="button" onClick={loadDoctor} disabled={busy}>
+            Refresh status
+          </button>
+        </details>
+      </div>
+    </details>
   );
 }
 
@@ -367,6 +444,7 @@ function SettingsModal({ onClose }) {
   const [saved, setSaved] = useStateSet(false);
   const [saveError, setSaveError] = useStateSet(false);
   const [needsReload, setNeedsReload] = useStateSet(false);
+  const [showDiscardPrompt, setShowDiscardPrompt] = useStateSet(false);
   const sessionBaselineEnvelope = useRefSet(() => currentEnvelope()).current;
   // ponytail: isSaving guard — prevents double-save and guards cancel/Escape during fetch.
   const [isSaving, setIsSaving] = useStateSet(false);
@@ -431,11 +509,20 @@ function SettingsModal({ onClose }) {
     }
   }
 
+  function discardAndClose() {
+    if (isSaving) return;
+    Settings_Schema.applyAll(baseline);
+    setShowDiscardPrompt(false);
+    onClose();
+  }
+
   function cancel() {
     // Block cancel while save is in-flight to avoid state inconsistency.
     if (isSaving) return;
-    // Kaydedilmişse revert etme — sadece önizleme yapılıp vazgeçilmişse geri al.
-    if (!saved) Settings_Schema.applyAll(baseline);
+    if (isDirty) {
+      setShowDiscardPrompt(true);
+      return;
+    }
     onClose();
   }
 
@@ -477,6 +564,7 @@ function SettingsModal({ onClose }) {
         setBaseline({ ...res.settings });
         setIsSaving(false);
         setSaved(true);
+        setShowDiscardPrompt(false);
       })
       .catch((err) => {
         // Ignore abort errors (unmount cleanup).
@@ -506,6 +594,16 @@ function SettingsModal({ onClose }) {
   }
 
   const groups = Settings_Schema.groups();
+  const changedCount = Settings_Schema.entries().filter(
+    (entry) => draft[entry.key] !== baseline[entry.key]
+  ).length;
+  const isDirty = changedCount > 0;
+  const groupDescriptions = {
+    Appearance: 'Personalize the look and feel.',
+    'Question types': 'Choose formats allowed in new rounds.',
+    Behavior: 'Choose how rounds advance and submit.',
+    Interface: 'Keep the workspace focused.',
+  };
   return (
     <div
       className="overlay"
@@ -521,14 +619,14 @@ function SettingsModal({ onClose }) {
         aria-labelledby="settings-title"
         aria-describedby="settings-description"
       >
-        <h2 id="settings-title" className="sr-only">
-          Settings
-        </h2>
-        <p id="settings-description" className="sr-only">
-          Review and save your AskUserQuestionsPro settings.
-        </p>
         <div className="settings__head">
-          <div className="settings__chip">Settings</div>
+          <div className="settings__heading">
+            <span className="settings__eyebrow">Workspace preferences</span>
+            <h2 id="settings-title">Settings</h2>
+            <p id="settings-description">
+              Tune the workspace. Changes preview instantly and save together.
+            </p>
+          </div>
           <button
             ref={closeRef}
             className="btn settings__close"
@@ -536,51 +634,101 @@ function SettingsModal({ onClose }) {
             disabled={isSaving}
             aria-label="Close settings"
           >
-            Close
+            <span aria-hidden="true">×</span>
+            <span className="sr-only">Close settings</span>
           </button>
         </div>
-        {groups.map((g) => (
-          <div key={g} className="settings__group">
-            <div className="settings__group-title">{g}</div>
-            {Settings_Schema.entries()
-              .filter((e) => e.group === g)
-              .map((e) => (
-                <SettingRow
-                  key={e.key}
-                  entry={e}
-                  value={draft[e.key]}
-                  onChange={(v) => change(e.key, v)}
-                />
-              ))}
-          </div>
-        ))}
-        <SettingsDataPanel
-          sessionBaseline={sessionBaselineEnvelope}
-          onSettingsChanged={adoptEnvelope}
-        />
-        {needsReload && (
-          <div role="status" aria-live="polite" className="settings__notice">
-            Reload the page for this to fully take effect.
-          </div>
-        )}
-        {saveError && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            className="settings__notice settings__notice--error"
+        <div className="settings__statusbar" role="status" aria-live="polite">
+          <span
+            className={isDirty ? 'settings__status settings__status--dirty' : 'settings__status'}
           >
-            Settings could not be saved. Your previous settings are still active. Try again.
+            <span className="settings__status-dot" aria-hidden="true" />
+            {isDirty
+              ? `${changedCount} unsaved ${changedCount === 1 ? 'change' : 'changes'}`
+              : saved
+                ? 'All changes saved'
+                : 'No changes yet'}
+          </span>
+          <span className="settings__status-hint">Esc to close</span>
+        </div>
+        <div className="settings__body">
+          {groups.map((g) => (
+            <section key={g} className="settings__group" aria-labelledby={`settings-group-${g}`}>
+              <div className="settings__group-head">
+                <h3 id={`settings-group-${g}`} className="settings__group-title">
+                  {g}
+                </h3>
+                <p>{groupDescriptions[g]}</p>
+              </div>
+              <div className="settings__group-rows">
+                {Settings_Schema.entries()
+                  .filter((e) => e.group === g)
+                  .map((e) => (
+                    <SettingRow
+                      key={e.key}
+                      entry={e}
+                      value={draft[e.key]}
+                      onChange={(v) => change(e.key, v)}
+                    />
+                  ))}
+              </div>
+            </section>
+          ))}
+          <SettingsDataPanel
+            sessionBaseline={sessionBaselineEnvelope}
+            onSettingsChanged={adoptEnvelope}
+          />
+          {needsReload && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="settings__notice settings__notice--reload"
+            >
+              <strong>Reload required</strong>
+              <span>Reload the page after saving for this change to fully take effect.</span>
+            </div>
+          )}
+          {saveError && (
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="settings__notice settings__notice--error"
+            >
+              <strong>Couldn’t save settings</strong>
+              <span>Your previous settings are still active. Try again.</span>
+            </div>
+          )}
+        </div>
+        {showDiscardPrompt && (
+          <div className="settings__discard" role="alertdialog" aria-labelledby="discard-title">
+            <div>
+              <strong id="discard-title">Discard unsaved changes?</strong>
+              <span>Your current choices will be reverted.</span>
+            </div>
+            <div className="settings__actions">
+              <button className="btn" type="button" onClick={() => setShowDiscardPrompt(false)}>
+                Keep editing
+              </button>
+              <button className="btn btn--danger" type="button" onClick={discardAndClose}>
+                Discard changes
+              </button>
+            </div>
           </div>
         )}
         <div className="settings__foot">
           <span role="status" aria-live="polite" className="settings__saved">
-            {saved ? 'Settings saved.' : ''}
+            {isSaving ? 'Saving your changes…' : saved && !isDirty ? 'Settings saved.' : ''}
           </span>
           <div className="settings__actions">
-            <button className="btn" onClick={cancel} disabled={isSaving}>
-              Cancel
+            <button className="btn" type="button" onClick={cancel} disabled={isSaving}>
+              {isDirty ? 'Review & close' : 'Close'}
             </button>
-            <button className="btn btn--primary" onClick={save} disabled={isSaving}>
+            <button
+              className="btn btn--primary"
+              type="button"
+              onClick={save}
+              disabled={isSaving || !isDirty}
+            >
               {isSaving ? 'Saving…' : 'Save settings'}
             </button>
           </div>

@@ -121,7 +121,7 @@ async function main() {
     cli('resize', '320', '480');
     assert.equal(
       evaluate(
-        "(() => { const d=document.querySelector('[role=dialog]'); return d.scrollHeight > d.clientHeight; })()"
+        "(() => { const d=document.querySelector('.settings__body'); return d.scrollHeight > d.clientHeight; })()"
       ),
       true
     );
