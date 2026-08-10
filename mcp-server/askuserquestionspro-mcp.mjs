@@ -402,7 +402,7 @@ async function handleAsk(args, signal, { progressToken } = {}) {
 }
 
 async function handleResume(args, signal, { progressToken } = {}) {
-  const { ensureServer, resumeBridge } = await import('../lib/bridge-client.mjs');
+  const { ensureServer, openBrowser, resumeBridge } = await import('../lib/bridge-client.mjs');
   if (!(await ensureServer())) {
     return {
       content: [
@@ -421,13 +421,17 @@ async function handleResume(args, signal, { progressToken } = {}) {
     intervalMs: progressIntervalMs(),
   });
   try {
-    const answers = await resumeBridge(
+    const answersPromise = resumeBridge(
       args?.roundId ? { roundId: args.roundId, requestId: args?.requestId } : args?.requestId,
       {
         timeoutMs: 60 * 60 * 1000,
         signal,
       }
     );
+    // A resumed round has no originating host request left to keep its local
+    // UI visible. Reuse the initial ask handoff while preserving manual mode.
+    openBrowser();
+    const answers = await answersPromise;
     return formatAnswers(answers);
   } catch (e) {
     const cause =
