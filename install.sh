@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # askuserquestionspro — production-grade kurulum.
 # GitHub'dan TAZE çeker (git clone, fallback curl-zip), kalıcı konuma kurar,
-# Claude Code ve/veya Codex için hook + MCP kaydını bundled Node logic'iyle yapar
+# Claude Code, Codex ve/veya Antigravity CLI için hook + MCP kaydını bundled Node logic'iyle yapar
 # ve KESİN doğrular.
 # npm KULLANMAZ. Idempotent: tekrar tekrar çalıştırılabilir.
 set -euo pipefail
@@ -11,16 +11,18 @@ BRANCH="main"
 INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
 CLAUDE_SKILL_DEST="$HOME/.claude/skills/askpro"
 CODEX_SKILL_DEST="$HOME/.agents/skills/askpro"
+ANTIGRAVITY_PLUGIN_DEST="$HOME/.gemini/antigravity-cli/plugins/askuserquestionspro"
 TARGET="${ASKUSER_TARGET:-auto}"
 
 usage() {
   cat <<'EOF'
-Kullanım: install.sh [--target auto|all|claude|codex]
+Kullanım: install.sh [--target auto|all|claude|codex|antigravity]
 
-  auto    Kurulu Claude Code ve Codex/ChatGPT Desktop yüzeylerini keşfeder (varsayılan)
-  all     Claude Code ve Codex'in ikisini de yapılandırır
+  auto    Kurulu Claude Code, Codex/ChatGPT Desktop ve Antigravity CLI yüzeylerini keşfeder (varsayılan)
+  all     Claude Code, Codex ve Antigravity CLI'nin üçünü de yapılandırır
   claude  Yalnız Claude Code'u yapılandırır
   codex   Yalnız Codex App/CLI ve ChatGPT Desktop'ı yapılandırır
+  antigravity  Yalnız Antigravity CLI'yi yapılandırır
 EOF
 }
 
@@ -36,7 +38,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$TARGET" in
-  auto|all|claude|codex) ;;
+  auto|all|claude|codex|antigravity) ;;
   *) printf 'Geçersiz target: %s\n' "$TARGET" >&2; usage >&2; exit 2 ;;
 esac
 
@@ -65,17 +67,29 @@ codex_is_available() {
   return 1
 }
 
+antigravity_is_available() {
+  if [ -n "${ASKUI_ANTIGRAVITY_BIN:-}" ]; then
+    [ -x "$ASKUI_ANTIGRAVITY_BIN" ]
+    return $?
+  fi
+  command -v agy >/dev/null 2>&1 && return 0
+  [ -x "$HOME/.local/bin/agy" ] || [ -x "$HOME/.gemini/antigravity-cli/bin/agy" ]
+}
+
 CLAUDE_SELECTED=0
 CODEX_SELECTED=0
+ANTIGRAVITY_SELECTED=0
 case "$TARGET" in
-  all) CLAUDE_SELECTED=1; CODEX_SELECTED=1 ;;
+  all) CLAUDE_SELECTED=1; CODEX_SELECTED=1; ANTIGRAVITY_SELECTED=1 ;;
   claude) CLAUDE_SELECTED=1 ;;
   codex) CODEX_SELECTED=1 ;;
+  antigravity) ANTIGRAVITY_SELECTED=1 ;;
   auto)
     claude_is_available && CLAUDE_SELECTED=1
     codex_is_available && CODEX_SELECTED=1
+    antigravity_is_available && ANTIGRAVITY_SELECTED=1
     # Bundled CLI da host bulunmadığında geriye uyumluluk için Claude dosyalarını hazırlar.
-    if [ "$CLAUDE_SELECTED" -eq 0 ] && [ "$CODEX_SELECTED" -eq 0 ]; then
+    if [ "$CLAUDE_SELECTED" -eq 0 ] && [ "$CODEX_SELECTED" -eq 0 ] && [ "$ANTIGRAVITY_SELECTED" -eq 0 ]; then
       CLAUDE_SELECTED=1
     fi
     ;;
@@ -99,7 +113,7 @@ die()  { err "$*"; exit 1; }
 CURRENT_STEP="başlangıç"
 trap 'err "Kurulum \"$CURRENT_STEP\" adımında başarısız oldu (satır $LINENO)."' ERR
 
-printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kurulumu — Claude Code + Codex (target: $TARGET)${C_RESET}"
+printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kurulumu — Claude Code + Codex + Antigravity CLI (target: $TARGET)${C_RESET}"
 
 # ── 1/6 Preflight ───────────────────────────────────────────────────────────
 CURRENT_STEP="ön koşul kontrolü"
@@ -190,10 +204,10 @@ ok "dosyalar kopyalandı"
 
 # ── 5/6 Hook + MCP kaydı + skill (bundled Node logic) ───────────────────────
 CURRENT_STEP="hook, MCP ve skill kaydı"
-step "5/6  Claude/Codex MCP, hook ve skill kaydediliyor (target: $TARGET)"
+step "5/6  Claude/Codex/Antigravity MCP, hook ve skill kaydediliyor (target: $TARGET)"
 # cli.js kendi konumuna (INSTALL_DIR) göre path kurar → kalıcı yola işaret eder.
 if ! node "$INSTALL_DIR/bin/cli.js" install --target "$TARGET"; then
-  die "Claude/Codex kaydı başarısız. Tanı: node \"$INSTALL_DIR/bin/cli.js\" doctor --target \"$TARGET\""
+  die "host kaydı başarısız. Tanı: node \"$INSTALL_DIR/bin/cli.js\" doctor --target \"$TARGET\""
 fi
 ok "bundled host kaydı tamam"
 
@@ -229,6 +243,13 @@ if [ "$CODEX_SELECTED" -eq 1 ]; then
     err "Codex/ChatGPT Desktop skill doğrulanamadı"; VERIFY_FAIL=1
   fi
 fi
+if [ "$ANTIGRAVITY_SELECTED" -eq 1 ]; then
+  if [ -f "$ANTIGRAVITY_PLUGIN_DEST/plugin.json" ] && [ -f "$ANTIGRAVITY_PLUGIN_DEST/skills/askpro/SKILL.md" ]; then
+    ok "Antigravity CLI plugin: $ANTIGRAVITY_PLUGIN_DEST"
+  else
+    err "Antigravity CLI plugin doğrulanamadı"; VERIFY_FAIL=1
+  fi
+fi
 
 [ "$VERIFY_FAIL" -eq 0 ] || die "doğrulama başarısız — yukarıdaki ✗ satırlarına bakın."
 
@@ -239,11 +260,12 @@ cat <<EOF
 
   Kurulum yeri : $INSTALL_DIR
   Target       : $TARGET
-  Claude skill : $CLAUDE_SKILL_DEST
-  Codex skill  : $CODEX_SKILL_DEST
-  MCP aracı    : mcp__askuserquestionspro__ask (sınırsız soru, Claude + Codex)
+  Claude skill       : $CLAUDE_SKILL_DEST
+  Codex skill        : $CODEX_SKILL_DEST
+  Antigravity plugin : $ANTIGRAVITY_PLUGIN_DEST
+  MCP aracı          : mcp__askuserquestionspro__ask (sınırsız soru)
 
-Yeni bir Claude Code veya Codex/ChatGPT Desktop oturumu açın.
+Yeni bir Claude Code, Codex/ChatGPT Desktop veya Antigravity CLI oturumu açın.
 Claude Code'da AskUserQuestion hook'u; tüm host'larda askpro skill ve MCP aracı kullanılabilir.
 
 Tanı için: node "$INSTALL_DIR/bin/cli.js" doctor --target "$TARGET"

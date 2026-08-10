@@ -1,9 +1,9 @@
 ---
 name: askpro
-description: 'Use the mcp__askuserquestionspro__ask tool for structured user questions in Codex App, Codex CLI, or Claude Code. It opens a full-screen local review UI with unlimited questions, grouped headers, and 6 rich types (binary, single, multi, scale, ranking, tree). Match the user language when writing every question, header, option, and description. Trigger when gathering requirements, preferences, surveys, onboarding data, or whenever choices and review improve the answer. Critical payload rule: every options entry must be an object with a string label, never a bare string; use the host-native tool only when askpro is unavailable or a short free-text question is clearer.'
+description: 'Use the mcp__askuserquestionspro__ask tool for structured user questions in Codex App, Codex CLI, Antigravity CLI, or Claude Code. It opens a full-screen local review UI with unlimited questions, grouped headers, and 6 rich types (binary, single, multi, scale, ranking, tree). Match the user language when writing every question, header, option, and description. Trigger when gathering requirements, preferences, surveys, onboarding data, or whenever choices and review improve the answer. Critical payload rule: every options entry must be an object with a string label, never a bare string; use the host-native tool only when askpro is unavailable or a short free-text question is clearer.'
 ---
 
-# askpro — structured questions for Codex and Claude Code
+# askpro — structured questions for Codex, Antigravity CLI, and Claude Code
 
 ## Critical payload invariant
 
@@ -43,8 +43,9 @@ Use `mcp__askuserquestionspro__ask` when:
 - You need richer types: scales, rankings, or tree selection
 
 Host-native tools remain the safe fallback: Codex exposes `request_user_input`
-(one to three short structured questions in supported modes), while Claude Code
-exposes `AskUserQuestion` (up to four questions). Prefer askpro when its larger,
+(one to three short structured questions in supported modes), Claude Code
+exposes `AskUserQuestion` (up to four questions), and Antigravity CLI exposes its
+own `ask_question` capability. Prefer askpro when its larger,
 reviewable UI or richer types materially help. If the MCP call fails, inspect
 the returned category once:
 

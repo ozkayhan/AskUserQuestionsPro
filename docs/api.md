@@ -252,7 +252,7 @@ All-skipped returns `{ answers: {} }` through both channels. The declared
 
 Tool annotations are `readOnlyHint: true`, `destructiveHint: false`,
 `openWorldHint: false`, and `idempotentHint: false`. `initialize` returns
-server instructions telling Claude/Codex to prefer the rich structured UI and
+server instructions telling Claude/Codex/Antigravity to prefer the rich structured UI and
 use the host-native fallback on failure. Server unavailable, the one-hour
 application deadline, cancellation, or a concurrent pending round produces an
 `isError` result. The named native fallbacks are `request_user_input` in Codex

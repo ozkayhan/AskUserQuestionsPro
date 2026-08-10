@@ -4,6 +4,7 @@
 
 `askuserquestionspro` is a Node.js package and CLI that provides a local,
 themeable, full-screen UI for structured questions from Claude Code, Codex CLI,
+Antigravity CLI,
 and the Codex surface in ChatGPT Desktop. The bridge, schemas, answer mapping,
 and browser experience are host-neutral; small adapters connect that core to
 each host.
@@ -23,7 +24,7 @@ There are two entry paths into the same UI:
   `PreToolUse` hook registered in `~/.claude/settings.json` intercepts the
   call, opens the UI, and returns the user's answers as `updatedInput`. On any
   failure it exits cleanly and lets Claude Code fall back to the native picker.
-- **Shared MCP path** — Claude Code, Codex CLI, and ChatGPT Desktop can call
+- **Shared MCP path** — Claude Code, Codex CLI, Antigravity CLI, and ChatGPT Desktop can call
   `mcp__askuserquestionspro__ask`, which opens the same UI and returns answers
   as JSON text plus structured MCP content.
 
@@ -41,15 +42,15 @@ server resolves the waiting promise; the hook/MCP returns.
 
 ```
 Claude Code native AskUserQuestion → hook ─┐
-Claude Code / Codex / ChatGPT Desktop → MCP ├→ bridge-client → bridge ⇄ browser UI
+Claude Code / Codex / Antigravity / ChatGPT Desktop → MCP ├→ bridge-client → bridge ⇄ browser UI
 ```
 
 ## Who it's for
 
-Claude Code and Codex users who want a larger question interface, a review
-step, richer input types, and larger batches. Install is
+Claude Code, Codex, and Antigravity CLI users who want a larger question
+interface, a review step, richer input types, and larger batches. Install is
 `npx askuserquestionspro init` or `install.sh`; use
-`--target auto|all|claude|codex` to choose hosts.
+`--target auto|all|claude|codex|antigravity` to choose hosts.
 
 ## Key properties
 

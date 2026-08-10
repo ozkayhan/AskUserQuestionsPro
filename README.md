@@ -1,7 +1,7 @@
 # askuserquestionspro
 
-> A local, full-screen structured-question UI for Claude Code, Codex CLI, and
-> the Codex surface in the ChatGPT desktop app.
+> A local, full-screen structured-question UI for Claude Code, Codex CLI,
+> Antigravity CLI, and the Codex surface in the ChatGPT desktop app.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-3c873a.svg)](https://nodejs.org)
@@ -19,7 +19,7 @@ server, bridge client, local HTTP server, Server-Sent Events stream, and web UI:
 ```text
 Claude Code native AskUserQuestion ── PreToolUse hook ─┐
                                                        ├─ bridge client → localhost server ⇄ browser UI
-Claude Code / Codex / ChatGPT Desktop ── MCP + skill ──┘
+Claude Code / Codex / Antigravity / ChatGPT Desktop ── MCP + skill ──┘
 ```
 
 The host adapters are intentionally different:
@@ -33,6 +33,10 @@ The host adapters are intentionally different:
   `mcp__askuserquestionspro__ask` tool plus an `askpro` skill that guides the
   agent to prefer it when structured choices or review improve the interaction.
   This is not native `request_user_input` result replacement.
+- **Antigravity CLI:** the installer writes the canonical global stdio MCP entry
+  to `~/.gemini/config/mcp_config.json` and stages an `askpro` skill plugin in
+  `~/.gemini/antigravity-cli/plugins/askuserquestionspro`. Antigravity does not
+  receive the Claude-specific hook; the MCP + skill route is its native adapter.
 
 Everything sensitive stays on `127.0.0.1`; there is no remote application
 service or telemetry. Runtime code has no npm dependencies. React, ReactDOM,
@@ -70,15 +74,16 @@ askuserquestionspro install --target auto
 ./install.sh --target all
 ```
 
-| Target   | Behavior                                                                             |
-| -------- | ------------------------------------------------------------------------------------ |
-| `auto`   | Detect installed hosts; if none is detected, prepare Claude files for compatibility. |
-| `all`    | Configure both Claude Code and Codex.                                                |
-| `claude` | Configure only Claude's hook, MCP registration, and skill.                           |
-| `codex`  | Configure only Codex MCP registration and skill; do not touch Claude.                |
+| Target        | Behavior                                                                             |
+| ------------- | ------------------------------------------------------------------------------------ |
+| `auto`        | Detect installed hosts; if none is detected, prepare Claude files for compatibility. |
+| `all`         | Configure Claude Code, Codex, and Antigravity CLI.                                   |
+| `claude`      | Configure only Claude's hook, MCP registration, and skill.                           |
+| `codex`       | Configure only Codex MCP registration and skill; do not touch Claude.                |
+| `antigravity` | Configure only Antigravity CLI MCP registration and plugin skill.                    |
 
-Host discovery checks `claude`/`codex` on `PATH` and supports
-`ASKUI_CLAUDE_BIN` / `ASKUI_CODEX_BIN` overrides. On macOS, Codex discovery
+Host discovery checks `claude`/`codex`/`agy` on `PATH` and supports
+`ASKUI_CLAUDE_BIN` / `ASKUI_CODEX_BIN` / `ASKUI_ANTIGRAVITY_BIN` overrides. On macOS, Codex discovery
 also checks the bundled executables inside `/Applications/ChatGPT.app` and
 `/Applications/Codex.app` (plus the corresponding `~/Applications` locations
 in the shell installer/uninstaller).
@@ -87,9 +92,12 @@ Installation deploys the guidance skill to the host-native discovery paths:
 
 - Claude Code: `~/.claude/skills/askpro`
 - Codex and ChatGPT Desktop: `~/.agents/skills/askpro`
+- Antigravity CLI: `~/.gemini/antigravity-cli/plugins/askuserquestionspro/skills/askpro`
 
 The Codex CLI and Codex in ChatGPT Desktop share the MCP configuration written
 by `codex mcp add`; restart the desktop app or open a new task after install.
+Antigravity CLI reads the global MCP registration on its next `agy` session; close
+and reopen an already-running session after installation.
 
 ## CLI
 
@@ -114,7 +122,7 @@ The standalone helpers also support host selection:
 MCP registrations and skill directories, and verifies remaining files,
 settings, registrations, and bridge processes. A host-specific uninstall keeps
 the shared runtime and UI settings when the other host is still installed.
-`--keep-skill` preserves both skill directories that are in scope.
+`--keep-skill` preserves the selected host skill/plugin directories.
 
 ## MCP tool
 
@@ -219,6 +227,7 @@ rejected with HTTP 409 so answers cannot cross rounds.
 - `ASKUSER_PORT`: bridge port, default `4517`.
 - `ASKUI_FORCE_MCP`: Claude-only opt-in redirect to the MCP tool.
 - `ASKUI_CLAUDE_BIN` / `ASKUI_CODEX_BIN`: explicit host executable paths.
+- `ASKUI_ANTIGRAVITY_BIN`: explicit `agy` executable path.
 - `ASKUSER_TARGET`: default target for shell install/uninstall helpers.
 - `XDG_CONFIG_HOME`: base for persisted UI settings; default
   `~/.config/askuserquestionspro/settings.json`.
@@ -234,6 +243,10 @@ Compatibility is evidence-gated: see the [host matrix](test/host-compatibility-e
   is intended.
 - If Codex cannot see the tool, run `askuserquestionspro install --target codex`,
   then start a new Codex task or restart ChatGPT Desktop.
+- If Antigravity CLI cannot see the tool, run
+  `askuserquestionspro doctor --target antigravity`, then start a new `agy`
+  session. The expected files are `~/.gemini/config/mcp_config.json` and
+  `~/.gemini/antigravity-cli/plugins/askuserquestionspro`.
 - After upgrading AskUserQuestionsPro, verify that `codex mcp get
 askuserquestionspro --json` points to the new installation path and still
   reports `tool_timeout_sec: 3600`. A healthy source checkout does not update a
