@@ -267,7 +267,9 @@ notification, the detached round remains recoverable through `resume`.
 
 The `resume` tool requires an original `requestId` or an exact durable
 `roundId`; it never selects the latest detached round. It waits for the browser
-answer and returns the same `{ answers }` result shape as `ask`.
+answer and returns the same `{ answers }` result shape as `ask`. Starting a
+valid resume also invokes the configured local browser handoff, so a recovered
+round is visible even when its original host request has already disconnected.
 
 When `ask` reports `round_in_progress`, call `list_recoverable_rounds` for
 redacted exact-round metadata (`roundId`, state, question count, and lifecycle

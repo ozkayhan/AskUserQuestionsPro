@@ -10,6 +10,25 @@ const net = require('node:net');
 const MCP_PATH = path.join(__dirname, '..', 'mcp-server', 'askuserquestionspro-mcp.mjs');
 const SERVER_PATH = path.join(__dirname, '..', 'server', 'server.js');
 
+test('mcp-server: resume starts the configured local UI handoff', () => {
+  const source = fs.readFileSync(MCP_PATH, 'utf8');
+  const start = source.indexOf('async function handleResume');
+  const end = source.indexOf('\nfunction redactedRecoveryMetadata', start);
+  assert.ok(start >= 0 && end > start, 'handleResume function must be present');
+  const handler = source.slice(start, end);
+
+  assert.match(
+    handler,
+    /const \{ ensureServer, openBrowser, resumeBridge \} = await import\('\.\.\/lib\/bridge-client\.mjs'\);/,
+    'resume must use the shared browser-opening boundary'
+  );
+  assert.match(
+    handler,
+    /const answersPromise = resumeBridge\([\s\S]*?\n\s*openBrowser\(\);\n\s*const answers = await answersPromise;/,
+    'resume must open the local UI after starting its waiter, rather than wait indefinitely off-screen'
+  );
+});
+
 // MCP sunucusu spawn edilir; initialize + tools/list gönderilir, yanıtlar doğrulanır.
 test('mcp-server: initialize ve tools/list', async (_t) => {
   const child = spawn(process.execPath, [MCP_PATH], {
