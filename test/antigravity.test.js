@@ -55,6 +55,19 @@ test('Antigravity MCP registration merges safely and replaces stale AskPro paths
   }
 });
 
+test('Antigravity treats a zero-byte interrupted config as recoverable', () => {
+  const home = tempHome();
+  try {
+    const paths = pathsFor(home);
+    fs.mkdirSync(path.dirname(paths.mcpConfig), { recursive: true });
+    fs.writeFileSync(paths.mcpConfig, '');
+    installMcp({ home, mcpPath: MCP, nodePath: process.execPath });
+    assert.equal(hasMcp(paths.mcpConfig, MCP, process.execPath), true);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test('Antigravity plugin deploy is atomic and removes only the AskPro plugin', () => {
   const home = tempHome();
   try {
