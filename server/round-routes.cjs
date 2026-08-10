@@ -60,7 +60,7 @@ function createRoundRoutes({
       return true;
     }
 
-    const roundMatch = /^\/rounds\/([^/]+)(?:\/(result|ack|delete))?$/.exec(url);
+    const roundMatch = /^\/rounds\/([^/]+)(?:\/(result|ack|delete|cancel))?$/.exec(url);
     if (roundMatch && req.method === 'GET' && !roundMatch[2]) {
       const found = bridge.getDurable(roundMatch[1]);
       if (!found.ok) recoveryError(res, found.code);
@@ -95,6 +95,34 @@ function createRoundRoutes({
       else {
         broadcastCurrent();
         sendJson(res, 200, { ok: true });
+      }
+      return true;
+    }
+
+    if (roundMatch && req.method === 'POST' && roundMatch[2] === 'cancel') {
+      let reason = 'user cancelled';
+      try {
+        const body = await readBody(req);
+        const payload = body ? JSON.parse(body) : {};
+        if (payload.reason !== undefined) reason = payload.reason;
+      } catch {
+        sendJson(res, 400, { error: 'bad json' });
+        return true;
+      }
+      const knownReason = new Set(['user cancelled', 'host cancelled', 'timeout']);
+      if (typeof reason !== 'string' || !knownReason.has(reason)) {
+        sendJson(res, 400, { error: 'invalid cancel reason' });
+        return true;
+      }
+      const cancelled = bridge.cancelRecoverable(roundMatch[1], reason);
+      if (!cancelled.ok) recoveryError(res, cancelled.code);
+      else {
+        broadcastCurrent();
+        sendJson(res, 200, {
+          ok: true,
+          roundId: cancelled.roundId,
+          reason: terminalReason(reason),
+        });
       }
       return true;
     }

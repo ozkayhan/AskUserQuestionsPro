@@ -119,8 +119,9 @@ the shared runtime and UI settings when the other host is still installed.
 ## MCP tool
 
 The installed tools are `mcp__askuserquestionspro__ask`,
-`mcp__askuserquestionspro__resume`, and
-`mcp__askuserquestionspro__list_recoverable_rounds`. `ask` accepts one or many
+`mcp__askuserquestionspro__resume`,
+`mcp__askuserquestionspro__list_recoverable_rounds`, and
+`mcp__askuserquestionspro__cancel_round`. `ask` accepts one or many
 questions; there is no schema-level `maxItems` limit. Six types are supported:
 
 | Type      | Result value                                    |
@@ -178,7 +179,11 @@ duplicate round; the browser round remains recoverable for that bounded window.
 If `ask` reports `round_in_progress`, use
 `mcp__askuserquestionspro__list_recoverable_rounds` to obtain only redacted
 round metadata. Resume an exact detached or reconnecting `roundId`; a drafting
-round is still owned by the original ask call.
+round is still owned by the original ask call. If the user asks to stop,
+replace, or translate an active round, call `cancel_round` with its exact
+`roundId` first and then create a new ask in the user's language. Active
+questions are immutable; a submitted answer awaiting delivery is not silently
+discarded.
 If resume is unavailable, the model is told to use the native fallback available
 in that host: `request_user_input` in Codex or `AskUserQuestion` in Claude Code.
 
@@ -229,6 +234,10 @@ Compatibility is evidence-gated: see the [host matrix](test/host-compatibility-e
   is intended.
 - If Codex cannot see the tool, run `askuserquestionspro install --target codex`,
   then start a new Codex task or restart ChatGPT Desktop.
+- After upgrading AskUserQuestionsPro, verify that `codex mcp get
+askuserquestionspro --json` points to the new installation path and still
+  reports `tool_timeout_sec: 3600`. A healthy source checkout does not update a
+  separately installed global MCP process automatically.
 - If Claude shows its native picker, inspect stderr entries prefixed
   `[askuser:<scope>]` and run `askuserquestionspro doctor --target claude`.
 - If the UI does not open, run `askuserquestionspro serve` and visit

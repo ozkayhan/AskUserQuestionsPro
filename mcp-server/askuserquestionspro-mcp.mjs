@@ -201,6 +201,34 @@ const LIST_RECOVERABLE_ROUNDS_TOOL = {
   },
 };
 
+const CANCEL_ROUND_TOOL = {
+  name: 'cancel_round',
+  description:
+    'Cancel one exact active browser question round after the user explicitly asks to stop it or replace its questions. Pass the original requestId or exact roundId. Use this before asking again when the current round is wrong, stale, or in the wrong language; never guess the newest round. This control does not discard a round that already has a submitted answer awaiting delivery.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      requestId: { type: 'string', description: 'Original round request id.' },
+      roundId: { type: 'string', description: 'Exact durable round id from recovery discovery.' },
+    },
+    anyOf: [{ required: ['requestId'] }, { required: ['roundId'] }],
+  },
+  outputSchema: {
+    type: 'object',
+    required: ['cancelled', 'roundId'],
+    properties: {
+      cancelled: { type: 'boolean' },
+      roundId: { type: 'string' },
+    },
+  },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    openWorldHint: false,
+    idempotentHint: true,
+  },
+};
+
 // JSON-RPC yanıtı oluştur ve STDOUT'a yaz.
 // stdout broken pipe (EPIPE) atarsa logla — uncaughtException'a düşürmeyelim,
 // aksi halde tek bir yazma hatası tüm sunucuyu çökertir.
@@ -499,6 +527,37 @@ async function handleListRecoverableRounds() {
   }
 }
 
+async function handleCancelRound(args) {
+  const { ensureServer, cancelRound } = await import('../lib/bridge-client.mjs');
+  if (!(await ensureServer())) {
+    return {
+      content: [
+        { type: 'text', text: 'askuserquestionspro bridge unavailable — no round was cancelled.' },
+      ],
+      isError: true,
+    };
+  }
+  try {
+    const result = await cancelRound(args);
+    const structured = { cancelled: true, roundId: result.roundId };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(structured, null, 2) }],
+      structuredContent: structured,
+    };
+  } catch (e) {
+    const reason = e?.body?.reason || 'bridge_error';
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `askuserquestionspro cancel failed: ${reason}. Use list_recoverable_rounds to inspect exact round state before retrying.`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
 // Gelen JSON-RPC mesajını işle.
 async function handleMessage(msg) {
   const { id, method, params } = msg;
@@ -530,7 +589,7 @@ async function handleMessage(msg) {
         capabilities: { tools: {} },
         serverInfo: { name: 'askuserquestionspro', version: '1.1.0' },
         instructions:
-          'Prefer the ask tool for structured user questions in Codex or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. If a host timeout disconnects the call, use the resume tool before starting a new round. On tool failure, use the host-native user-input tool.',
+          'Prefer the ask tool for structured user questions in Codex or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. Match the user language when constructing question text and options. If a host timeout disconnects the call, use the resume tool before starting a new round. If the user asks to stop or replace an active round, use cancel_round with its exact identity before asking again. On tool failure, use the host-native user-input tool.',
       },
     });
     return;
@@ -540,7 +599,7 @@ async function handleMessage(msg) {
     sendResponse({
       jsonrpc: '2.0',
       id,
-      result: { tools: [ASK_TOOL, RESUME_TOOL, LIST_RECOVERABLE_ROUNDS_TOOL] },
+      result: { tools: [ASK_TOOL, RESUME_TOOL, LIST_RECOVERABLE_ROUNDS_TOOL, CANCEL_ROUND_TOOL] },
     });
     return;
   }
@@ -549,7 +608,8 @@ async function handleMessage(msg) {
     if (
       params?.name !== 'ask' &&
       params?.name !== 'resume' &&
-      params?.name !== 'list_recoverable_rounds'
+      params?.name !== 'list_recoverable_rounds' &&
+      params?.name !== 'cancel_round'
     ) {
       sendError(id, -32602, 'unknown tool');
       return;
@@ -567,7 +627,9 @@ async function handleMessage(msg) {
           ? await handleResume(params?.arguments, controller.signal, progress)
           : params.name === 'list_recoverable_rounds'
             ? await handleListRecoverableRounds()
-            : await handleAsk(params?.arguments, controller.signal, progress);
+            : params.name === 'cancel_round'
+              ? await handleCancelRound(params?.arguments)
+              : await handleAsk(params?.arguments, controller.signal, progress);
     } finally {
       activeRequests.delete(id);
     }

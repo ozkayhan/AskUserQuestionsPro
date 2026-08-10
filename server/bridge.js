@@ -10,6 +10,7 @@ const RECOVERABLE_STATES = Object.freeze([
   'reconnecting',
   'delivery-uncertain',
 ]);
+const CANCELLABLE_STATES = Object.freeze(['drafting', 'detached', 'reconnecting']);
 const ROUND_ID_RE = /^round_[A-Za-z0-9_-]{16,}$/;
 
 const CANCEL_REASON_MAP = new Map([
@@ -578,6 +579,33 @@ class Bridge {
     if (found.record.capability !== capability) return { ok: false, code: 'ownership_conflict' };
     if (!found.record.answers) return { ok: false, code: 'result_not_ready' };
     return { ok: true, result: found.record.answers, record: found.record };
+  }
+
+  // Host-side control path for an explicit user request to stop or replace an
+  // active round. Exact durable identity is required; this must never cancel
+  // a newer round merely because an older MCP requestId disappeared.
+  cancelRecoverable(roundId, reason = 'user cancelled') {
+    if (!this._store) return { ok: false, code: 'not_found' };
+    const found = this.getDurable(roundId);
+    if (!found.ok) return found;
+    if (!CANCELLABLE_STATES.includes(found.record.lifecycle.state))
+      return { ok: false, code: 'stale_round' };
+
+    const pending = this._pending;
+    if (pending?.durable?.roundId === roundId) {
+      if (!this.cancel(reason, pending.id, pending.record.capability))
+        return { ok: false, code: 'ownership_conflict' };
+      return { ok: true, roundId };
+    }
+
+    const outcome = terminalReason(reason);
+    const cancelled = this._store.mutate(roundId, (record, now) =>
+      Record.transition(record, 'cancel', record.revision, now, {
+        deadlineOwner: 'host',
+        reason: outcome,
+      })
+    );
+    return cancelled.ok ? { ok: true, roundId } : cancelled;
   }
 
   // Timeout/iptal. Contract R: expectedId verilmis ve eslesmiyorsa hicbir sey yapma.

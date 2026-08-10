@@ -83,6 +83,12 @@ codex mcp get askuserquestionspro --json
 claude mcp get askuserquestionspro
 ```
 
+The MCP command path must belong to the same package version as the bridge and
+skill being tested. If `doctor` reports the registration missing while Codex
+still shows an older global path, upgrade/reinstall the package first, then run
+the package's `install --target codex` and restart the host. Do not diagnose a
+new control tool against an older globally installed MCP file.
+
 Use `ASKUI_CLAUDE_BIN` and `ASKUI_CODEX_BIN` when the host executable is not on
 `PATH`. Use `ASKUSER_PORT` only when isolating a local bridge; both the browser
 URL and client must use the same port.
