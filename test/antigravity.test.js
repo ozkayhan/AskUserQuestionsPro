@@ -89,7 +89,13 @@ test('CLI target antigravity installs, diagnoses, and removes the complete integ
   const home = tempHome();
   const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-agy-bin-'));
   const agy = path.join(binDir, 'agy');
-  fs.writeFileSync(agy, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  fs.writeFileSync(
+    agy,
+    '#!/bin/sh\nif [ "$1 $2" = "plugin list" ]; then\n' +
+      '  printf \'{"imports":[{"name":"askuserquestionspro"}]}\\n\'\n' +
+      'fi\nexit 0\n',
+    { mode: 0o755 }
+  );
   try {
     const env = {
       ...process.env,

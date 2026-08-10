@@ -232,6 +232,57 @@ function registerMcp(host, executable, { optional = false } = {}) {
   return true;
 }
 
+function registerAntigravityPlugin(executable) {
+  if (!executable) {
+    process.stderr.write(
+      `✗ ${HOSTS.antigravity.label} executable bulunamadı; plugin import edilemedi.\n`
+    );
+    return false;
+  }
+  const pluginDir = antigravityPaths(os.homedir()).pluginDir;
+  const result = spawnSync(executable, ['plugin', 'install', pluginDir], { encoding: 'utf8' });
+  if (result.error || result.status !== 0) {
+    process.stderr.write(
+      `✗ ${HOSTS.antigravity.label} plugin import edilemedi: ${
+        result.error?.message || `${result.stderr || ''}`.trim() || `exit ${result.status}`
+      }\n`
+    );
+    return false;
+  }
+  process.stdout.write(`✓ ${HOSTS.antigravity.label} plugin import edildi\n`);
+  return true;
+}
+
+function isAntigravityPluginImported(executable) {
+  if (!executable) return false;
+  const result = spawnSync(executable, ['plugin', 'list'], { encoding: 'utf8' });
+  if (result.error || result.status !== 0) return false;
+  try {
+    const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
+    const clean = `${result.stdout || ''}`.replace(ansiPattern, '').trim();
+    const parsed = JSON.parse(clean);
+    return parsed.imports?.some((plugin) => plugin?.name === 'askuserquestionspro') === true;
+  } catch {
+    return false;
+  }
+}
+
+function removeAntigravityPluginImport(executable) {
+  if (!executable) return true;
+  const result = spawnSync(executable, ['plugin', 'uninstall', 'askuserquestionspro'], {
+    encoding: 'utf8',
+  });
+  if (result.error || result.status !== 0) {
+    process.stderr.write(
+      `✗ ${HOSTS.antigravity.label} plugin import kaldırılamadı: ${
+        result.error?.message || `${result.stderr || ''}`.trim() || `exit ${result.status}`
+      }\n`
+    );
+    return false;
+  }
+  return true;
+}
+
 function installClaudeHook() {
   let settings;
   try {
@@ -274,6 +325,7 @@ function cmdInstall(argv) {
       process.stderr.write(`✗ ${HOSTS[host].label}: ${err.message}\n`);
       ok = false;
     }
+    if (host === 'antigravity') ok = registerAntigravityPlugin(executables[host]) && ok;
     ok =
       registerMcp(host, executables[host], {
         optional: target === 'auto' && !executables[host],
@@ -323,6 +375,7 @@ function cmdUninstall(argv) {
     if (host === 'claude') ok = removeClaudeHook() && ok;
     if (host === 'antigravity') {
       try {
+        ok = removeAntigravityPluginImport(executables[host]) && ok;
         const removedMcp = removeAntigravityMcp({ home: os.homedir() });
         const paths = removeAntigravityPlugin(os.homedir());
         process.stdout.write(`✓ ${HOSTS[host].label} plugin kaldırıldı → ${paths.pluginDir}\n`);
@@ -619,6 +672,15 @@ async function cmdDoctor(argv) {
     } else {
       process.stdout.write(`✗ skill kurulu değil (${skill})\n`);
       ok = false;
+    }
+    if (host === 'antigravity') {
+      const imported = isAntigravityPluginImported(executables[host]);
+      process.stdout.write(
+        imported
+          ? `✓ ${HOSTS[host].label} plugin import edilmiş\n`
+          : `✗ ${HOSTS[host].label} plugin import edilmemiş\n`
+      );
+      ok = imported && ok;
     }
     ok =
       doctorMcp(host, executables[host], {
