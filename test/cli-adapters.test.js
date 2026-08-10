@@ -23,6 +23,7 @@ function isolated() {
       PATH: '/usr/bin:/bin',
       ASKUI_CLAUDE_BIN: path.join(home, 'missing-claude'),
       ASKUI_CODEX_BIN: path.join(home, 'missing-codex'),
+      ASKUI_ANTIGRAVITY_BIN: path.join(home, 'missing-agy'),
     },
   };
 }
@@ -101,7 +102,7 @@ test('reinstall exposes the same scoped target contract without contacting a hos
     encoding: 'utf8',
   });
   assert.equal(help.status, 0);
-  assert.match(help.stdout, /--target auto\|all\|claude\|codex/);
+  assert.match(help.stdout, /--target auto\|all\|claude\|codex\|antigravity/);
 
   const invalid = spawnSync('bash', ['reinstall.sh', '--target', 'unknown'], {
     cwd: path.join(__dirname, '..'),

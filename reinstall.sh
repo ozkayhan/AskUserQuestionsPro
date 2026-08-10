@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # askuserquestionspro — reinstall orkestratörü.
 # ÖNCE uninstall (kesin bitene kadar bekler), SONRA install. Tek script.
-# Claude Code ve Codex App/CLI hedefini iki aşamaya da aynen taşır.
+# Claude Code, Codex App/CLI ve Antigravity CLI hedefini iki aşamaya da aynen taşır.
 # Yerel sibling script'leri kullanır; yoksa (curl|bash) GitHub'dan indirir.
 set -euo pipefail
 
@@ -11,7 +11,7 @@ TARGET="${ASKUSER_TARGET:-auto}"
 
 usage() {
   cat <<'EOF'
-Kullanım: reinstall.sh [--target auto|all|claude|codex]
+Kullanım: reinstall.sh [--target auto|all|claude|codex|antigravity]
 EOF
 }
 
@@ -27,7 +27,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$TARGET" in
-  auto|all|claude|codex) ;;
+  auto|all|claude|codex|antigravity) ;;
   *) printf 'Geçersiz target: %s\n' "$TARGET" >&2; usage >&2; exit 2 ;;
 esac
 
@@ -58,7 +58,7 @@ else
   UNINSTALL_SH="$WORKDIR/uninstall.sh"; INSTALL_SH="$WORKDIR/install.sh"
 fi
 
-printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro yeniden kurulumu — Claude Code + Codex (target: $TARGET)${C_RESET}"
+printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro yeniden kurulumu — Claude Code + Codex + Antigravity CLI (target: $TARGET)${C_RESET}"
 
 step "Aşama 1/2 — KALDIRMA (skill dahil tam temizlik)"
 # uninstall hata dönse bile (örn. kapanmayan süreç) install idempotent olduğu için devam et.
@@ -72,4 +72,4 @@ fi
 step "Aşama 2/2 — KURULUM (GitHub $BRANCH'den taze)"
 bash "$INSTALL_SH" --target "$TARGET" || die "install başarısız — yukarıdaki hataya bakın."
 
-printf '\n%s\n' "${C_BOLD}${C_GREEN}✓ Yeniden kurulum tamamlandı. Yeni bir Claude Code veya Codex/ChatGPT Desktop oturumu açın.${C_RESET}"
+printf '\n%s\n' "${C_BOLD}${C_GREEN}✓ Yeniden kurulum tamamlandı. Yeni bir Claude Code, Codex/ChatGPT Desktop veya Antigravity CLI oturumu açın.${C_RESET}"

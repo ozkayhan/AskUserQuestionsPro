@@ -243,7 +243,7 @@ reporting with a single consistent output line.
 JSON-RPC 2.0 over stdio (STDOUT = protocol, STDERR = logs). Zero deps.
 Exposes host-neutral `ask`, `resume`, and `list_recoverable_rounds` tools (full
 names `mcp__askuserquestionspro__ask`, `mcp__askuserquestionspro__resume`, and
-`mcp__askuserquestionspro__list_recoverable_rounds`) to Claude Code, Codex CLI,
+`mcp__askuserquestionspro__list_recoverable_rounds`) to Claude Code, Codex CLI, Antigravity CLI,
 and ChatGPT Desktop. The `ask` questions schema has no `maxItems` limit.
 
 Methods: `initialize`, `tools/list`, `tools/call`, `ping`. Notifications
@@ -319,8 +319,9 @@ Tool input schema: see [api.md](api.md).
 - Codex discovery checks `codex` on `PATH`, then macOS bundled executables in
   `/Applications/ChatGPT.app/Contents/Resources/codex` and
   `/Applications/Codex.app/Contents/Resources/codex`.
-- Skill destinations: `~/.claude/skills/askpro` and
-  `~/.agents/skills/askpro`.
+- Skill destinations: `~/.claude/skills/askpro`, `~/.agents/skills/askpro`, and
+  the Antigravity plugin skill at
+  `~/.gemini/antigravity-cli/plugins/askuserquestionspro/skills/askpro`.
 - Claude MCP commands use `claude mcp ... --scope user`; Codex commands use
   `codex mcp ...`. The latter configuration is shared by Codex CLI and the
   Codex surface in ChatGPT Desktop.
@@ -330,12 +331,13 @@ Tool input schema: see [api.md](api.md).
 
 ## Install script (`install.sh`)
 
-`curl | bash`-friendly. Accepts `--target auto|all|claude|codex`,
+`curl | bash`-friendly. Accepts `--target auto|all|claude|codex|antigravity`,
 downloads/extracts the repo, copies the runtime plus `skill/` to
 `~/.local/share/askuserquestionspro/`, then delegates host registration and
 doctor verification to the bundled CLI. Claude gets its hook, MCP entry, and
 `~/.claude/skills/askpro`; Codex gets its MCP entry and
-`~/.agents/skills/askpro`. On macOS the shell path also searches matching
+`~/.agents/skills/askpro`; Antigravity gets its global MCP entry and plugin
+skill. On macOS the shell path also searches matching
 bundled executables under `~/Applications`.
 
 Shell hardening applied: uses `WORKDIR` (not `TMPDIR`) to avoid shadowing the
@@ -347,7 +349,7 @@ command string rather than exact object equality).
 
 ## Clean reinstall script (`reinstall.sh`)
 
-`reinstall.sh` passes `--target auto|all|claude|codex` unchanged through
+`reinstall.sh` passes `--target auto|all|claude|codex|antigravity` unchanged through
 uninstall and install. `uninstall.sh` removes bridge processes plus the selected
 hosts' registrations and skills. For a host-specific uninstall it preserves the
 shared runtime, UI settings, and npm package when the other host still has an

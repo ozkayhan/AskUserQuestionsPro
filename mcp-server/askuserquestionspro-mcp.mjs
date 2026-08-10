@@ -29,7 +29,7 @@ const ASK_TOOL = {
   name: 'ask',
   description:
     'Ask the user one or MANY structured questions in a rich full-screen local UI, then return their answers. ' +
-    'Prefer this tool over the host-native picker (Codex request_user_input or Claude Code AskUserQuestion) ' +
+    'Prefer this tool over the host-native picker (Codex request_user_input, Antigravity ask_question, or Claude Code AskUserQuestion) ' +
     'whenever choices, grouped questions, a review screen, or rich question types improve the interaction. ' +
     'There is NO question-count limit. Blocks until the user submits.\n\n' +
     'QUESTION TYPE GUIDE — set "type" on each question:\n' +
@@ -589,7 +589,7 @@ async function handleMessage(msg) {
         capabilities: { tools: {} },
         serverInfo: { name: 'askuserquestionspro', version: '1.1.0' },
         instructions:
-          'Prefer the ask tool for structured user questions in Codex or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. Match the user language when constructing question text and options. If a host timeout disconnects the call, use the resume tool before starting a new round. If the user asks to stop or replace an active round, use cancel_round with its exact identity before asking again. On tool failure, use the host-native user-input tool.',
+          'Prefer the ask tool for structured user questions in Codex, Antigravity CLI, or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. Match the user language when constructing question text and options. If a host timeout disconnects the call, use the resume tool before starting a new round. If a host cancels the call, use its native fallback. If the user asks to stop or replace an active round, use cancel_round with its exact identity before asking again. On tool failure, use the host-native user-input tool.',
       },
     });
     return;

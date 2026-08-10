@@ -7,7 +7,7 @@ Read this folder before exploring the source — it maps the whole codebase.
 ## What this is
 
 A zero-runtime-dependency, host-neutral question/answer core with adapters for
-Claude Code, Codex CLI, and the Codex surface in ChatGPT Desktop. Claude Code
+Claude Code, Codex CLI, Antigravity CLI, and the Codex surface in ChatGPT Desktop. Claude Code
 can use a `PreToolUse` hook for native `AskUserQuestion`; every host can use the
 unlimited `mcp__askuserquestionspro__ask` tool plus the installed `askpro`
 skill. Codex hooks cannot return answers as the native `request_user_input`

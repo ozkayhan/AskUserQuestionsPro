@@ -28,8 +28,17 @@ test('parseTarget supports spaced/equal forms and rejects unknown input', () => 
 test('auto selects detected hosts while explicit/all are deterministic', () => {
   assert.deepStrictEqual(selectedHosts('auto', { claude: 'claude', codex: null }), ['claude']);
   assert.deepStrictEqual(selectedHosts('auto', { claude: null, codex: '/codex' }), ['codex']);
-  assert.deepStrictEqual(selectedHosts('all', { claude: null, codex: null }), ['claude', 'codex']);
+  assert.deepStrictEqual(
+    selectedHosts('auto', { claude: null, codex: null, antigravity: '/agy' }),
+    ['antigravity']
+  );
+  assert.deepStrictEqual(selectedHosts('all', { claude: null, codex: null }), [
+    'claude',
+    'codex',
+    'antigravity',
+  ]);
   assert.deepStrictEqual(selectedHosts('codex', {}), ['codex']);
+  assert.deepStrictEqual(selectedHosts('antigravity', {}), ['antigravity']);
 });
 
 test('Codex discovery honors override before PATH and desktop bundle candidates', () => {
@@ -55,6 +64,17 @@ test('Codex discovery honors override before PATH and desktop bundle candidates'
   assert.deepStrictEqual(seen.slice(0, 2), [
     'codex',
     '/Applications/ChatGPT.app/Contents/Resources/codex',
+  ]);
+});
+
+test('Antigravity discovery honors override and official default install paths', () => {
+  assert.deepStrictEqual(candidatesFor('antigravity', { ASKUI_ANTIGRAVITY_BIN: '/custom/agy' }), [
+    '/custom/agy',
+  ]);
+  assert.deepStrictEqual(candidatesFor('antigravity', { HOME: '/Users/tester' }), [
+    'agy',
+    '/Users/tester/.local/bin/agy',
+    '/Users/tester/.gemini/antigravity-cli/bin/agy',
   ]);
 });
 
@@ -114,6 +134,18 @@ test('skills deploy to host-native discovery locations', () => {
     skillDestination('codex', home),
     path.join(home, '.agents', 'skills', 'askpro')
   );
+  assert.strictEqual(
+    skillDestination('antigravity', home),
+    path.join(
+      home,
+      '.gemini',
+      'antigravity-cli',
+      'plugins',
+      'askuserquestionspro',
+      'skills',
+      'askpro'
+    )
+  );
 });
 
 test('askpro skill names both native fallbacks without claiming Claude-only semantics', () => {
@@ -121,6 +153,7 @@ test('askpro skill names both native fallbacks without claiming Claude-only sema
   assert.match(text, /Codex App/);
   assert.match(text, /request_user_input/);
   assert.match(text, /Claude Code/);
+  assert.match(text, /Antigravity CLI/);
   assert.match(text, /AskUserQuestion/);
   assert.doesNotMatch(text, /plain text only/);
   assert.doesNotMatch(text, /renders all questions simultaneously/);

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # askuserquestionspro — production-grade KALINTISIZ kaldırma.
-# Bridge süreçleri + Claude/Codex hook/MCP kayıtları + dosyalar + UI ayarları +
-# npm global + iki host'un askpro skill'i — hepsini temizler ve doğrular.
+# Bridge süreçleri + Claude/Codex/Antigravity hook/MCP kayıtları + dosyalar + UI ayarları +
+# npm global + host askpro skill/plugin'leri — hepsini temizler ve doğrular.
 # `set -e` YOK — bir adım bulamasa bile temizlik devam etmeli. FAIL ile özetler.
 #
-# Kullanım: uninstall.sh [--keep-skill] [--target auto|all|claude|codex]
-#   --keep-skill / KEEP_SKILL=1 → Claude ve Codex skill dizinleri korunur.
+# Kullanım: uninstall.sh [--keep-skill] [--target auto|all|claude|codex|antigravity]
+#   --keep-skill / KEEP_SKILL=1 → host skill/plugin dizinleri korunur.
 set -uo pipefail
 
 INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
@@ -13,6 +13,8 @@ SETTINGS="$HOME/.claude/settings.json"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/askuserquestionspro"
 CLAUDE_SKILL_DIR="$HOME/.claude/skills/askpro"
 CODEX_SKILL_DIR="$HOME/.agents/skills/askpro"
+ANTIGRAVITY_PLUGIN_DIR="$HOME/.gemini/antigravity-cli/plugins/askuserquestionspro"
+ANTIGRAVITY_MCP_CONFIG="$HOME/.gemini/config/mcp_config.json"
 PORT="${ASKUSER_PORT:-4517}"
 
 KEEP_SKILL="${KEEP_SKILL:-0}"
@@ -20,7 +22,7 @@ TARGET="${ASKUSER_TARGET:-auto}"
 
 usage() {
   cat <<'EOF'
-Kullanım: uninstall.sh [--keep-skill] [--target auto|all|claude|codex]
+Kullanım: uninstall.sh [--keep-skill] [--target auto|all|claude|codex|antigravity]
 EOF
 }
 
@@ -37,7 +39,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$TARGET" in
-  auto|all|claude|codex) ;;
+  auto|all|claude|codex|antigravity) ;;
   *) printf 'Geçersiz target: %s\n' "$TARGET" >&2; usage >&2; exit 2 ;;
 esac
 
@@ -64,12 +66,32 @@ find_codex() {
   return 1
 }
 
+find_antigravity() {
+  if [ -n "${ASKUI_ANTIGRAVITY_BIN:-}" ] && [ -x "$ASKUI_ANTIGRAVITY_BIN" ]; then
+    printf '%s\n' "$ASKUI_ANTIGRAVITY_BIN"
+    return 0
+  fi
+  if command -v agy >/dev/null 2>&1; then
+    command -v agy
+    return 0
+  fi
+  for candidate in "$HOME/.local/bin/agy" "$HOME/.gemini/antigravity-cli/bin/agy"; do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 CLAUDE_APPLIES=0
 CODEX_APPLIES=0
+ANTIGRAVITY_APPLIES=0
 case "$TARGET" in
-  all) CLAUDE_APPLIES=1; CODEX_APPLIES=1 ;;
+  all) CLAUDE_APPLIES=1; CODEX_APPLIES=1; ANTIGRAVITY_APPLIES=1 ;;
   claude) CLAUDE_APPLIES=1 ;;
   codex) CODEX_APPLIES=1 ;;
+  antigravity) ANTIGRAVITY_APPLIES=1 ;;
   auto)
     if { [ -n "${ASKUI_CLAUDE_BIN:-}" ] && [ -x "$ASKUI_CLAUDE_BIN" ]; } || \
       command -v claude >/dev/null 2>&1 || [ -f "$SETTINGS" ] || [ -d "$CLAUDE_SKILL_DIR" ]; then
@@ -77,6 +99,9 @@ case "$TARGET" in
     fi
     if find_codex >/dev/null 2>&1 || [ -d "$CODEX_SKILL_DIR" ]; then
       CODEX_APPLIES=1
+    fi
+    if find_antigravity >/dev/null 2>&1 || [ -d "$ANTIGRAVITY_PLUGIN_DIR" ] || grep -q askuserquestionspro "$ANTIGRAVITY_MCP_CONFIG" 2>/dev/null; then
+      ANTIGRAVITY_APPLIES=1
     fi
     ;;
 esac
@@ -98,6 +123,15 @@ elif [ "$TARGET" = "claude" ]; then
     { [ -n "$CODEX_CMD" ] && "$CODEX_CMD" mcp list 2>/dev/null | grep -q askuserquestionspro; }; then
     PRESERVE_SHARED=1
   fi
+elif [ "$TARGET" = "antigravity" ]; then
+  CODEX_CONFIG="${CODEX_HOME:-$HOME/.codex}/config.toml"
+  CODEX_CMD=$(find_codex 2>/dev/null || true)
+  if [ -d "$CLAUDE_SKILL_DIR" ] || \
+    { [ -f "$SETTINGS" ] && grep -q askuserquestionspro "$SETTINGS" 2>/dev/null; } || \
+    { [ -d "$CODEX_SKILL_DIR" ] || { [ -f "$CODEX_CONFIG" ] && grep -q 'mcp_servers.askuserquestionspro' "$CODEX_CONFIG" 2>/dev/null; }; } || \
+    { [ -n "$CODEX_CMD" ] && "$CODEX_CMD" mcp list 2>/dev/null | grep -q askuserquestionspro; }; then
+    PRESERVE_SHARED=1
+  fi
 fi
 
 # ── log helper'ları ──────────────────────────────────────────────────────────
@@ -115,7 +149,7 @@ err()  { printf '%s\n' "${C_RED}  ✗ $*${C_RESET}" >&2; }
 
 FAIL=0
 
-printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kaldırma — Claude Code + Codex (target: $TARGET)${C_RESET}"
+printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kaldırma — Claude Code + Codex + Antigravity CLI (target: $TARGET)${C_RESET}"
 
 collect_port_pids() {
   PIDS=()
@@ -150,6 +184,25 @@ fallback_remove_mcp() {
       warn "Codex executable bulunamadı — MCP fallback temizliği çalıştırılamadı"
     fi
   fi
+  if [ "$ANTIGRAVITY_APPLIES" -eq 1 ]; then
+    if command -v node >/dev/null 2>&1 && [ -f "$ANTIGRAVITY_MCP_CONFIG" ]; then
+      node -e '
+        const fs = require("node:fs");
+        const file = process.argv[1];
+        try {
+          const value = JSON.parse(fs.readFileSync(file, "utf8"));
+          if (value && value.mcpServers && Object.prototype.hasOwnProperty.call(value.mcpServers, "askuserquestionspro")) {
+            delete value.mcpServers.askuserquestionspro;
+            if (Object.keys(value.mcpServers).length === 0) delete value.mcpServers;
+            fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\\n", { mode: 0o600 });
+          }
+        } catch (_) {}
+      ' "$ANTIGRAVITY_MCP_CONFIG" || true
+      info "  Antigravity MCP fallback temizliği denendi"
+    else
+      warn "Antigravity MCP config bulunamadı — fallback temizliği atlandı"
+    fi
+  fi
 }
 
 # ── 1/5 Çalışan bridge süreçlerini kapat ────────────────────────────────────
@@ -179,7 +232,7 @@ else
 fi
 
 # ── 2/5 Host kayıtlarını bundled CLI ile kaldır ──────────────────────────────
-step "2/5  Claude/Codex hook ve MCP kayıtları kaldırılıyor (target: $TARGET)"
+step "2/5  Claude/Codex/Antigravity hook, MCP ve plugin kayıtları kaldırılıyor (target: $TARGET)"
 # Primer: bundled Node logic tüm host kayıtlarını idempotent kaldırır.
 if [ -f "$INSTALL_DIR/bin/cli.js" ]; then
   if node "$INSTALL_DIR/bin/cli.js" uninstall --target "$TARGET"; then
@@ -235,7 +288,7 @@ else
 fi
 
 # ── 4/5 Skill ───────────────────────────────────────────────────────────────
-step "4/5  Claude ve Codex askpro skill'leri"
+step "4/5  Host askpro skill/plugin'leri"
 if [ "$KEEP_SKILL" -eq 1 ]; then
   info "  --keep-skill → host skill'leri korunuyor"
 else
@@ -244,6 +297,9 @@ else
   fi
   if [ "$CODEX_APPLIES" -eq 1 ] && [ -d "$CODEX_SKILL_DIR" ]; then
     if rm -rf "$CODEX_SKILL_DIR"; then ok "silindi: $CODEX_SKILL_DIR"; else err "$CODEX_SKILL_DIR silinemedi"; FAIL=1; fi
+  fi
+  if [ "$ANTIGRAVITY_APPLIES" -eq 1 ] && [ -d "$ANTIGRAVITY_PLUGIN_DIR" ]; then
+    if rm -rf "$ANTIGRAVITY_PLUGIN_DIR"; then ok "silindi: $ANTIGRAVITY_PLUGIN_DIR"; else err "$ANTIGRAVITY_PLUGIN_DIR silinemedi"; FAIL=1; fi
   fi
 fi
 
@@ -267,6 +323,11 @@ else
     err "kalıntı: $CODEX_SKILL_DIR"; FAIL=1
   elif [ "$CODEX_APPLIES" -eq 1 ]; then
     ok "Codex skill yok"
+  fi
+  if [ "$ANTIGRAVITY_APPLIES" -eq 1 ] && [ -d "$ANTIGRAVITY_PLUGIN_DIR" ]; then
+    err "kalıntı: $ANTIGRAVITY_PLUGIN_DIR"; FAIL=1
+  elif [ "$ANTIGRAVITY_APPLIES" -eq 1 ]; then
+    ok "Antigravity plugin yok"
   fi
 fi
 # Hook gerçekten gitti mi?
@@ -301,6 +362,13 @@ if [ "$CODEX_APPLIES" -eq 1 ]; then
     fi
   else
     warn "Codex executable bulunamadı — MCP kalıntısı CLI üzerinden doğrulanamadı"
+  fi
+fi
+if [ "$ANTIGRAVITY_APPLIES" -eq 1 ]; then
+  if [ -f "$ANTIGRAVITY_MCP_CONFIG" ] && grep -q askuserquestionspro "$ANTIGRAVITY_MCP_CONFIG" 2>/dev/null; then
+    warn "Antigravity mcp_config.json'da askuserquestionspro geçiyor — bundled CLI ile tekrar kontrol edin"
+  else
+    ok "Antigravity MCP kaydı yok"
   fi
 fi
 # Port boş mu?

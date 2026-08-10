@@ -144,6 +144,7 @@ test('install --target auto: host CLI yokken uyumluluk fallback kurulumu basar',
       XDG_CONFIG_HOME: xdg,
       ASKUI_CLAUDE_BIN: path.join(home, 'missing-claude'),
       ASKUI_CODEX_BIN: path.join(home, 'missing-codex'),
+      ASKUI_ANTIGRAVITY_BIN: path.join(home, 'missing-agy'),
     };
     const install = spawnSync(process.execPath, [CLI, 'install', '--target', 'auto'], {
       encoding: 'utf8',

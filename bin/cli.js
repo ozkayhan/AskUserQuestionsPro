@@ -18,6 +18,15 @@ const Settings = require('../lib/settings.js');
 const { writeFileAtomic } = require('../lib/atomic-write.cjs');
 const Schema = require('../web/settings-schema.js');
 const {
+  deploySkill: deployAntigravitySkill,
+  hasMcp: hasAntigravityMcp,
+  hasPlugin: hasAntigravityPlugin,
+  installMcp: installAntigravityMcp,
+  removeMcp: removeAntigravityMcp,
+  removePlugin: removeAntigravityPlugin,
+  pathsFor: antigravityPaths,
+} = require('../lib/antigravity.cjs');
+const {
   HOSTS,
   DEFAULT_CODEX_TOOL_TIMEOUT_SEC,
   manualMcpCommand,
@@ -40,19 +49,20 @@ const PORT = process.env.ASKUSER_PORT || '4517';
 const BASE = `http://127.0.0.1:${PORT}`;
 
 function usage() {
-  process.stdout.write(`askuserquestionspro — Claude Code ve Codex için tam ekran soru arayüzü
+  process.stdout
+    .write(`askuserquestionspro — Claude Code, Codex ve Antigravity CLI için tam ekran soru arayüzü
 
 Kullanım:
-  askuserquestionspro init [--target auto|all|claude|codex]
-  askuserquestionspro install [--target auto|all|claude|codex]
-  askuserquestionspro uninstall [--target auto|all|claude|codex]
+  askuserquestionspro init [--target auto|all|claude|codex|antigravity]
+  askuserquestionspro install [--target auto|all|claude|codex|antigravity]
+  askuserquestionspro uninstall [--target auto|all|claude|codex|antigravity]
   askuserquestionspro serve       Yerel köprüyü foreground çalıştır (debug, port ${PORT})
   askuserquestionspro mcp         MCP stdio sunucusunu foreground çalıştır (debug)
   askuserquestionspro settings    Ayarları listele (settings get/set <key> [val])
   askuserquestionspro settings export
   askuserquestionspro settings import-preview <file|->
   askuserquestionspro settings reset <namespace>
-  askuserquestionspro doctor [--target auto|all|claude|codex]
+  askuserquestionspro doctor [--target auto|all|claude|codex|antigravity]
   askuserquestionspro help        Bu mesaj
 
 Varsayılan target=auto: makinede bulunan hostları algılar. Kurulumdan sonra yeni
@@ -71,6 +81,12 @@ function fileContains(file, needle) {
 function hasHostArtifacts(host) {
   if (fs.existsSync(path.join(skillDestination(host, os.homedir()), 'SKILL.md'))) return true;
   if (host === 'claude') return fileContains(CLAUDE_SETTINGS, 'askuserquestionspro');
+  if (host === 'antigravity') {
+    const paths = antigravityPaths(os.homedir());
+    return (
+      hasAntigravityPlugin(os.homedir()) || fileContains(paths.mcpConfig, 'askuserquestionspro')
+    );
+  }
   const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
   return fileContains(path.join(codexHome, 'config.toml'), 'mcp_servers.askuserquestionspro');
 }
@@ -84,6 +100,7 @@ function hostContext(target, operation) {
   const executables = {
     claude: resolveExecutable('claude', spawnSync),
     codex: resolveExecutable('codex', spawnSync),
+    antigravity: resolveExecutable('antigravity', spawnSync),
   };
   const discoverable =
     operation === 'install'
@@ -91,18 +108,26 @@ function hostContext(target, operation) {
       : {
           claude: executables.claude || hasHostArtifacts('claude'),
           codex: executables.codex || hasHostArtifacts('codex'),
+          antigravity: executables.antigravity || hasHostArtifacts('antigravity'),
         };
   let hosts = selectedHosts(target, discoverable);
   if (target === 'auto' && hosts.length === 0 && operation === 'install') {
     hosts = ['claude'];
     process.stdout.write(
-      `· Claude/Codex komutu algılanamadı; geriye uyumluluk için Claude dosyaları hazırlanacak.\n`
+      `· Claude/Codex/Antigravity komutu algılanamadı; geriye uyumluluk için Claude dosyaları hazırlanacak.\n`
     );
   }
   return { executables, hosts };
 }
 
 function deploySkill(host) {
+  if (host === 'antigravity') {
+    const destination = deployAntigravitySkill({ home: os.homedir(), source: SKILL_SOURCE });
+    process.stdout.write(
+      `✓ ${HOSTS[host].label} plugin + skill → ${antigravityPaths(os.homedir()).pluginDir}\n`
+    );
+    return destination;
+  }
   const destination = skillDestination(host, os.homedir());
   if (!fs.existsSync(path.join(SKILL_SOURCE, 'SKILL.md'))) {
     throw new Error(`skill kaynağı bulunamadı: ${SKILL_SOURCE}`);
@@ -130,6 +155,20 @@ function deploySkill(host) {
 }
 
 function registerMcp(host, executable, { optional = false } = {}) {
+  if (host === 'antigravity') {
+    try {
+      const paths = installAntigravityMcp({
+        home: os.homedir(),
+        mcpPath: MCP_ABS,
+        nodePath: process.execPath,
+      });
+      process.stdout.write(`✓ ${HOSTS[host].label} MCP aracı → ${paths.mcpConfig}\n`);
+      return true;
+    } catch (error) {
+      process.stderr.write(`✗ ${HOSTS[host].label} MCP kaydı başarısız: ${error.message}\n`);
+      return false;
+    }
+  }
   if (!executable) {
     process.stderr.write(
       `${optional ? '·' : '✗'} ${HOSTS[host].label} komutu bulunamadı. MCP'yi elle kaydedin:\n  ${manualMcpCommand(host, MCP_ABS)}\n`
@@ -245,6 +284,11 @@ function cmdInstall(argv) {
       `Codex App/CLI aynı MCP ayarını paylaşır. Yeni görev/oturum açın ve masaüstü uygulamasını yeniden başlatın.\n`
     );
   }
+  if (hosts.includes('antigravity')) {
+    process.stdout.write(
+      `Antigravity CLI için MCP kaydı ve global plugin kuruldu. Yeni bir agy oturumu başlatın.\n`
+    );
+  }
   if (!ok) process.exitCode = 1;
 }
 
@@ -277,6 +321,22 @@ function cmdUninstall(argv) {
   let ok = true;
   for (const host of hosts) {
     if (host === 'claude') ok = removeClaudeHook() && ok;
+    if (host === 'antigravity') {
+      try {
+        const removedMcp = removeAntigravityMcp({ home: os.homedir() });
+        const paths = removeAntigravityPlugin(os.homedir());
+        process.stdout.write(`✓ ${HOSTS[host].label} plugin kaldırıldı → ${paths.pluginDir}\n`);
+        process.stdout.write(
+          removedMcp.removed
+            ? `✓ ${HOSTS[host].label} MCP kaydı kaldırıldı → ${paths.mcpConfig}\n`
+            : `· ${HOSTS[host].label} MCP kaydı zaten yok\n`
+        );
+      } catch (error) {
+        process.stderr.write(`✗ ${HOSTS[host].label} temizliği başarısız: ${error.message}\n`);
+        ok = false;
+      }
+      continue;
+    }
     const skill = skillDestination(host, os.homedir());
     fs.rmSync(skill, { recursive: true, force: true });
     process.stdout.write(`✓ ${HOSTS[host].label} skill kaldırıldı → ${skill}\n`);
@@ -484,6 +544,22 @@ function doctorClaudeHook() {
 }
 
 function doctorMcp(host, executable, { optional = false } = {}) {
+  if (host === 'antigravity') {
+    const installed = hasAntigravityMcp(
+      antigravityPaths(os.homedir()).mcpConfig,
+      MCP_ABS,
+      process.execPath
+    );
+    process.stdout.write(
+      installed
+        ? `✓ ${HOSTS[host].label} MCP kaydı kurulu\n`
+        : `✗ ${HOSTS[host].label} MCP kaydı bulunamadı\n`
+    );
+    if (!executable) {
+      process.stdout.write(`· agy executable PATH'te yok; dosya kaydı yine de doğrulandı\n`);
+    }
+    return installed;
+  }
   if (!executable) {
     process.stdout.write(
       `${optional ? '·' : '✗'} ${HOSTS[host].label} komutu bulunamadı${optional ? ' (MCP kaydı elle doğrulanmalı)' : ''}\n`
@@ -534,7 +610,11 @@ async function cmdDoctor(argv) {
     process.stdout.write(`\n[${HOSTS[host].label}]\n`);
     if (host === 'claude') ok = doctorClaudeHook() && ok;
     const skill = skillDestination(host, os.homedir());
-    if (fs.existsSync(path.join(skill, 'SKILL.md'))) {
+    const skillInstalled =
+      host === 'antigravity'
+        ? hasAntigravityPlugin(os.homedir())
+        : fs.existsSync(path.join(skill, 'SKILL.md'));
+    if (skillInstalled) {
       process.stdout.write(`✓ skill kurulu (${skill})\n`);
     } else {
       process.stdout.write(`✗ skill kurulu değil (${skill})\n`);
