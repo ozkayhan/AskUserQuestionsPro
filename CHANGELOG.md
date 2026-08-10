@@ -1,5 +1,21 @@
 # askuserquestionspro
 
+## 1.3.0
+
+### Minor Changes
+
+- 996271b: Add first-class Antigravity CLI integration. Automatic installation now detects
+  `agy`, registers the AskPro stdio MCP server in Antigravity's global config,
+  and deploys the `askpro` skill plugin with doctor and uninstall lifecycle support.
+
+### Patch Changes
+
+- 558c159: Reopen the configured local question panel when an MCP round is resumed, so a
+  recoverable round cannot remain invisible after its original host request ends.
+- e66f3d6: Add an exact-round `cancel_round` MCP control tool and preserve the user's
+  language when replacing an active question round. Host disconnect recovery
+  continues to use explicit durable `resume` selection.
+
 ## 1.2.1
 
 ### Patch Changes
