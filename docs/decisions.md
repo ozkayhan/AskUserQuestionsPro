@@ -173,3 +173,20 @@ multi-day user work.
 **Evidence:** `server/bridge.js`, `server/server.js`,
 `mcp-server/askuserquestionspro-mcp.mjs`, `test/mcp-long-round.test.js`, and
 `docs/timeout-runbook.md`.
+
+## D-012 — MCP stdio transport loss is terminal for the owning process
+
+Each MCP stdio process owns one idempotent shutdown path. Stdin EOF/close,
+stdout errors/close, terminal signals, and fatal process errors abort its
+active requests, stop further protocol writes, and exit within a bounded
+cleanup window. A process-level error handler must not merely log and keep a
+dead stdio transport alive.
+
+**Why:** A closed host pipe previously triggered uncaught asynchronous write
+errors while the entrypoint's non-terminating error handlers kept Node alive.
+The result was a PPID=1 orphan that repeatedly formatted and logged errors at
+high CPU. This lifecycle is per process; concurrent valid MCP clients remain
+independent and are never handled by a global singleton.
+
+**Evidence:** `mcp-server/askuserquestionspro-mcp.mjs`,
+`test/mcp-lifecycle.test.js`, and `test/mcp-long-round.test.js`.

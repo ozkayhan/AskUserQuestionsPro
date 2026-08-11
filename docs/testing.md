@@ -42,6 +42,7 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `install.test.js`                | Claude hook settings mutations and conflict handling.                                     |
 | `live.test.js`                   | Browser SSE and answer-posting helpers.                                                   |
 | `long-round.test.js`             | 15-question bridge idle-round and delayed-owner regression.                               |
+| `mcp-lifecycle.test.js`          | MCP stdio EOF, signals, abrupt owner loss, closed output, and concurrent-client shutdown. |
 | `mcp-long-round.test.js`         | Real MCP stdio process, delayed 15-question answer, and progress heartbeat lifecycle.     |
 | `mcp-progress.test.js`           | Progress-token validation, monotonic values, and heartbeat cleanup.                       |
 | `mcp-server.test.js`             | JSON-RPC lifecycle/version negotiation, cancellation, schema, instructions, and metadata. |

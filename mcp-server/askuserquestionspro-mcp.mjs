@@ -11,18 +11,63 @@ const { createProgressHeartbeat, isProgressToken } = require('../lib/mcp-progres
 const { validQuestions } = require('../lib/question-contract.cjs');
 const { adapterEnabled } = require('../lib/runtime-settings.cjs');
 
-process.on('uncaughtException', (e) => log('mcp', e));
-process.on('unhandledRejection', (r) => log('mcp', r));
-
 const CURRENT_PROTOCOL_VERSION = '2025-11-25';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([CURRENT_PROTOCOL_VERSION, '2025-06-18', '2024-11-05']);
 const activeRequests = new Map();
+const activeTasks = new Set();
 let stdinClosed = false;
+let stdoutClosed = false;
+let transportConnected = false;
+let shutdownPromise;
+
+log('mcp-lifecycle', `startup pid=${process.pid} ppid=${process.ppid}`);
 
 function disconnectActiveRequests() {
+  if (stdinClosed) return;
   stdinClosed = true;
   for (const controller of activeRequests.values()) controller.abort();
 }
+
+function trackTask(task) {
+  const tracked = Promise.resolve(task).finally(() => activeTasks.delete(tracked));
+  activeTasks.add(tracked);
+  return tracked;
+}
+
+function shutdown(reason, exitCode = 0) {
+  if (shutdownPromise) return shutdownPromise;
+  shutdownPromise = (async () => {
+    log('mcp-lifecycle', `shutdown start: ${reason}`);
+    disconnectActiveRequests();
+    process.stdin.pause();
+
+    const settle = Promise.allSettled([...activeTasks]);
+    const deadline = new Promise((resolve) => {
+      const timer = setTimeout(resolve, 1000);
+      timer.unref?.();
+    });
+    await Promise.race([settle, deadline]);
+    process.exitCode = exitCode;
+    log('mcp-lifecycle', `shutdown complete: ${reason}`);
+    process.exit(exitCode);
+  })();
+  shutdownPromise.catch((error) => {
+    log('mcp-lifecycle', error);
+    process.exit(1);
+  });
+  return shutdownPromise;
+}
+
+function handleFatalError(reason, error) {
+  log('mcp', error);
+  void shutdown(reason, 1);
+}
+
+process.on('uncaughtException', (error) => handleFatalError('uncaught_exception', error));
+process.on('unhandledRejection', (reason) => handleFatalError('unhandled_rejection', reason));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGHUP', () => void shutdown('SIGHUP'));
 
 // ASK aracı tanımı — maxItems YOK: sınırsız soru desteklenir.
 const ASK_TOOL = {
@@ -230,15 +275,35 @@ const CANCEL_ROUND_TOOL = {
 };
 
 // JSON-RPC yanıtı oluştur ve STDOUT'a yaz.
-// stdout broken pipe (EPIPE) atarsa logla — uncaughtException'a düşürmeyelim,
-// aksi halde tek bir yazma hatası tüm sunucuyu çökertir.
+// stdout broken pipe (EPIPE) transport terminalidir; yanıt gönderimini kesip
+// tekil shutdown yolunu başlatır.
 function sendResponse(obj) {
+  if (stdoutClosed || shutdownPromise) return false;
+  const payload = JSON.stringify(obj) + '\n';
   try {
-    process.stdout.write(JSON.stringify(obj) + '\n');
-  } catch (e) {
-    log('mcp', e);
+    process.stdout.write(payload, (error) => {
+      if (error) handleTransportError(error);
+    });
+    return true;
+  } catch (error) {
+    handleTransportError(error);
+    return false;
   }
 }
+
+function handleTransportError(error) {
+  if (stdoutClosed) return;
+  stdoutClosed = true;
+  log('mcp-lifecycle', `transport closed: stdout_error pid=${process.pid}`);
+  handleFatalError('stdout_error', error);
+}
+
+process.stdout.on('error', handleTransportError);
+process.stdout.on('close', () => {
+  if (stdoutClosed) return;
+  stdoutClosed = true;
+  void shutdown('stdout_close', 0);
+});
 
 function progressIntervalMs() {
   const configured = Number(process.env.ASKUSER_MCP_PROGRESS_INTERVAL_MS);
@@ -652,6 +717,10 @@ let buffer = '';
 process.stdin.setEncoding('utf8');
 
 process.stdin.on('data', (chunk) => {
+  if (!transportConnected) {
+    transportConnected = true;
+    log('mcp-lifecycle', `transport connected pid=${process.pid}`);
+  }
   buffer += chunk;
   const lines = buffer.split('\n');
   // Son elemanı buffer'da tut (henüz tamamlanmamış satır olabilir).
@@ -667,13 +736,15 @@ process.stdin.on('data', (chunk) => {
       log('mcp', `JSON parse error: ${e.message} — line: ${trimmed.slice(0, 100)}`);
       continue;
     }
-    handleMessage(msg).catch((e) => {
-      log('mcp', e);
-      // id alanı varsa (null dahil; yalnızca bildirimde absent) hata yanıtı gönder.
-      if (msg.id !== undefined) {
-        sendError(msg.id, -32603, 'internal error');
-      }
-    });
+    trackTask(
+      handleMessage(msg).catch((e) => {
+        log('mcp', e);
+        // id alanı varsa (null dahil; yalnızca bildirimde absent) hata yanıtı gönder.
+        if (msg.id !== undefined) {
+          sendError(msg.id, -32603, 'internal error');
+        }
+      })
+    );
   }
 });
 
@@ -686,14 +757,17 @@ process.stdin.on('end', () => {
       msg = JSON.parse(trimmed);
     } catch (e) {
       log('mcp', `JSON parse error: ${e.message} — line: ${trimmed.slice(0, 100)}`);
-      return;
+      msg = null;
     }
-    handleMessage(msg).catch((e) => log('mcp', e));
+    if (msg) trackTask(handleMessage(msg).catch((e) => log('mcp', e)));
   }
-  disconnectActiveRequests();
+  void shutdown('stdin_eof');
 });
 
 process.stdin.on('error', (error) => {
-  log('mcp', error);
-  disconnectActiveRequests();
+  handleFatalError('stdin_error', error);
+});
+
+process.stdin.on('close', () => {
+  void shutdown('stdin_close');
 });
