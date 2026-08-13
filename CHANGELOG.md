@@ -1,48 +1,74 @@
-# askuserquestionspro
+# Changelog
+
+All notable user-facing changes are recorded here. Commit identifiers are
+intentionally omitted from the summary; the Git history remains the source for
+line-by-line provenance.
+
+## 1.4.0
+
+### Reliability
+
+- Long-running rounds now survive host disconnects, browser recovery, process
+  restarts, and resume-waiter loss with bounded, exact-round lifecycle rules.
+- Host and MCP boundaries share strict health identity, protocol limits,
+  question validation, typed cancellation, and bounded network deadlines.
+
+### Experience
+
+- Added visible question navigation, question-level draft conflict choices,
+  recovery retry/close actions, accessible ranking controls, and clearer
+  delivery results.
+- Added real Playwright browser coverage across Chromium, Firefox, and WebKit,
+  plus cross-platform installer and release quality gates.
 
 ## 1.3.1
 
-### Patch Changes
+### Reliability
 
-- f205c43: Ensure MCP stdio processes terminate cleanly after client or transport loss instead of becoming orphaned CPU-spinning processes.
+- MCP stdio processes now terminate cleanly after client or transport loss,
+  avoiding orphaned processes and CPU spin.
 
 ## 1.3.0
 
-### Minor Changes
+### Added
 
-- 996271b: Add first-class Antigravity CLI integration. Automatic installation now detects
-  `agy`, registers the AskPro stdio MCP server in Antigravity's global config,
-  and deploys the `askpro` skill plugin with doctor and uninstall lifecycle support.
+- Added first-class Antigravity CLI integration, including host discovery,
+  global MCP registration, the `askpro` skill plugin, doctor checks, and
+  target-aware uninstall behavior.
 
-### Patch Changes
+### Reliability
 
-- 558c159: Reopen the configured local question panel when an MCP round is resumed, so a
-  recoverable round cannot remain invisible after its original host request ends.
-- e66f3d6: Add an exact-round `cancel_round` MCP control tool and preserve the user's
-  language when replacing an active question round. Host disconnect recovery
-  continues to use explicit durable `resume` selection.
+- Resumed rounds reopen the configured local question panel when the original
+  host request has ended.
+- Added exact-round `cancel_round` control and preserved the user’s language
+  when replacing an active round.
 
 ## 1.2.1
 
-### Patch Changes
+### Added
 
-- Expose redacted recoverable-round discovery through MCP and give pending-round
-  collisions actionable exact-ID recovery guidance.
+- Added redacted recoverable-round discovery and actionable exact-ID guidance
+  when another round is already pending.
 
 ## 1.2.0
 
-### Minor Changes
+### Reliability
 
-- 4ff112f: Fix browser round retirement and state-driven recovery so completed tabs cannot duplicate later rounds, normal draft acknowledgements do not trigger false conflict prompts, and recoverable interruptions expose exact valid actions.
+- Completed browser rounds are retired before later rounds render, preventing
+  duplicate tabs and stale answers.
+- Normal draft acknowledgements no longer trigger false recovery conflicts.
+- Recovery actions now depend on exact round identity and valid round state.
 
 ## 1.1.1
 
-### Patch Changes
+### Reliability
 
-- 4d4e634: Harden the v1.1 release with deterministic quality gates, safer local recovery, privacy checks, installer evidence, and complete release documentation.
+- Hardened release quality gates, local recovery, privacy checks, installer
+  verification, and release documentation.
 
 ## 1.1.0
 
-### Minor Changes
+### Added
 
-- f12e710: 5 q/a mode added, tens of bugs fixed etc.
+- Expanded the structured question experience with multiple input types and a
+  larger review-oriented browser flow.

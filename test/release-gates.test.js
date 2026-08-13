@@ -31,10 +31,16 @@ test('release gate preserves package boundary and no new installs', () => {
   assert.match(docs, /changeset.*release workflow/i);
 });
 test('release guidance preserves the repository-native OTP-free publisher', () => {
-  assert.match(releaseDocs, /canonical npm publishing path is GitHub Actions/i);
+  assert.match(
+    releaseDocs,
+    /(?:canonical npm publishing path is GitHub Actions|GitHub Actions is the only normal publisher)/i
+  );
   assert.match(releaseDocs, /id-token:\s*write/i);
   assert.match(releaseDocs, /trusted publishing/i);
-  assert.match(releaseDocs, /Do not\s+start a release with a local `npm publish`/i);
+  assert.match(
+    releaseDocs,
+    /(?:Do not\s+start a release with a local `npm publish`|Do not\s+start with local `npm publish`)/i
+  );
   assert.match(releaseDocs, /EOTP/);
 });
 test('release gate executes the locally available package and shell checks', () => {
@@ -49,4 +55,17 @@ test('release gate executes the locally available package and shell checks', () 
   });
   if (shellcheck.error?.code === 'ENOENT') assert.match(docs, /unavailable optional tools/i);
   else assert.equal(shellcheck.status, 0, shellcheck.stdout || shellcheck.stderr);
+});
+
+test('release gate config is kept in the repository test surface', () => {
+  const coverage = fs.readFileSync('test/coverage-config.cjs', 'utf8');
+  assert.match(coverage, /lines:\s*90/);
+  assert.match(coverage, /branches:\s*80/);
+  assert.match(coverage, /functions:\s*80/);
+  assert.match(coverage, /criticalLine:\s*85/);
+  assert.match(coverage, /round-lifecycle\.cjs/);
+  assert.match(coverage, /question-contract\.cjs/);
+  assert.match(coverage, /round-store\.cjs/);
+  assert.match(coverage, /test\/\*\*/);
+  assert.match(coverage, /web\/\*\*/);
 });

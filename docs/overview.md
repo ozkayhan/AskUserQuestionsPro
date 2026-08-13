@@ -48,9 +48,10 @@ Claude Code / Codex / Antigravity / ChatGPT Desktop → MCP ├→ bridge-client
 ## Who it's for
 
 Claude Code, Codex, and Antigravity CLI users who want a larger question
-interface, a review step, richer input types, and larger batches. Install is
-`npx askuserquestionspro init` or `install.sh`; use
-`--target auto|all|claude|codex|antigravity` to choose hosts.
+interface, a review step, richer input types, and larger batches. Install with
+`npm install --global askuserquestionspro` followed by
+`askuserquestionspro install`; the shell path is a verified release-archive
+fallback. Use `--target auto|all|claude|codex|antigravity` to choose hosts.
 
 ## Key properties
 

@@ -126,6 +126,26 @@ test('useRef imported (required for abortRef and sessionBaseline)', () => {
   assert.ok(src.includes('useRef'), 'useRef must be imported and used');
 });
 
+test('settings import input is excluded from keyboard tab order', () => {
+  const importStart = src.indexOf('accept="application/json,.json"');
+  assert.notEqual(importStart, -1, 'import input should exist');
+  const importInput = src.slice(
+    src.lastIndexOf('<input', importStart),
+    src.indexOf('/>', importStart) + 2
+  );
+  assert.match(importInput, /tabIndex=\{-1\}/);
+});
+
+test('settings button is placed in the workspace utility region instead of a fixed FAB', () => {
+  assert.match(src, /className="settings-button"/);
+  assert.doesNotMatch(src, /className="settings-fab"/);
+});
+
+test('settings focus trap excludes hidden and disabled controls', () => {
+  assert.match(src, /input:not\(\[disabled\]\):not\(\[tabindex="-1"\]\)/);
+  assert.match(src, /:not\(\.sr-only\)/);
+});
+
 // ── Schema-level unit tests (settings-panel logic depends on schema) ──────────
 
 const Schema = require('../web/settings-schema.js');

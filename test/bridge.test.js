@@ -71,7 +71,7 @@ test('Bridge resumes a reconnecting browser round after a second bridge restart'
 
   const restartedAgain = new Bridge({ store: new RoundStore({ root }), detachedTtlMs: 1000 });
   const recovered = restartedAgain.peek('resume-twice');
-  assert.equal(recovered.lifecycle.state, 'reconnecting');
+  assert.equal(recovered.lifecycle.state, 'detached');
   const secondResume = restartedAgain.waitForAnswers({
     requestId: 'resume-twice',
     roundId: original.roundId,
@@ -120,14 +120,70 @@ test('Bridge.cancelRecoverable cancels one exact active round and preserves newe
   });
   assert.equal(bridge.peek(), null);
   assert.equal(store.get(current.roundId).record.lifecycle.state, 'cancelled');
-  assert.equal(bridge.cancelRecoverable(current.roundId).code, 'stale_round');
+  assert.deepEqual(bridge.cancelRecoverable(current.roundId), {
+    ok: true,
+    roundId: current.roundId,
+    replayed: true,
+  });
 
   const nextOwner = bridge.submitQuestions([{ question: 'keep me' }], 'next-round');
   nextOwner.catch(() => {});
   const next = bridge.peek('next-round');
-  assert.equal(bridge.cancelRecoverable(current.roundId).code, 'stale_round');
+  assert.deepEqual(bridge.cancelRecoverable(current.roundId), {
+    ok: true,
+    roundId: current.roundId,
+    replayed: true,
+  });
   assert.equal(bridge.peek('next-round').roundId, next.roundId);
   bridge.cancel('test cleanup', next.id, next.capability);
+});
+
+test('Bridge exact cancellation is idempotent for the same durable round', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-cancel-idempotent-'));
+  const store = new RoundStore({ root });
+  const bridge = new Bridge({ store });
+  const owner = bridge.submitQuestions([{ question: 'cancel me' }], 'cancel-idempotent');
+  owner.catch(() => {});
+  const round = bridge.peek('cancel-idempotent');
+
+  assert.deepEqual(bridge.cancelRecoverable(round.roundId), {
+    ok: true,
+    roundId: round.roundId,
+  });
+  assert.deepEqual(bridge.cancelRecoverable(round.roundId), {
+    ok: true,
+    roundId: round.roundId,
+    replayed: true,
+  });
+});
+
+test('persistence failure leaves the active round unchanged and retryable', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-persistence-retry-'));
+  const durable = new RoundStore({ root });
+  let mutations = 0;
+  const store = {
+    create: durable.create.bind(durable),
+    recoverable: durable.recoverable.bind(durable),
+    get: durable.get.bind(durable),
+    findByRequestId: durable.findByRequestId.bind(durable),
+    list: durable.list.bind(durable),
+    remove: durable.remove.bind(durable),
+    cleanupExpired: durable.cleanupExpired.bind(durable),
+    mutate(roundId, fn) {
+      mutations += 1;
+      if (mutations === 1) return { ok: false, code: 'persistence_error' };
+      return durable.mutate(roundId, fn);
+    },
+  };
+  const bridge = new Bridge({ store });
+  const owner = bridge.submitQuestions([{ question: 'Q?' }], 'persistence-retry');
+  owner.catch(() => {});
+  const round = bridge.peek('persistence-retry');
+
+  assert.equal(bridge.provideAnswers(round.id, { 'Q?': 'A' }, round.capability), false);
+  assert.equal(bridge.peek('persistence-retry').lifecycle.state, 'drafting');
+  assert.equal(durable.get(round.roundId).record.lifecycle.state, 'drafting');
+  assert.equal(bridge.cancel('cleanup', round.id, round.capability), true);
 });
 
 function scheduler() {
@@ -168,9 +224,9 @@ function seedDurableRecord(store, { roundId, requestId, state, answers = null, e
     : state === 'reconnecting'
       ? ['detach', 'resume']
       : state === 'delivery-uncertain'
-        ? ['answerAccepted', 'uncertain']
+        ? []
         : state === 'delivered'
-          ? ['answerAccepted', 'delivered']
+          ? []
           : state === 'cancelled'
             ? ['cancel']
             : state === 'recovery-error'
@@ -682,6 +738,49 @@ test('detached round correct capability ile resume öncesi cevap kabul eder ve s
   assert.equal(b.getSnapshot().state, 'delivered');
 });
 
+test('detach and answer acceptance restart their durable deadlines from the event time', async () => {
+  const clock = scheduler();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-deadlines-'));
+  const store = new RoundStore({ root, now: clock.now });
+  const bridge = new Bridge({
+    store,
+    detachedTtlMs: 100,
+    now: clock.now,
+    setTimer: clock.setTimer,
+    clearTimer: clock.clearTimer,
+  });
+  const owner = bridge.submitQuestions([{ question: 'Q?' }], 'deadline-round');
+  const round = bridge.peek('deadline-round');
+  clock.advance(50);
+  assert.equal(bridge.detach('host disconnected', round.id, round.capability), true);
+  assert.equal(store.get(round.roundId).record.expiresAt, 150);
+
+  clock.advance(80);
+  assert.equal(bridge.provideAnswers(round.id, { 'Q?': 'A' }, round.capability), true);
+  assert.equal(store.get(round.roundId).record.expiresAt, 230);
+  await owner;
+});
+
+test('durable expiry cannot be forced before its persisted deadline', () => {
+  const clock = scheduler();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-early-expiry-'));
+  const store = new RoundStore({ root, now: clock.now });
+  const bridge = new Bridge({
+    store,
+    detachedTtlMs: 100,
+    now: clock.now,
+    setTimer: clock.setTimer,
+    clearTimer: clock.clearTimer,
+  });
+  const owner = bridge.submitQuestions([{ question: 'Q?' }], 'early-expiry');
+  owner.catch(() => {});
+  const round = bridge.peek('early-expiry');
+  assert.equal(bridge.detach('host disconnected', round.id, round.capability), true);
+  assert.equal(bridge.expire(round.id, round.capability), false);
+  assert.equal(bridge.peek('early-expiry').lifecycle.state, 'detached');
+  bridge.cancel('cleanup', round.id, round.capability);
+});
+
 test('resume requires an explicit roundId or requestId', async () => {
   const b = new Bridge({ detachedTtlMs: 1000 });
   const owner = b.submitQuestions([{ question: 'Q?' }], 'owner-a');
@@ -735,6 +834,48 @@ test('resume edilen reconnecting round TTL dolunca waiter ve tur acik kalir', as
   assert.equal(b.provideAnswers(round.id, { 'Q?': 'A' }, round.capability), true);
   assert.deepEqual(await resumed.promise, { 'Q?': 'A' });
   assert.deepEqual(await owner, { 'Q?': 'A' });
+});
+
+test('closing the last resume waiter returns reconnecting to bounded detached recovery', async () => {
+  const clock = scheduler();
+  const b = new Bridge({
+    detachedTtlMs: 100,
+    now: clock.now,
+    setTimer: clock.setTimer,
+    clearTimer: clock.clearTimer,
+  });
+  const owner = b.submitQuestions([{ question: 'Q?' }], 'waiter-loss');
+  const round = b.peek('waiter-loss');
+  assert.equal(b.detach('host disconnected', round.id, round.capability), true);
+  const resumed = b.waitForAnswers('waiter-loss');
+  assert.equal(b.peek('waiter-loss').lifecycle.state, 'reconnecting');
+  resumed.cancel();
+  assert.equal(b.peek('waiter-loss').lifecycle.state, 'detached');
+  clock.advance(100);
+  await assert.rejects(owner, (error) => error.code === 'application_timeout');
+  assert.equal(b.peek(), null);
+});
+
+test('public cleanup protects active drafting and delivery ownership from deletion', async () => {
+  const clock = scheduler();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-bridge-cleanup-race-'));
+  const store = new RoundStore({ root, now: clock.now });
+  const b = new Bridge({
+    store,
+    detachedTtlMs: 100,
+    now: clock.now,
+    setTimer: clock.setTimer,
+    clearTimer: clock.clearTimer,
+  });
+  const owner = b.submitQuestions([{ question: 'draft' }], 'cleanup-draft');
+  const draft = b.peek('cleanup-draft');
+  clock.advance(100);
+  assert.deepEqual(b.cleanupExpired(), []);
+  assert.equal(store.get(draft.roundId).ok, true);
+  assert.equal(b.provideAnswers(draft.id, { draft: 'answer' }, draft.capability), true);
+  await owner;
+  assert.deepEqual(b.cleanupExpired(), []);
+  assert.equal(store.get(draft.roundId).ok, true);
 });
 
 test('reconnecting durable round survives cleanup and remains answerable after TTL', async () => {

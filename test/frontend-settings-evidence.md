@@ -12,5 +12,5 @@
 | Validation rollback          | PASS         |
 | Host adapter live acceptance | MANUAL CHECK |
 
-Run: `node --test test/browser-settings-e2e.test.js`
-Artifacts: `test/artifacts/settings-v2/`.
+Run: `npm run test:playwright`
+Artifacts: per-test files under Playwright's ignored `test-results/` output.

@@ -83,6 +83,17 @@ class Bridge {
 
   _hydrate(record) {
     if (this._pending) return this._pending.durable?.roundId === record.roundId;
+    if (['drafting', 'reconnecting'].includes(record.lifecycle.state) && this._store) {
+      const retentionMs = Math.max(1, record.expiresAt - record.createdAt);
+      const normalized = this._store.mutate(record.roundId, (current, now) =>
+        Record.transition(current, 'detach', current.revision, now, {
+          deadlineOwner: 'host',
+          expiresAt: now + retentionMs,
+        })
+      );
+      if (!normalized.ok) return false;
+      record = normalized.record;
+    }
     const id =
       Number.isInteger(record.lifecycle.id) && record.lifecycle.id > 0
         ? record.lifecycle.id
@@ -145,7 +156,7 @@ class Bridge {
       return { ok: false, code: 'stale_round' };
     if (this._pending && this._pending.durable?.roundId !== found.record.roundId)
       return { ok: false, code: 'round_in_progress' };
-    this._hydrate(found.record);
+    if (!this._hydrate(found.record)) return { ok: false, code: 'persistence_error' };
     return { ok: true, record: found.record };
   }
 
@@ -222,19 +233,67 @@ class Bridge {
   }
 
   _transition(p, event, options) {
+    this._lastTransitionError = null;
+    const now = options?.now ?? this._now();
+    const replayStates = {
+      detach: 'detached',
+      resume: 'reconnecting',
+      answerAccepted: 'delivery-pending',
+      uncertain: 'delivery-uncertain',
+      delivered: 'delivered',
+      cancel: 'cancelled',
+      expire: 'expired',
+      recoveryError: 'recovery-error',
+    };
+    const memory =
+      p.record.state === replayStates[event]
+        ? { ok: true, record: p.record, replayed: true }
+        : transition(p.record, event, { now, ...options });
+    if (!memory.ok) {
+      this._lastTransitionError = memory.code || 'illegal_transition';
+      return false;
+    }
     if (p.durable) {
       const persisted = this._store.mutate(p.durable.roundId, (record, now) =>
         Record.transition(record, event, record.revision, now, {
           deadlineOwner: options?.deadlineOwner,
           terminalReason: options?.reason,
+          expiresAt: options?.expiresAt,
         })
       );
-      if (!persisted.ok) return false;
+      if (!persisted.ok) {
+        this._lastTransitionError = persisted.code || 'persistence_error';
+        return false;
+      }
       p.durable = persisted.record;
     }
-    const result = transition(p.record, event, { now: this._now(), ...options });
-    if (result.ok) p.record = result.record;
-    return result.ok;
+    p.record = memory.record;
+    return true;
+  }
+
+  _armDetachTimer(p, delay = this._detachedTtlMs) {
+    if (p.detachTimer) this._clearTimer(p.detachTimer);
+    p.detachTimer = this._setTimer(() => {
+      if (this._pending === p && p.detached) this.expire(p.id, p.record.capability);
+    }, delay);
+    p.detachTimer.unref?.();
+  }
+
+  _detachAfterWaiterLoss(p) {
+    if (this._pending !== p || p.record.state !== 'reconnecting') return false;
+    const now = this._now();
+    if (
+      !this._transition(p, 'detach', {
+        now,
+        deadlineOwner: 'host',
+        expiresAt: now + this._detachedTtlMs,
+      })
+    )
+      return false;
+    p.detached = true;
+    p.lifecycle?.event('host_detached', { boundary: 'bridge', deadlineOwner: 'host' });
+    this._armDetachTimer(p);
+    return true;
   }
 
   _owns(p, expectedId, capability) {
@@ -250,29 +309,23 @@ class Bridge {
   provideAnswers(id, answers, capability) {
     if (!this._owns(this._pending, id, capability)) return false;
     const p = this._pending;
+    const now = this._now();
+    const memory = transition(p.record, 'answerAccepted', {
+      now,
+      deadlineOwner: 'host',
+    });
+    if (!memory.ok) return false;
     if (p.durable) {
       const persisted = this._store.mutate(p.durable.roundId, (record, now) => {
-        const finalized = Record.finalize(record, answers, record.revision, now);
-        // A reconnecting round may answer after its original detached deadline.
-        // Start the result-replay window from answer time so periodic cleanup
-        // cannot delete delivery-pending state before the host acknowledges it.
-        if (
-          finalized.ok &&
-          !finalized.replayed &&
-          record.lifecycle.state === 'reconnecting' &&
-          record.expiresAt <= now
-        ) {
-          finalized.record = {
-            ...finalized.record,
-            expiresAt: now + this._detachedTtlMs,
-          };
-        }
-        return finalized;
+        return Record.finalize(record, answers, record.revision, now, {
+          deadlineOwner: 'host',
+          expiresAt: now + this._detachedTtlMs,
+        });
       });
       if (!persisted.ok) return false;
       p.durable = persisted.record;
     }
-    if (!this._transition(p, 'answerAccepted')) return false;
+    p.record = memory.record;
     this._pending = null;
     if (p.detachTimer) this._clearTimer(p.detachTimer);
     p.lifecycle?.event('answer_received', { boundary: 'browser', deadlineOwner: 'browser' });
@@ -303,14 +356,19 @@ class Bridge {
     }
     const p = this._pending;
     if (p.detached) return false;
-    if (!this._transition(p, 'detach', { reason: terminalReason(reason), deadlineOwner: 'host' }))
+    const now = this._now();
+    if (
+      !this._transition(p, 'detach', {
+        now,
+        reason: terminalReason(reason),
+        deadlineOwner: 'host',
+        expiresAt: now + this._detachedTtlMs,
+      })
+    )
       return false;
     p.detached = true;
     p.lifecycle?.event('host_detached', { boundary: 'bridge', deadlineOwner: 'host' });
-    p.detachTimer = this._setTimer(() => {
-      if (this._pending === p && p.detached) this.expire(p.id, p.record.capability);
-    }, this._detachedTtlMs);
-    p.detachTimer.unref?.();
+    this._armDetachTimer(p);
     return true;
   }
 
@@ -333,7 +391,16 @@ class Bridge {
     }
     const p = this._findDetached(selected);
     if (p) {
-      this._transition(p, 'resume', { deadlineOwner: 'host' });
+      if (!this._transition(p, 'resume', { deadlineOwner: 'host' })) {
+        const error = Object.assign(new Error('round resume persistence failed'), {
+          code: 'persistence_error',
+        });
+        return { promise: Promise.reject(error), cancel() {} };
+      }
+      if (p.detachTimer) {
+        this._clearTimer(p.detachTimer);
+        p.detachTimer = null;
+      }
       p.lifecycle?.event('round_resumed', { boundary: 'bridge', deadlineOwner: 'host' });
       let waiter;
       const promise = new Promise((resolve, reject) => {
@@ -345,7 +412,9 @@ class Bridge {
         roundId: p.durable?.roundId || p.id,
         cancel: () => {
           const index = p.waiters.indexOf(waiter);
-          if (index >= 0) p.waiters.splice(index, 1);
+          if (index < 0) return;
+          p.waiters.splice(index, 1);
+          if (p.waiters.length === 0) this._detachAfterWaiterLoss(p);
         },
       };
     }
@@ -379,7 +448,7 @@ class Bridge {
     this._forgetCompleted(p.requestId);
     this._completed.set(p.requestId, {
       answers,
-      roundId: p.id,
+      roundId: p.durable?.roundId || p.id,
       durableRoundId: p.durable?.roundId || null,
       expiresAt: this._now() + this._detachedTtlMs,
     });
@@ -504,6 +573,16 @@ class Bridge {
       );
   }
 
+  cleanupExpired() {
+    if (!this._store) return [];
+    const protectedRoundIds = [];
+    if (this._pending?.durable?.roundId) protectedRoundIds.push(this._pending.durable.roundId);
+    for (const delivery of this._deliveries.values()) {
+      if (delivery.p.durable?.roundId) protectedRoundIds.push(delivery.p.durable.roundId);
+    }
+    return this._store.cleanupExpired({ protectedRoundIds });
+  }
+
   deleteRecoverable(roundId) {
     if (!this._store) return { ok: false, code: 'not_found' };
     if (typeof roundId !== 'string' || !ROUND_ID_RE.test(roundId)) {
@@ -588,13 +667,16 @@ class Bridge {
     if (!this._store) return { ok: false, code: 'not_found' };
     const found = this.getDurable(roundId);
     if (!found.ok) return found;
+    if (found.record.lifecycle.state === 'cancelled') {
+      return { ok: true, roundId, replayed: true };
+    }
     if (!CANCELLABLE_STATES.includes(found.record.lifecycle.state))
       return { ok: false, code: 'stale_round' };
 
     const pending = this._pending;
     if (pending?.durable?.roundId === roundId) {
       if (!this.cancel(reason, pending.id, pending.record.capability))
-        return { ok: false, code: 'ownership_conflict' };
+        return { ok: false, code: this._lastTransitionError || 'ownership_conflict' };
       return { ok: true, roundId };
     }
 
@@ -602,7 +684,7 @@ class Bridge {
     const cancelled = this._store.mutate(roundId, (record, now) =>
       Record.transition(record, 'cancel', record.revision, now, {
         deadlineOwner: 'host',
-        reason: outcome,
+        terminalReason: outcome,
       })
     );
     return cancelled.ok ? { ok: true, roundId } : cancelled;
@@ -639,6 +721,7 @@ class Bridge {
     // Guard before _transition so the durable snapshot cannot be made terminal
     // while the in-memory state remains reconnecting.
     if (p.record.state === 'reconnecting' || isReconnecting(p.durable)) return false;
+    if (p.durable && p.durable.expiresAt > this._now()) return false;
     if (
       !this._transition(p, 'expire', {
         reason: 'application_timeout',

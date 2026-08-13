@@ -1,9 +1,10 @@
 # Architecture Decisions
 
 This is the maintained decision record for behavior that affects reliability,
-host compatibility, and operational support. It extracts durable decisions from
-the historical audit/plan material; the source documents are preserved in
-[`archive/`](archive/README.md) with their original wording.
+host compatibility, security, and operational support. It extracts durable
+decisions from historical audit material; source reports are preserved in
+[`archive/`](archive/README.md) with their original wording. Local planning and
+agent-session directories are intentionally not public documentation.
 
 ## D-001 — Local, single-user, zero-runtime-dependency architecture
 
@@ -190,3 +191,20 @@ independent and are never handled by a global singleton.
 
 **Evidence:** `mcp-server/askuserquestionspro-mcp.mjs`,
 `test/mcp-lifecycle.test.js`, and `test/mcp-long-round.test.js`.
+
+## D-013 — npm-first distribution and verified shell fallback
+
+npm is the primary installation channel because it provides a named package,
+registry integrity metadata, and a versioned CLI entry point. The shell path is
+only a fallback: users download an archive from an immutable release tag,
+verify the maintainer-published SHA-256 checksum, and then run the local
+installer. Mutable branch downloads and `curl | bash` instructions are not
+supported documentation.
+
+**Why:** installer scripts can write host hooks, MCP registrations, skills, and
+local runtime files. A mutable branch or unverified stream would make a
+network or repository compromise an arbitrary-code-execution path before the
+user can inspect the source.
+
+**Evidence:** `README.md`, `SECURITY.md`, `docs/release.md`, and the shell
+installer contract.

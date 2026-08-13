@@ -10,6 +10,7 @@ const path = require('node:path');
 process.env.XDG_CONFIG_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-srv-'));
 const { server, bridge } = require('../server/server.js');
 const APP_ID = require('../lib/app-id.cjs');
+const { BRIDGE_PROTOCOL_VERSION, packageVersion } = require('../lib/bridge-protocol.cjs');
 const Record = require('../lib/round-record.cjs');
 const { createRecord, transition } = require('../lib/round-state.cjs');
 const { RoundStore } = require('../lib/round-store.cjs');
@@ -424,14 +425,19 @@ test('/draft persists capability/revision guarded browser state and rejects a st
 
 test('/health ok döndürür', async () => {
   const r = await fetch(`${base}/health`);
-  assert.deepStrictEqual(await r.json(), { ok: true, app: APP_ID });
+  assert.deepStrictEqual(await r.json(), {
+    ok: true,
+    app: APP_ID,
+    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+    packageVersion,
+  });
 });
 
 test('/ask soruları tutar, /answer ile resolve olur (id round-trip)', async () => {
   const questions = [{ question: 'Q?', options: [{ label: 'A' }], multiSelect: false }];
   const askPromise = post('/ask', { questions });
   const cur = await waitForPending();
-  assert.deepStrictEqual(cur.questions, questions);
+  assert.deepStrictEqual(cur.questions, [{ ...questions[0], header: 'General' }]);
   assert.ok(typeof cur.id === 'number');
 
   const r = await post('/answer', { id: cur.id, answers: { 'Q?': 'A' } });

@@ -48,3 +48,34 @@ test('invalid persisted records and future formats are rejected', () => {
   assert.equal(Record.validate({ formatVersion: 2 }).code, 'unsupported_format');
   assert.equal(Record.validate({ formatVersion: 1, roundId: '../bad' }).ok, false);
 });
+
+test('durable transitions share the lifecycle legality and revision contract', () => {
+  const record = base();
+  const illegal = Record.transition(record, 'delivered', 0, 101);
+  assert.equal(illegal.ok, false);
+  assert.equal(illegal.code, 'illegal_transition');
+  assert.strictEqual(illegal.record, undefined);
+
+  const stale = Record.transition(record, 'detach', 1, 101);
+  assert.equal(stale.ok, false);
+  assert.equal(stale.code, 'stale_revision');
+
+  const detached = Record.transition(record, 'detach', 0, 101, {
+    deadlineOwner: 'host',
+    expiresAt: 1101,
+  });
+  assert.equal(detached.ok, true);
+  assert.equal(detached.record.lifecycle.state, 'detached');
+  assert.equal(detached.record.revision, 1);
+  assert.equal(detached.record.expiresAt, 1101);
+});
+
+test('durable finalization rejects terminal records instead of reopening them', () => {
+  const cancelled = Record.transition(base(), 'cancel', 0, 101, {
+    terminalReason: 'user_cancelled',
+  });
+  assert.equal(cancelled.ok, true);
+  const reopened = Record.finalize(cancelled.record, { 'Q?': 'answer' }, 1, 102);
+  assert.equal(reopened.ok, false);
+  assert.equal(reopened.code, 'illegal_transition');
+});

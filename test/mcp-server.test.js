@@ -298,7 +298,19 @@ test('mcp-server: pending collision exposes only redacted recovery discovery', a
     assert.equal(round.state, 'drafting');
     assert.match(round.roundId, /^round_/);
     assert.equal(round.questionCount, 1);
-    assert.doesNotMatch(JSON.stringify(discovery.result), /Private prompt|Yes|capability/i);
+    assert.deepStrictEqual(Object.keys(round).sort(), [
+      'createdAt',
+      'expiresAt',
+      'questionCount',
+      'roundId',
+      'state',
+      'updatedAt',
+    ]);
+    assert.strictEqual(
+      discovery.result.content[0].text,
+      JSON.stringify(discovery.result.structuredContent, null, 2)
+    );
+    assert.doesNotMatch(discovery.result.content[0].text, /Private prompt|Second private prompt/);
 
     mcp.stdin.write(
       JSON.stringify({

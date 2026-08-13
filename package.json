@@ -1,7 +1,7 @@
 {
   "name": "askuserquestionspro",
-  "version": "1.3.1",
-  "description": "Claude Code ve Codex App/CLI için yerel, tam ekran ve yapılandırılmış soru-cevap arayüzü.",
+  "version": "1.4.0",
+  "description": "Local-first, structured question rounds for Claude Code, Codex, and MCP hosts.",
   "type": "commonjs",
   "author": "oğuz kerem ayhan <oguzkeremayhan@hotmail.com>",
   "repository": {
@@ -33,6 +33,7 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "test:browser": "node test/browser-settings-cli-e2e.js",
+    "test:playwright": "playwright test",
     "serve": "node server/server.js",
     "mcp": "node mcp-server/askuserquestionspro-mcp.mjs",
     "install-hook": "node bin/cli.js install",
@@ -57,6 +58,13 @@
     "chatgpt-desktop",
     "askuserquestion",
     "request-user-input",
+    "mcp",
+    "local-first",
+    "structured-questions",
+    "accessibility",
+    "developer-tools",
+    "ai-agents",
+    "nodejs",
     "hook",
     "cli",
     "amoled"
@@ -72,6 +80,8 @@
     "@babel/core": "^7.24.0",
     "@babel/eslint-parser": "^7.24.0",
     "@babel/preset-react": "^7.24.0",
-    "eslint-plugin-react-hooks": "^5.0.0"
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "@playwright/test": "^1.62.1",
+    "@axe-core/playwright": "^4.13.0"
   }
 }

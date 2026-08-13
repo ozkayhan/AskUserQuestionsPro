@@ -1,7 +1,5 @@
 # docs — askuserquestionspro
 
-> **Synced:** 2026-07-24 against the shipped v1.2.0 browser-lifecycle fixes.
-
 Read this folder before exploring the source — it maps the whole codebase.
 
 ## What this is
@@ -25,7 +23,7 @@ bridge, and the browser UI.
 - [frontend.md](frontend.md) — web UI: React-via-Babel app, views, themes, answer logic
 - [backend.md](backend.md) — bridge server, hook, MCP server, CLI, install
 - [hosts.md](hosts.md) — Codex/Claude lifecycle contracts, fallbacks, and host-boundary evidence
-- [host matrix](../test/host-compatibility-evidence.md) and [capability cards](host-capability-cards/) — evidence-gated compatibility states
+- [host matrix](https://github.com/ozkayhan/AskUserQuestionsPro/blob/main/test/host-compatibility-evidence.md) and [capability cards](host-capability-cards/) — evidence-gated compatibility states
 - [host research gates](host-research/README.md) — dated sources and isolated installed-host handoff
 - [cross-platform evidence](evidence/phase-13-cross-platform.md) and [native OS handoff](evidence/phase-13-native-os-runs.md) — release limitations and required lanes
 - [timeout-runbook.md](timeout-runbook.md) — long-round reproduction, lifecycle interpretation, and recovery
@@ -34,13 +32,13 @@ bridge, and the browser UI.
 - [release.md](release.md) — canonical GitHub Actions/npm publishing path and release guardrails
 - [hardening.md](hardening.md) — 5-theme systemic hardening sprint: what was changed, why, and the CI guards
 - [maintenance.md](maintenance.md) — documentation ownership, naming, archive, and verification rules
-- [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md) — current bounded UAT, security, quality, and external-release evidence
-- [v1.2.0 milestone audit](../.planning/milestones/v1.2.0-MILESTONE-AUDIT.md) — archived browser-lifecycle evidence boundary and blocked host/browser lanes
+- [release evidence handoff](evidence/v1.1.1-release-handoff.md) — current bounded UAT, security, quality, and external-release evidence
 - [archive/README.md](archive/README.md) — historical reports and plans retained for provenance
 
 ## Note on existing in-repo docs
 
 `docs/` (this folder) is the English, code-verified canonical reference for
-agents. Historical audit and workflow material lives under `docs/archive/` and
-is not an active implementation plan. `docs/hardening.md` records the 5-theme
-systemic hardening applied to the codebase.
+contributors and maintainers. Historical audit and workflow material lives
+under `docs/archive/` and is not an active implementation plan. The public
+README links to these pages using stable GitHub paths where a package install
+cannot resolve repository-relative test or documentation links.

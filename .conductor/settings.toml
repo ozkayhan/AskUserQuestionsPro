@@ -1,0 +1,19 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+setup = "npm ci"
+run_mode = "concurrent"
+
+[scripts.run.serve]
+available_in = ["local"]
+command = "ASKUSER_PORT=\"$CONDUCTOR_PORT\" npm run serve"
+default = true
+icon = "play"
+
+[scripts.run.test]
+command = "npm test"
+icon = "test-tube"
+
+[scripts.run.lint]
+command = "npm run lint"
+icon = "check-circle"

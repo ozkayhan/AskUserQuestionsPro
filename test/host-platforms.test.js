@@ -12,10 +12,22 @@ const {
   mcpArgs,
   parseTarget,
   resolveExecutable,
+  resolveUserHome,
   selectedHosts,
   setMcpToolTimeoutSec,
   skillDestination,
 } = require('../lib/host-platforms.cjs');
+
+test('resolveUserHome prefers explicit HOME and otherwise uses the native home', () => {
+  assert.strictEqual(
+    resolveUserHome({ HOME: '/isolated/home' }, () => '/native/home'),
+    '/isolated/home'
+  );
+  assert.strictEqual(
+    resolveUserHome({}, () => '/native/home'),
+    '/native/home'
+  );
+});
 
 test('parseTarget supports spaced/equal forms and rejects unknown input', () => {
   assert.strictEqual(parseTarget([]), 'auto');

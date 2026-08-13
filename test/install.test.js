@@ -146,19 +146,29 @@ test('writeSettings: tmp→rename atomik, sonuç okunabilir', () => {
 });
 
 test('writeSettings: yazılamaz dizin → throw eder, orijinal korunur', () => {
-  if (process.getuid && process.getuid() === 0) return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-ws-'));
   const file = path.join(dir, 'settings.json');
   // Önce geçerli içerik yaz.
   fs.writeFileSync(file, '{"original":true}\n', 'utf8');
-  fs.chmodSync(dir, 0o555);
   try {
-    assert.throws(() => writeSettings(file, { overwrite: true }), /EACCES/);
+    const deniedFs = new Proxy(fs, {
+      get(target, property) {
+        if (property === 'mkdirSync') {
+          return () => {
+            throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+          };
+        }
+        return target[property];
+      },
+    });
+    assert.throws(
+      () => writeSettings(file, { overwrite: true }, { fs: deniedFs }),
+      /EACCES|permission denied/
+    );
     // Orijinal bozulmamış olmalı.
     const content = fs.readFileSync(file, 'utf8');
     assert.ok(content.includes('"original"'), 'orijinal içerik korunmalı');
   } finally {
-    fs.chmodSync(dir, 0o755);
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -181,15 +191,18 @@ test('readSettings: bozuk JSON → throw eder', () => {
 });
 
 test('readSettings: EACCES → throw eder', () => {
-  if (process.getuid && process.getuid() === 0) return;
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-rs-'));
-  try {
-    const file = path.join(dir, 'settings.json');
-    fs.writeFileSync(file, '{}', 'utf8');
-    fs.chmodSync(file, 0o000);
-    assert.throws(() => readSettings(file), /Cannot read settings file/);
-  } finally {
-    fs.chmodSync(path.join(dir, 'settings.json'), 0o644);
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
+  const deniedFs = new Proxy(fs, {
+    get(target, property) {
+      if (property === 'readFileSync') {
+        return () => {
+          throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+        };
+      }
+      return target[property];
+    },
+  });
+  assert.throws(
+    () => readSettings('/isolated/settings.json', { fs: deniedFs }),
+    /Cannot read settings file.*permission denied/
+  );
 });

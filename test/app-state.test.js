@@ -27,7 +27,7 @@ test('app: recovery chooser and delivery surfaces are explicit and keyboard-owne
   assert.match(app, /durableRoundId/);
   assert.match(app, /retryAcknowledgement/);
   assert.match(app, /clearPendingDrafts/);
-  assert.match(app, /createAnswerState\(QUESTIONS, draftAnswers\)/);
+  assert.match(app, /createAnswerState\(QUESTIONS, localDraft \|\| draftAnswers\)/);
 });
 
 test('app: normal draft broadcasts wait for the autosave request to settle before reconciling', () => {
@@ -56,4 +56,11 @@ test('app: submit retires the exact round before delivery and uncertainty return
   assert.match(app, /['"]after-delivery['"]/);
   assert.match(app, /['"]never['"]/);
   assert.doesNotMatch(app, /Answers sent back to the agent\./);
+});
+
+test('app: visible Continue commits untouched scale and ranking defaults', () => {
+  assert.match(app, /qtype === ['"]scale['"]/);
+  assert.match(app, /qtype === ['"]ranking['"]/);
+  assert.match(app, /onConfirm\(cur, \{ value/);
+  assert.match(app, /onConfirm\(cur, \{ order/);
 });

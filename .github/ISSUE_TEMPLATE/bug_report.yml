@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible defect in the application or an adapter.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include real question text, answers, credentials, private paths, or unredacted host logs.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed and expected behavior.
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host and target
+      placeholder: Codex CLI / --target codex
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Node.js major version
+      placeholder: macOS 15 / Node 22
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use synthetic data and include exact safe commands.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Safe diagnostics
+      description: Include doctor output or redacted lifecycle evidence only.
+  - type: input
+    id: installation
+    attributes:
+      label: Installation route
+      placeholder: npm global / verified release archive / source checkout

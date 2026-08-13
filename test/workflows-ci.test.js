@@ -3,12 +3,13 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
+const coverageConfig = require('../test/coverage-config.cjs');
 
 const ciYml = readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
 
-// Expected SHA pins (resolve from tag at bundle-fix time; update when action releases new v4.x)
-const CHECKOUT_SHA = '34e114876b0b11c390a56381ad16ebd13914f8d5'; // actions/checkout v4.3.1
-const SETUP_NODE_SHA = '49933ea5288caeca8642d1e84afbd3f7d6820020'; // actions/setup-node v4.4.0
+// Expected SHA pins (resolve from the immutable action release tag when upgrading).
+const CHECKOUT_SHA = '3d3c42e5aac5ba805825da76410c181273ba90b1'; // actions/checkout v7.0.1
+const SETUP_NODE_SHA = '820762786026740c76f36085b0efc47a31fe5020'; // actions/setup-node v7.0.0
 
 describe('ci.yml yapısı', () => {
   it('pull_request tetikleyicisi var', () => {
@@ -31,10 +32,8 @@ describe('ci.yml yapısı', () => {
     assert.match(ciYml, /\blint\b/);
   });
 
-  it('test job matrix: 18, 20, 22', () => {
-    assert.match(ciYml, /18/);
-    assert.match(ciYml, /20/);
-    assert.match(ciYml, /22/);
+  it('test job matrix: 18, 20, 22, 24', () => {
+    assert.match(ciYml, /node-version:\s*\[18,\s*20,\s*22,\s*24\]/);
   });
 
   it('npm ci kullanıyor (npm install değil)', () => {
@@ -46,22 +45,22 @@ describe('ci.yml yapısı', () => {
     assert.match(ciYml, /timeout-minutes:\s*10/);
   });
 
-  it('actions/checkout SHA-pinned (not floating @v4 tag)', () => {
+  it('actions/checkout SHA-pinned (not a floating major tag)', () => {
     // Must reference by full commit SHA, not mutable tag
     assert.ok(
       ciYml.includes(`actions/checkout@${CHECKOUT_SHA}`),
       `actions/checkout must be pinned to ${CHECKOUT_SHA}`
     );
     // Floating tag must not appear (supply-chain guard)
-    assert.doesNotMatch(ciYml, /actions\/checkout@v4(?!\s*#)/);
+    assert.doesNotMatch(ciYml, /actions\/checkout@v\d/);
   });
 
-  it('actions/setup-node SHA-pinned (not floating @v4 tag)', () => {
+  it('actions/setup-node SHA-pinned (not a floating major tag)', () => {
     assert.ok(
       ciYml.includes(`actions/setup-node@${SETUP_NODE_SHA}`),
       `actions/setup-node must be pinned to ${SETUP_NODE_SHA}`
     );
-    assert.doesNotMatch(ciYml, /actions\/setup-node@v4(?!\s*#)/);
+    assert.doesNotMatch(ciYml, /actions\/setup-node@v\d/);
   });
 
   it('npm run lint adımı var', () => {
@@ -76,9 +75,48 @@ describe('ci.yml yapısı', () => {
     assert.match(ciYml, /fail-fast:\s*false/);
   });
 
+  it('separates runtime, coverage, OS, browser, and audit jobs', () => {
+    for (const job of ['test:', 'coverage:', 'os-smoke:', 'browser:', 'audit:'])
+      assert.match(ciYml, new RegExp(`\\n  ${job}`));
+    assert.match(
+      ciYml,
+      /browser:[\s\S]*matrix:[\s\S]*browser:\s*\[chromium,\s*firefox,\s*webkit\]/
+    );
+    assert.match(
+      ciYml,
+      /os-smoke:[\s\S]*matrix:[\s\S]*os:\s*\[ubuntu-latest,\s*macos-latest,\s*windows-latest\]/
+    );
+    assert.match(
+      ciYml,
+      /browser:[\s\S]*playwright install --with-deps \$\{\{ matrix\.browser \}\}/
+    );
+    assert.match(
+      ciYml,
+      /browser:[\s\S]*npm run test:playwright -- --project=\$\{\{ matrix\.browser \}\}/
+    );
+  });
+
+  it('native coverage gate uses the configured 90/80/80 thresholds', () => {
+    assert.match(ciYml, /coverage:[\s\S]*node-version:\s*24/);
+    assert.match(ciYml, /coverage:[\s\S]*node test\/coverage-runner\.cjs/);
+    assert.deepEqual(
+      {
+        lines: coverageConfig.lines,
+        branches: coverageConfig.branches,
+        functions: coverageConfig.functions,
+      },
+      { lines: 90, branches: 80, functions: 80 }
+    );
+  });
+
+  it('audit job keeps full and production-boundary high-severity gates', () => {
+    assert.match(ciYml, /audit:[\s\S]*npm audit --audit-level=high/);
+    assert.match(ciYml, /audit:[\s\S]*npm audit --audit-level=high --omit=dev/);
+  });
+
   it('shellcheck step in lint job', () => {
     assert.match(ciYml, /shellcheck/i);
-    assert.match(ciYml, /-not -path ['"]?\.\/\.codex\/\*['"]?/);
+    assert.match(ciYml, /-not -path ['"]?\.\/\.git\/\*['"]?/);
   });
 
   it('npm audit comment is accurate (no misleading js-yaml claim)', () => {

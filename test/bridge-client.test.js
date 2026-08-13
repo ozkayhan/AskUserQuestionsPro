@@ -34,6 +34,12 @@ test('ensureServer() sunucu zaten çalışıyorken true döner', async () => {
   assert.strictEqual(result, true, 'ensureServer() true döndürmeli');
 });
 
+test('managed PID parser keeps the port out of child-process arguments', () => {
+  const lsof = 'p101\nf3\nn127.0.0.1:4517\np202\nf4\nn127.0.0.1:9999\np303\nf5\nn*:4517\n';
+  assert.deepStrictEqual(bridgeClient.parseManagedPids(lsof, '4517'), ['101', '303']);
+  assert.deepStrictEqual(bridgeClient.parseManagedPids(lsof, '4517;touch /tmp/pwned'), []);
+});
+
 test('openBrowser returns an explicit opening strategy result', () => {
   const previous = process.env.ASKUSER_OPEN_BROWSER;
   process.env.ASKUSER_OPEN_BROWSER = '0';
