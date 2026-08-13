@@ -1,0 +1,147 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - heading "Agent Clarification — Questions" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic [ref=e7]: Agent · clarify
+        - generic [ref=e15]:
+          - generic [ref=e16]: Questions
+          - generic [ref=e17]: 0 / 12
+        - progressbar "Questions answered" [ref=e18]
+      - generic [ref=e19]:
+        - textbox "Filter questions" [ref=e20]:
+          - /placeholder: Filter questions…
+        - switch "Show unanswered only" [ref=e22] [cursor=pointer]
+      - button "Skip remaining & review →" [ref=e25] [cursor=pointer]:
+        - generic [ref=e26]: Skip remaining & review
+        - generic [ref=e27]: →
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - button "Core 0/6" [expanded] [ref=e30] [cursor=pointer]:
+            - generic [ref=e33]: Core
+            - generic [ref=e34]: 0/6
+          - generic [ref=e35]:
+            - button "1. Audit question 1?" [ref=e36] [cursor=pointer]:
+              - generic [ref=e37]: "1"
+              - generic [ref=e38]:
+                - text: Core
+                - generic [ref=e39]: Audit question 1?
+            - button "2. Audit question 2?" [ref=e40] [cursor=pointer]:
+              - generic [ref=e41]: "2"
+              - generic [ref=e42]:
+                - text: Core
+                - generic [ref=e43]: Audit question 2?
+            - button "3. Audit question 3?" [ref=e44] [cursor=pointer]:
+              - generic [ref=e45]: "3"
+              - generic [ref=e46]:
+                - text: Core
+                - generic [ref=e47]: Audit question 3?
+            - button "4. Audit question 4?" [ref=e48] [cursor=pointer]:
+              - generic [ref=e49]: "4"
+              - generic [ref=e50]:
+                - text: Core
+                - generic [ref=e51]: Audit question 4?
+            - button "5. Audit question 5?" [ref=e52] [cursor=pointer]:
+              - generic [ref=e53]: "5"
+              - generic [ref=e54]:
+                - text: Core
+                - generic [ref=e55]: Audit question 5?
+            - button "6. Audit question 6?" [ref=e56] [cursor=pointer]:
+              - generic [ref=e57]: "6"
+              - generic [ref=e58]:
+                - text: Core
+                - generic [ref=e59]: Audit question 6?
+        - generic [ref=e60]:
+          - button "Release 0/6" [expanded] [ref=e61] [cursor=pointer]:
+            - generic [ref=e64]: Release
+            - generic [ref=e65]: 0/6
+          - generic [ref=e66]:
+            - button "7. Audit question 7?" [ref=e67] [cursor=pointer]:
+              - generic [ref=e68]: "7"
+              - generic [ref=e69]:
+                - text: Release
+                - generic [ref=e70]: Audit question 7?
+            - button "8. Audit question 8?" [ref=e71] [cursor=pointer]:
+              - generic [ref=e72]: "8"
+              - generic [ref=e73]:
+                - text: Release
+                - generic [ref=e74]: Audit question 8?
+            - button "9. Audit question 9?" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]: "9"
+              - generic [ref=e77]:
+                - text: Release
+                - generic [ref=e78]: Audit question 9?
+            - button "10. Audit question 10?" [ref=e79] [cursor=pointer]:
+              - generic [ref=e80]: "10"
+              - generic [ref=e81]:
+                - text: Release
+                - generic [ref=e82]: Audit question 10?
+            - button "11. Audit question 11?" [ref=e83] [cursor=pointer]:
+              - generic [ref=e84]: "11"
+              - generic [ref=e85]:
+                - text: Release
+                - generic [ref=e86]: Audit question 11?
+            - button "12. Audit question 12?" [ref=e87] [cursor=pointer]:
+              - generic [ref=e88]: "12"
+              - generic [ref=e89]:
+                - text: Release
+                - generic [ref=e90]: Audit question 12?
+        - button "Review and submit your answers" [ref=e91] [cursor=pointer]:
+          - generic [ref=e92]: ✓
+          - generic [ref=e93]:
+            - text: Review
+            - generic [ref=e94]: Confirm & submit your answers
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - generic [ref=e98]: ←
+            - generic [ref=e99]: →
+          - generic [ref=e100]: Move between questions
+        - generic [ref=e101]:
+          - generic [ref=e102]:
+            - generic [ref=e103]: "1"
+            - generic [ref=e104]: "4"
+          - generic [ref=e105]: Select · press again to confirm
+        - generic [ref=e106]:
+          - generic [ref=e107]: U
+          - generic [ref=e109]: Jump to next unanswered
+    - main [ref=e110]:
+      - generic [ref=e112]:
+        - generic [ref=e113]: Core
+        - heading "Audit question 1?" [level=2] [ref=e115]
+        - paragraph [ref=e116]: Select one option. An "Other" choice is always available.
+        - generic [ref=e117]:
+          - button "Yes Choose yes" [ref=e118] [cursor=pointer]:
+            - generic [ref=e119]: "1"
+            - generic [ref=e120]:
+              - generic [ref=e121]: "Yes"
+              - text: Choose yes
+          - button "No Choose no" [ref=e125] [cursor=pointer]:
+            - generic [ref=e126]: "2"
+            - generic [ref=e127]:
+              - generic [ref=e128]: "No"
+              - text: Choose no
+          - button "Other Let me describe something else." [ref=e132] [cursor=pointer]:
+            - generic [ref=e133]: "3"
+            - generic [ref=e134]:
+              - generic [ref=e135]: Other
+              - text: Let me describe something else.
+      - generic [ref=e139]:
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]: "1"
+            - text: –
+            - generic [ref=e143]: "3"
+          - text: Select
+        - generic [ref=e144]:
+          - generic [ref=e145]: press key again →
+          - text: Confirm
+        - generic [ref=e146]:
+          - generic [ref=e147]: ↵
+          - text: on "Other" to type
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - generic [ref=e150]: ←
+            - generic [ref=e151]: →
+          - text: Navigate
+  - button "Settings" [ref=e152] [cursor=pointer]

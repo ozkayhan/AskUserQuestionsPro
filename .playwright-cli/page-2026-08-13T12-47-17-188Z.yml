@@ -1,0 +1,57 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - heading "Agent Clarification — Questions" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic [ref=e7]: Agent · clarify
+        - generic [ref=e15]:
+          - generic [ref=e16]: Questions
+          - generic [ref=e17]: 0 / 12
+        - progressbar "Questions answered" [ref=e18]
+      - generic [ref=e19]:
+        - textbox "Filter questions" [ref=e20]:
+          - /placeholder: Filter questions…
+        - switch "Show unanswered only" [ref=e22] [cursor=pointer]
+      - button "Skip remaining & review →" [ref=e25] [cursor=pointer]:
+        - generic [ref=e26]: Skip remaining & review
+        - generic [ref=e27]: →
+    - main [ref=e110]:
+      - generic [ref=e251]:
+        - generic [ref=e252]: Core
+        - heading "Audit question 3?" [level=2] [ref=e254]
+        - paragraph [ref=e255]: Select one option. An "Other" choice is always available.
+        - generic [ref=e256]:
+          - button "Yes Choose yes" [ref=e257] [cursor=pointer]:
+            - generic [ref=e258]: "1"
+            - generic [ref=e259]:
+              - generic [ref=e260]: "Yes"
+              - text: Choose yes
+          - button "No Choose no" [ref=e264] [cursor=pointer]:
+            - generic [ref=e265]: "2"
+            - generic [ref=e266]:
+              - generic [ref=e267]: "No"
+              - text: Choose no
+          - button "Other Let me describe something else." [ref=e271] [cursor=pointer]:
+            - generic [ref=e272]: "3"
+            - generic [ref=e273]:
+              - generic [ref=e274]: Other
+              - text: Let me describe something else.
+      - generic [ref=e278]:
+        - generic [ref=e279]:
+          - generic [ref=e280]:
+            - generic [ref=e281]: "1"
+            - text: –
+            - generic [ref=e282]: "3"
+          - text: Select
+        - generic [ref=e283]:
+          - generic [ref=e284]: press key again →
+          - text: Confirm
+        - generic [ref=e285]:
+          - generic [ref=e286]: ↵
+          - text: on "Other" to type
+        - generic [ref=e287]:
+          - generic [ref=e288]:
+            - generic [ref=e289]: ←
+            - generic [ref=e290]: →
+          - text: Navigate
+  - button "Settings" [ref=e152] [cursor=pointer]

@@ -1,0 +1,252 @@
+- generic [ref=e2]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: Agent · clarify
+      - heading "Waiting for a question…" [level=2] [ref=e9]
+      - paragraph [ref=e10]: Claude Code bir soru sorduğunda burada görünecek. Bu sekmeyi açık bırakın.
+  - button "Settings" [ref=e11] [cursor=pointer]
+  - dialog [ref=e255]:
+    - generic [ref=e256]:
+      - generic [ref=e257]:
+        - generic [ref=e258]: Workspace preferences
+        - heading "Settings" [level=2] [ref=e259]
+        - paragraph [ref=e260]: Tune the workspace. Changes preview instantly and save together.
+      - button "Close settings" [ref=e261] [cursor=pointer]:
+        - generic [ref=e262]: ×
+    - status [ref=e264]:
+      - generic [ref=e265]: 1 unsaved change
+      - generic [ref=e267]: Esc to close
+    - generic [ref=e268]:
+      - region [ref=e269]:
+        - generic [ref=e270]:
+          - heading "Appearance" [level=3] [ref=e271]
+          - paragraph [ref=e272]: Personalize the look and feel.
+        - generic [ref=e273]:
+          - generic [ref=e274]:
+            - generic [ref=e275]:
+              - generic [ref=e276]: Theme
+              - generic [ref=e277]: Choose the visual theme for the question workspace.
+              - generic [ref=e278]:
+                - generic [ref=e279]:
+                  - text: "Current:"
+                  - strong [ref=e280]: AMOLED
+                - generic [ref=e281]: Applies now
+            - group "Theme" [ref=e282]:
+              - 'button "Theme: AMOLED" [pressed] [ref=e283] [cursor=pointer]': AMOLED
+              - 'button "Theme: Paper" [ref=e284] [cursor=pointer]': Paper
+              - 'button "Theme: Phosphor" [ref=e285] [cursor=pointer]': Phosphor
+              - 'button "Theme: Dusk" [ref=e286] [cursor=pointer]': Dusk
+              - 'button "Theme: Aurora" [ref=e287] [cursor=pointer]': Aurora
+          - generic [ref=e288]:
+            - generic [ref=e289]:
+              - generic [ref=e290]: Accent color
+              - generic [ref=e291]: Choose the color used for focus, selection, and primary actions.
+              - generic [ref=e292]:
+                - generic [ref=e293]:
+                  - text: "Current:"
+                  - strong [ref=e294]: Theme default
+                - generic [ref=e295]: Applies now
+            - group "Accent color" [ref=e296]:
+              - 'button "Accent color: Theme default" [pressed] [ref=e297] [cursor=pointer]': Theme default
+              - 'button "Accent color: Blue" [ref=e298] [cursor=pointer]': Blue
+              - 'button "Accent color: Green" [ref=e299] [cursor=pointer]': Green
+              - 'button "Accent color: Purple" [ref=e300] [cursor=pointer]': Purple
+              - 'button "Accent color: Orange" [ref=e301] [cursor=pointer]': Orange
+              - 'button "Accent color: Red" [ref=e302] [cursor=pointer]': Red
+              - 'button "Accent color: Pink" [ref=e303] [cursor=pointer]': Pink
+          - generic [ref=e304]:
+            - generic [ref=e305]:
+              - generic [ref=e306]: Corner radius
+              - generic [ref=e307]: Control how rounded controls and question cards appear.
+              - generic [ref=e308]:
+                - generic [ref=e309]:
+                  - text: "Current:"
+                  - strong [ref=e310]: Default
+                - generic [ref=e311]: Applies now
+            - group "Corner radius" [ref=e312]:
+              - 'button "Corner radius: Sharp" [ref=e313] [cursor=pointer]': Sharp
+              - 'button "Corner radius: Default" [pressed] [ref=e314] [cursor=pointer]': Default
+              - 'button "Corner radius: Rounded" [ref=e315] [cursor=pointer]': Rounded
+          - generic [ref=e316]:
+            - generic [ref=e317]:
+              - generic [ref=e318]: Motion speed
+              - generic [ref=e319]: Adjust interface transitions or turn them off completely.
+              - generic [ref=e320]:
+                - generic [ref=e321]:
+                  - text: "Current:"
+                  - strong [ref=e322]: Normal
+                - generic [ref=e323]: Applies now
+            - group "Motion speed" [ref=e324]:
+              - 'button "Motion speed: Off" [ref=e325] [cursor=pointer]': "Off"
+              - 'button "Motion speed: Slow" [ref=e326] [cursor=pointer]': Slow
+              - 'button "Motion speed: Normal" [pressed] [ref=e327] [cursor=pointer]': Normal
+              - 'button "Motion speed: Fast" [ref=e328] [cursor=pointer]': Fast
+          - generic [ref=e329]:
+            - generic [ref=e330]:
+              - generic [ref=e331]: Font
+              - generic [ref=e332]: Choose the typeface used across the question workspace.
+              - generic [ref=e333]:
+                - generic [ref=e334]:
+                  - text: "Current:"
+                  - strong [ref=e335]: System (Geist)
+                - generic [ref=e336]: Applies now
+            - group "Font" [ref=e337]:
+              - 'button "Font: System (Geist)" [pressed] [ref=e338] [cursor=pointer]': System (Geist)
+              - 'button "Font: Serif" [ref=e339] [cursor=pointer]': Serif
+              - 'button "Font: Monospace" [ref=e340] [cursor=pointer]': Monospace
+          - generic [ref=e341]:
+            - generic [ref=e342]:
+              - generic [ref=e343]: Interface scale
+              - generic [ref=e344]: Make text and controls smaller or larger without changing content.
+              - generic [ref=e345]:
+                - generic [ref=e346]:
+                  - text: "Current:"
+                  - strong [ref=e347]: Medium
+                - generic [ref=e348]: Applies now
+            - group "Interface scale" [ref=e349]:
+              - 'button "Interface scale: Small" [ref=e350] [cursor=pointer]': Small
+              - 'button "Interface scale: Medium" [pressed] [ref=e351] [cursor=pointer]': Medium
+              - 'button "Interface scale: Large" [ref=e352] [cursor=pointer]': Large
+          - generic [ref=e353]:
+            - generic [ref=e354]:
+              - generic [ref=e355]: High contrast
+              - generic [ref=e356]: Increase text and border contrast for easier reading.
+              - generic [ref=e357]:
+                - generic [ref=e358]:
+                  - text: "Current:"
+                  - strong [ref=e359]: "On"
+                - generic [ref=e360]: Applies now
+            - switch "High contrast" [checked] [active] [ref=e361] [cursor=pointer]
+          - generic [ref=e363]:
+            - generic [ref=e364]:
+              - generic [ref=e365]: Reduce motion
+              - generic [ref=e366]: Minimize animation and transition effects after the next reload.
+              - generic [ref=e367]:
+                - generic [ref=e368]:
+                  - text: "Current:"
+                  - strong [ref=e369]: "Off"
+                - generic [ref=e370]: After reload
+            - switch "Reduce motion" [ref=e371] [cursor=pointer]
+      - region [ref=e373]:
+        - generic [ref=e374]:
+          - heading "Question types" [level=3] [ref=e375]
+          - paragraph [ref=e376]: Choose formats allowed in new rounds.
+        - generic [ref=e377]:
+          - generic [ref=e378]:
+            - generic [ref=e379]:
+              - generic [ref=e380]: Binary (yes/no)
+              - generic [ref=e381]: Allow yes/no questions in new rounds.
+              - generic [ref=e382]:
+                - generic [ref=e383]:
+                  - text: "Current:"
+                  - strong [ref=e384]: "On"
+                - generic [ref=e385]: After reload
+            - switch "Binary (yes/no)" [checked] [ref=e386] [cursor=pointer]
+          - generic [ref=e388]:
+            - generic [ref=e389]:
+              - generic [ref=e390]: Scale
+              - generic [ref=e391]: Allow rating and scale questions in new rounds.
+              - generic [ref=e392]:
+                - generic [ref=e393]:
+                  - text: "Current:"
+                  - strong [ref=e394]: "On"
+                - generic [ref=e395]: After reload
+            - switch "Scale" [checked] [ref=e396] [cursor=pointer]
+          - generic [ref=e398]:
+            - generic [ref=e399]:
+              - generic [ref=e400]: Ranking
+              - generic [ref=e401]: Allow ordering and ranking questions in new rounds.
+              - generic [ref=e402]:
+                - generic [ref=e403]:
+                  - text: "Current:"
+                  - strong [ref=e404]: "On"
+                - generic [ref=e405]: After reload
+            - switch "Ranking" [checked] [ref=e406] [cursor=pointer]
+          - generic [ref=e408]:
+            - generic [ref=e409]:
+              - generic [ref=e410]: Decision tree
+              - generic [ref=e411]: Allow branching decision-tree questions in new rounds.
+              - generic [ref=e412]:
+                - generic [ref=e413]:
+                  - text: "Current:"
+                  - strong [ref=e414]: "On"
+                - generic [ref=e415]: After reload
+            - switch "Decision tree" [checked] [ref=e416] [cursor=pointer]
+      - region [ref=e418]:
+        - generic [ref=e419]:
+          - heading "Behavior" [level=3] [ref=e420]
+          - paragraph [ref=e421]: Choose how rounds advance and submit.
+        - generic [ref=e422]:
+          - generic [ref=e423]:
+            - generic [ref=e424]:
+              - generic [ref=e425]: Auto-advance single-select
+              - generic [ref=e426]: Move on immediately after a single choice is selected.
+              - generic [ref=e427]:
+                - generic [ref=e428]:
+                  - text: "Current:"
+                  - strong [ref=e429]: "Off"
+                - generic [ref=e430]: After reload
+            - switch "Auto-advance single-select" [ref=e431] [cursor=pointer]
+          - generic [ref=e433]:
+            - generic [ref=e434]:
+              - generic [ref=e435]: Confirm before submit
+              - generic [ref=e436]: Ask for confirmation before sending your completed answers.
+              - generic [ref=e437]:
+                - generic [ref=e438]:
+                  - text: "Current:"
+                  - strong [ref=e439]: "Off"
+                - generic [ref=e440]: Applies now
+            - switch "Confirm before submit" [ref=e441] [cursor=pointer]
+      - region [ref=e443]:
+        - generic [ref=e444]:
+          - heading "Interface" [level=3] [ref=e445]
+          - paragraph [ref=e446]: Keep the workspace focused.
+        - generic [ref=e447]:
+          - generic [ref=e448]:
+            - generic [ref=e449]:
+              - generic [ref=e450]: Show keyboard hints
+              - generic [ref=e451]: Show shortcut hints beside actions when they are available.
+              - generic [ref=e452]:
+                - generic [ref=e453]:
+                  - text: "Current:"
+                  - strong [ref=e454]: "On"
+                - generic [ref=e455]: Applies now
+            - switch "Show keyboard hints" [checked] [ref=e456] [cursor=pointer]
+          - generic [ref=e458]:
+            - generic [ref=e459]:
+              - generic [ref=e460]: Show answered counter
+              - generic [ref=e461]: Show answered and total question counts in the workspace.
+              - generic [ref=e462]:
+                - generic [ref=e463]:
+                  - text: "Current:"
+                  - strong [ref=e464]: "On"
+                - generic [ref=e465]: Applies now
+            - switch "Show answered counter" [checked] [ref=e466] [cursor=pointer]
+          - generic [ref=e468]:
+            - generic [ref=e469]:
+              - generic [ref=e470]: Focus mode
+              - generic [ref=e471]: Hide the question list so the current question gets all attention.
+              - generic [ref=e472]:
+                - generic [ref=e473]:
+                  - text: "Current:"
+                  - strong [ref=e474]: "Off"
+                - generic [ref=e475]: Applies now
+            - switch "Focus mode" [ref=e476] [cursor=pointer]
+      - group [ref=e478]:
+        - generic "Data & recovery Backups, imports, and targeted resets" [ref=e479] [cursor=pointer]:
+          - generic [ref=e480]:
+            - strong [ref=e481]: Data & recovery
+            - generic [ref=e482]: Backups, imports, and targeted resets
+          - generic [ref=e483]: ›
+        - option "Browser" [selected]
+        - option "Recovery"
+        - option "Autosave"
+        - option "Diagnostics"
+        - option "Delivery"
+        - option "Closure"
+        - option "Adapters"
+    - generic [ref=e484]:
+      - status
+      - generic [ref=e485]:
+        - button "Review & close" [ref=e488] [cursor=pointer]
+        - button "Save settings" [ref=e487] [cursor=pointer]

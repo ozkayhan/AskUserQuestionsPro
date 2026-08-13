@@ -1,5 +1,11 @@
 # askuserquestionspro
 
+## 1.3.1
+
+### Patch Changes
+
+- f205c43: Ensure MCP stdio processes terminate cleanly after client or transport loss instead of becoming orphaned CPU-spinning processes.
+
 ## 1.3.0
 
 ### Minor Changes
