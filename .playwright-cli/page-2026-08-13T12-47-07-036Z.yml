@@ -1,0 +1,101 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - heading "Agent Clarification — Questions" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic [ref=e7]: Agent · clarify
+        - generic [ref=e15]:
+          - generic [ref=e16]: Questions
+          - generic [ref=e17]: 0 / 12
+        - progressbar "Questions answered" [ref=e18]
+      - generic [ref=e19]:
+        - textbox "Filter questions" [ref=e20]:
+          - /placeholder: Filter questions…
+        - switch "Show unanswered only" [ref=e22] [cursor=pointer]
+      - button "Skip remaining & review →" [active] [ref=e25] [cursor=pointer]:
+        - generic [ref=e26]: Skip remaining & review
+        - generic [ref=e27]: →
+    - main [ref=e110]:
+      - generic [ref=e156]:
+        - generic [ref=e157]: Ready to send
+        - heading "Review your answers" [level=2] [ref=e160]
+        - paragraph [ref=e161]: These get sent back to the agent so it can continue. Edit anything before submitting.
+        - generic [ref=e162]:
+          - generic [ref=e163]:
+            - generic [ref=e164]: Core
+            - generic [ref=e165]:
+              - generic [ref=e166]: Audit question 1?
+              - generic [ref=e167]: No answer yet
+            - button "Edit" [ref=e169] [cursor=pointer]
+          - generic [ref=e170]:
+            - generic [ref=e171]: Core
+            - generic [ref=e172]:
+              - generic [ref=e173]: Audit question 2?
+              - generic [ref=e174]: No answer yet
+            - button "Edit" [ref=e176] [cursor=pointer]
+          - generic [ref=e177]:
+            - generic [ref=e178]: Core
+            - generic [ref=e179]:
+              - generic [ref=e180]: Audit question 3?
+              - generic [ref=e181]: No answer yet
+            - button "Edit" [ref=e183] [cursor=pointer]
+          - generic [ref=e184]:
+            - generic [ref=e185]: Core
+            - generic [ref=e186]:
+              - generic [ref=e187]: Audit question 4?
+              - generic [ref=e188]: No answer yet
+            - button "Edit" [ref=e190] [cursor=pointer]
+          - generic [ref=e191]:
+            - generic [ref=e192]: Core
+            - generic [ref=e193]:
+              - generic [ref=e194]: Audit question 5?
+              - generic [ref=e195]: No answer yet
+            - button "Edit" [ref=e197] [cursor=pointer]
+          - generic [ref=e198]:
+            - generic [ref=e199]: Core
+            - generic [ref=e200]:
+              - generic [ref=e201]: Audit question 6?
+              - generic [ref=e202]: No answer yet
+            - button "Edit" [ref=e204] [cursor=pointer]
+          - generic [ref=e205]:
+            - generic [ref=e206]: Release
+            - generic [ref=e207]:
+              - generic [ref=e208]: Audit question 7?
+              - generic [ref=e209]: No answer yet
+            - button "Edit" [ref=e211] [cursor=pointer]
+          - generic [ref=e212]:
+            - generic [ref=e213]: Release
+            - generic [ref=e214]:
+              - generic [ref=e215]: Audit question 8?
+              - generic [ref=e216]: No answer yet
+            - button "Edit" [ref=e218] [cursor=pointer]
+          - generic [ref=e219]:
+            - generic [ref=e220]: Release
+            - generic [ref=e221]:
+              - generic [ref=e222]: Audit question 9?
+              - generic [ref=e223]: No answer yet
+            - button "Edit" [ref=e225] [cursor=pointer]
+          - generic [ref=e226]:
+            - generic [ref=e227]: Release
+            - generic [ref=e228]:
+              - generic [ref=e229]: Audit question 10?
+              - generic [ref=e230]: No answer yet
+            - button "Edit" [ref=e232] [cursor=pointer]
+          - generic [ref=e233]:
+            - generic [ref=e234]: Release
+            - generic [ref=e235]:
+              - generic [ref=e236]: Audit question 11?
+              - generic [ref=e237]: No answer yet
+            - button "Edit" [ref=e239] [cursor=pointer]
+          - generic [ref=e240]:
+            - generic [ref=e241]: Release
+            - generic [ref=e242]:
+              - generic [ref=e243]: Audit question 12?
+              - generic [ref=e244]: No answer yet
+            - button "Edit" [ref=e246] [cursor=pointer]
+        - generic [ref=e247]:
+          - button "B Back to unanswered" [ref=e248] [cursor=pointer]:
+            - generic [ref=e249]: B
+            - text: Back to unanswered
+          - button "Answer at least one" [disabled] [ref=e250]
+  - button "Settings" [ref=e152] [cursor=pointer]

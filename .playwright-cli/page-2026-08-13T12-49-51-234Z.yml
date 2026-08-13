@@ -1,0 +1,72 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - heading "Agent Clarification — Questions" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic [ref=e7]: Agent · clarify
+        - generic [ref=e15]:
+          - generic [ref=e16]: Questions
+          - generic [ref=e17]: 0 / 1
+        - progressbar "Questions answered" [ref=e18]
+      - generic [ref=e19]:
+        - button "1. Rank these?" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]: "1"
+          - generic [ref=e22]:
+            - text: Priority
+            - generic [ref=e23]: Rank these?
+        - button "Review and submit your answers" [ref=e24] [cursor=pointer]:
+          - generic [ref=e25]: ✓
+          - generic [ref=e26]:
+            - text: Review
+            - generic [ref=e27]: Confirm & submit your answers
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - generic [ref=e31]: ←
+            - generic [ref=e32]: →
+          - generic [ref=e33]: Move between questions
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - generic [ref=e36]: "1"
+            - generic [ref=e37]: "4"
+          - generic [ref=e38]: Select · press again to confirm
+    - main [ref=e39]:
+      - generic [ref=e41]:
+        - generic [ref=e42]: Priority
+        - heading "Rank these?" [level=2] [ref=e44]
+        - paragraph [ref=e45]: Öğeleri öncelik sırasına göre düzenleyin.
+        - listbox "Rank these?" [ref=e46]:
+          - status [ref=e47]
+          - option "1. A" [selected] [ref=e48]:
+            - generic [ref=e49]: "1"
+            - generic [ref=e50]: A
+            - generic [ref=e51]:
+              - button "Yukarı taşı" [disabled] [ref=e52]: ↑
+              - button "Aşağı taşı" [ref=e53] [cursor=pointer]: ↓
+          - option "2. B" [ref=e54]:
+            - generic [ref=e55]: "2"
+            - generic [ref=e56]: B
+            - generic [ref=e57]:
+              - button "Yukarı taşı" [ref=e58] [cursor=pointer]: ↑
+              - button "Aşağı taşı" [ref=e59] [cursor=pointer]: ↓
+          - option "3. C" [ref=e60]:
+            - generic [ref=e61]: "3"
+            - generic [ref=e62]: C
+            - generic [ref=e63]:
+              - button "Yukarı taşı" [ref=e64] [cursor=pointer]: ↑
+              - button "Aşağı taşı" [disabled] [ref=e65]: ↓
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - generic [ref=e69]: ↑
+            - generic [ref=e70]: ↓
+          - text: Taşı
+        - generic [ref=e71]:
+          - generic [ref=e72]: ↵
+          - text: Onayla
+        - generic [ref=e73]:
+          - generic [ref=e74]:
+            - generic [ref=e75]: ←
+            - generic [ref=e76]: →
+          - text: Navigate
+  - button "Settings" [ref=e77] [cursor=pointer]
