@@ -7,9 +7,9 @@ const coverageConfig = require('../test/coverage-config.cjs');
 
 const ciYml = readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
 
-// Expected SHA pins (resolve from tag at bundle-fix time; update when action releases new v4.x)
-const CHECKOUT_SHA = '34e114876b0b11c390a56381ad16ebd13914f8d5'; // actions/checkout v4.3.1
-const SETUP_NODE_SHA = '49933ea5288caeca8642d1e84afbd3f7d6820020'; // actions/setup-node v4.4.0
+// Expected SHA pins (resolve from the immutable action release tag when upgrading).
+const CHECKOUT_SHA = '3d3c42e5aac5ba805825da76410c181273ba90b1'; // actions/checkout v7.0.1
+const SETUP_NODE_SHA = '820762786026740c76f36085b0efc47a31fe5020'; // actions/setup-node v7.0.0
 
 describe('ci.yml yapısı', () => {
   it('pull_request tetikleyicisi var', () => {
@@ -45,22 +45,22 @@ describe('ci.yml yapısı', () => {
     assert.match(ciYml, /timeout-minutes:\s*10/);
   });
 
-  it('actions/checkout SHA-pinned (not floating @v4 tag)', () => {
+  it('actions/checkout SHA-pinned (not a floating major tag)', () => {
     // Must reference by full commit SHA, not mutable tag
     assert.ok(
       ciYml.includes(`actions/checkout@${CHECKOUT_SHA}`),
       `actions/checkout must be pinned to ${CHECKOUT_SHA}`
     );
     // Floating tag must not appear (supply-chain guard)
-    assert.doesNotMatch(ciYml, /actions\/checkout@v4(?!\s*#)/);
+    assert.doesNotMatch(ciYml, /actions\/checkout@v\d/);
   });
 
-  it('actions/setup-node SHA-pinned (not floating @v4 tag)', () => {
+  it('actions/setup-node SHA-pinned (not a floating major tag)', () => {
     assert.ok(
       ciYml.includes(`actions/setup-node@${SETUP_NODE_SHA}`),
       `actions/setup-node must be pinned to ${SETUP_NODE_SHA}`
     );
-    assert.doesNotMatch(ciYml, /actions\/setup-node@v4(?!\s*#)/);
+    assert.doesNotMatch(ciYml, /actions\/setup-node@v\d/);
   });
 
   it('npm run lint adımı var', () => {

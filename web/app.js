@@ -174,6 +174,8 @@ function App() {
         onDeliveryUncertain={handleDeliveryUncertain}
         settingsOpen={settingsOpen}
         recoveryModalOpen={showChooser || !!deleteTarget}
+        onOpenSettings={() => setSettingsOpen(true)}
+        settingsButtonRef={settingsFabRef}
         key={id == null ? 'q' : 'round-' + id}
       />
     );
@@ -226,6 +228,8 @@ function Flow({
   onDeliveryUncertain,
   settingsOpen,
   recoveryModalOpen,
+  onOpenSettings,
+  settingsButtonRef,
 }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
@@ -458,9 +462,12 @@ function Flow({
     const a = ref.current.answers[q.question];
     const qtype = AnswerMap.qType(q);
     if (qtype === 'scale') {
-      const min = q.min != null ? q.min : 0;
-      const max = q.max != null ? q.max : 10;
-      const displayValue = a.value != null ? a.value : Math.round((min + max) / 2);
+      const displayValue =
+        a.value != null
+          ? a.value
+          : typeof AnswerMap.defaultScaleValue === 'function'
+            ? AnswerMap.defaultScaleValue(q)
+            : Math.round(((q.min ?? 0) + (q.max ?? 10)) / 2);
       const value =
         typeof AnswerMap.clampScale === 'function'
           ? AnswerMap.clampScale(q, displayValue)
@@ -762,8 +769,8 @@ function Flow({
         onJumpUnanswered={jumpToNextUnanswered}
         onSkipAll={skipAll}
         searchRef={searchInputRef}
-        onOpenSettings={() => setSettingsOpen(true)}
-        settingsButtonRef={settingsFabRef}
+        onOpenSettings={onOpenSettings}
+        settingsButtonRef={settingsButtonRef}
       />
       <main className="inspector">
         {/* aria-live: soru kartı key ile takas edilince ekran okuyucu yeni içeriği duyursun. */}

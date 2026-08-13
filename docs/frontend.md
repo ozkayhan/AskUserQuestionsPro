@@ -258,8 +258,13 @@ direction-aware slide animations gated on `prefers-reduced-motion`).
 
 ## Settings v2 browser evidence
 
-Run `node --test test/settings-panel.test.js test/views-a11y.test.js test/browser-settings.test.js test/browser-settings-e2e.test.js`.
-The Playwright CLI harness starts an isolated loopback server and captures
-ephemeral screenshots outside the tracked source tree. The modal owns Tab/Escape while open,
-returns focus to its FAB, announces save/error outcomes, exposes descriptions/current values/effect timing,
-and honors reduced-motion and narrow viewport rules.
+Run the native contracts with
+`node --test test/settings-panel.test.js test/views-a11y.test.js test/browser-settings.test.js`,
+then run `npm run test:playwright` after installing the configured Playwright
+browsers. `test/e2e/settings.spec.js` starts an isolated loopback server and
+places ephemeral screenshots and traces under ignored `test-results/` paths.
+The modal owns Tab/Escape while open, returns focus to its FAB, announces
+save/error outcomes, exposes descriptions/current values/effect timing, and
+honors reduced-motion and narrow viewport rules. The same spec verifies that
+an off-step scale midpoint is displayed, confirmed, and submitted as one
+valid snapped value.

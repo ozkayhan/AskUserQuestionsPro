@@ -260,6 +260,12 @@
     return Math.min(max, Math.max(min, snapped));
   }
 
+  function defaultScaleValue(q) {
+    var min = q.min == null ? 0 : q.min;
+    var max = q.max == null ? 10 : q.max;
+    return clampScale({ min: min, max: max, step: q.step }, Math.round((min + max) / 2));
+  }
+
   // --- tree saf yardımcılar ---
 
   // treeNodeAt: path dizisine göre düğümü döndürür; bulunamazsa null.
@@ -317,6 +323,7 @@
     moveRank: moveRank,
     initOrder: initOrder,
     clampScale: clampScale,
+    defaultScaleValue: defaultScaleValue,
     treeNodeAt: treeNodeAt,
     treeChildrenAt: treeChildrenAt,
     isLeaf: isLeaf,

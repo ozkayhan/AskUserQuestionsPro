@@ -10,6 +10,123 @@ const net = require('node:net');
 
 const UNINSTALL = path.join(__dirname, '..', 'uninstall.sh');
 const INSTALL = path.join(__dirname, '..', 'install.sh');
+const ROOT = path.join(__dirname, '..');
+
+test(
+  'extracted release installer uses its complete sibling source without checksum variables',
+  { skip: process.platform === 'win32' },
+  () => {
+    const sandbox = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-release-archive-'))
+    );
+    const extracted = path.join(sandbox, 'AskUserQuestionsPro-release');
+    const home = path.join(sandbox, 'home');
+    const fakeClaude = path.join(sandbox, 'claude');
+    try {
+      fs.mkdirSync(extracted, { recursive: true });
+      for (const entry of ['bin', 'hooks', 'web', 'server', 'lib', 'mcp-server', 'skill']) {
+        fs.cpSync(path.join(ROOT, entry), path.join(extracted, entry), { recursive: true });
+      }
+      for (const file of ['install.sh', 'package.json']) {
+        fs.copyFileSync(path.join(ROOT, file), path.join(extracted, file));
+      }
+      fs.writeFileSync(
+        fakeClaude,
+        '#!/bin/sh\n' +
+          'if [ "$1 $2" = "mcp list" ]; then printf "askuserquestionspro\\n"; fi\n' +
+          'if [ "$1 $2" = "mcp get" ]; then printf "%s\\n" "$HOME/.local/share/askuserquestionspro/mcp-server/askuserquestionspro-mcp.mjs"; fi\n' +
+          'exit 0\n',
+        { mode: 0o755 }
+      );
+      const result = spawnSync('bash', [path.join(extracted, 'install.sh'), '--target', 'claude'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: home,
+          XDG_CONFIG_HOME: path.join(home, '.config'),
+          ASKUSER_SOURCE_DIR: '',
+          ASKUSER_RELEASE_TAG: '',
+          ASKUSER_RELEASE_SHA256: '',
+          ASKUSER_PORT: '0',
+          ASKUI_CLAUDE_BIN: fakeClaude,
+        },
+      });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.ok(
+        fs.existsSync(path.join(home, '.local', 'share', 'askuserquestionspro', 'bin', 'cli.js'))
+      );
+      assert.ok(fs.existsSync(path.join(home, '.claude', 'skills', 'askpro', 'SKILL.md')));
+    } finally {
+      fs.rmSync(sandbox, { recursive: true, force: true });
+    }
+  }
+);
+
+test(
+  'standalone remote installer fails closed without an explicit release tag and checksum',
+  { skip: process.platform === 'win32' },
+  () => {
+    const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-standalone-installer-'));
+    const standalone = path.join(sandbox, 'install.sh');
+    try {
+      fs.copyFileSync(INSTALL, standalone);
+      const result = spawnSync('bash', [standalone, '--target', 'claude'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: path.join(sandbox, 'home'),
+          ASKUSER_SOURCE_DIR: '',
+          ASKUSER_RELEASE_TAG: '',
+          ASKUSER_RELEASE_SHA256: '',
+        },
+      });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stdout + result.stderr, /ASKUSER_RELEASE_TAG/);
+      assert.match(result.stdout + result.stderr, /ASKUSER_RELEASE_SHA256/);
+    } finally {
+      fs.rmSync(sandbox, { recursive: true, force: true });
+    }
+  }
+);
+
+test('standalone remote reinstall preserves the archive checksum through uninstall', () => {
+  const reinstall = fs.readFileSync(path.join(ROOT, 'reinstall.sh'), 'utf8');
+  assert.match(reinstall, /ASKUSER_RELEASE_SHA256/);
+  assert.match(reinstall, /Uzak reinstall için ASKUSER_RELEASE_SHA256 zorunludur/);
+  assert.match(
+    reinstall,
+    /ASKUSER_RELEASE_TAG="\$RELEASE_TAG"[\s\\n]+ASKUSER_RELEASE_SHA256="\$RELEASE_SHA256"[\s\\n]+bash "\$INSTALL_SH"/
+  );
+  assert.ok(
+    reinstall.indexOf('ASKUSER_RELEASE_SHA256 zorunludur') <
+      reinstall.indexOf('Aşama 1/2 — KALDIRMA'),
+    'archive checksum preflight uninstall aşamasından önce olmalı'
+  );
+});
+
+test(
+  'explicit source override takes precedence over a complete sibling source',
+  { skip: process.platform === 'win32' },
+  () => {
+    const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'aukp-source-precedence-'));
+    try {
+      const missingSource = path.join(sandbox, 'missing-source');
+      const result = spawnSync('bash', [INSTALL, '--target', 'claude'], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          HOME: path.join(sandbox, 'home'),
+          ASKUSER_SOURCE_DIR: missingSource,
+          ASKUSER_PORT: '0',
+        },
+      });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stdout + result.stderr, /yerel kaynak dizini yok/);
+    } finally {
+      fs.rmSync(sandbox, { recursive: true, force: true });
+    }
+  }
+);
 
 test(
   'uninstall --target codex preserves shared runtime while Claude remains installed',

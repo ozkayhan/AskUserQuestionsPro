@@ -5,7 +5,7 @@ Date: 2026-07-17 (Europe/Istanbul)
 ## Automated evidence
 
 - `node --test test/live.test.js test/draft-writer.test.js test/app-state.test.js test/views-a11y-recovery.test.js test/browser-recovery-e2e.test.js test/bridge-client.test.js` — PASS.
-- Existing `test/browser-settings-e2e.test.js` — skipped when the Playwright Node package is unavailable.
+- `test/e2e/settings.spec.js` — runs only in the dedicated Playwright browser matrix after browser installation.
 - `npm run test:browser` — environment-dependent CLI path; run separately when the local `playwright-cli` session is available.
 - `npm run lint` — not runnable in this workspace because `eslint` is not on PATH; no package was installed.
 - `npm run format:check` — not runnable because the Prettier executable is not on PATH.

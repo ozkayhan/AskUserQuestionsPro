@@ -72,7 +72,9 @@ test('every unique local evidence command actually executes successfully', () =>
     const result = spawnSync(process.execPath, ['--test', ...parts], {
       cwd: process.cwd(),
       encoding: 'utf8',
-      timeout: 30_000,
+      // The nested lifecycle evidence suite starts several real bridge
+      // processes and is materially slower on Node 18 hosted runners.
+      timeout: 60_000,
     });
     assert.equal(result.status, 0, `${command}\n${result.stdout}\n${result.stderr}`);
   }

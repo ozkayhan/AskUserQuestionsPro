@@ -388,6 +388,15 @@ t3('clampScale: step yoksa 1 varsayar', () => {
   assert3.strictEqual(AM3.clampScale(sq, 7), 5);
 });
 
+t3(
+  'defaultScaleValue: off-step midpoint tek geçerli görünen ve gönderilen değere snap eder',
+  () => {
+    const sq = { min: 1, max: 10, step: 2 };
+    assert3.strictEqual(AM3.defaultScaleValue(sq), 7);
+    assert3.strictEqual(AM3.clampScale(sq, AM3.defaultScaleValue(sq)), 7);
+  }
+);
+
 // --- treeNodeAt ---
 t3('treeNodeAt: boş path -> null', () => {
   const tq = { options: [{ label: 'A' }, { label: 'B' }] };

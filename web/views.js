@@ -923,7 +923,12 @@ function ScaleCard({ q, ans, qIndex, setQ, onConfirm }) {
   const max = q.max != null ? q.max : 10;
   const step = q.step != null ? q.step : 1;
   // Görsel başlangıç: value ?? orta nokta — ama state'e null bırak (isAnswered value!=null bekler)
-  const displayValue = ans.value != null ? ans.value : Math.round((min + max) / 2);
+  const displayValue =
+    ans.value != null
+      ? ans.value
+      : typeof AnswerMap !== 'undefined' && AnswerMap.defaultScaleValue
+        ? AnswerMap.defaultScaleValue(q)
+        : Math.round((min + max) / 2);
 
   const handleChange = (e) => {
     const clamped =

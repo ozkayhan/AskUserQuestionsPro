@@ -7,7 +7,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/ozkayhan/AskUserQuestionsPro"
-RELEASE_TAG="${ASKUSER_RELEASE_TAG:-v1.4.0}"
+RELEASE_TAG="${ASKUSER_RELEASE_TAG:-}"
 RELEASE_SHA256="${ASKUSER_RELEASE_SHA256:-}"
 INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
 CLAUDE_SKILL_DEST="$HOME/.claude/skills/askpro"
@@ -15,6 +15,17 @@ CODEX_SKILL_DEST="$HOME/.agents/skills/askpro"
 ANTIGRAVITY_PLUGIN_DEST="$HOME/.gemini/antigravity-cli/plugins/askuserquestionspro"
 TARGET="${ASKUSER_TARGET:-auto}"
 SOURCE_OVERRIDE="${ASKUSER_SOURCE_DIR:-}"
+SCRIPT_DIR=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+if [ -z "$SOURCE_OVERRIDE" ] && [ -n "$SCRIPT_DIR" ] \
+  && [ -f "$SCRIPT_DIR/package.json" ] \
+  && [ -f "$SCRIPT_DIR/bin/cli.js" ] \
+  && [ -f "$SCRIPT_DIR/hooks/askuserquestionspro-bridge.mjs" ] \
+  && [ -f "$SCRIPT_DIR/mcp-server/askuserquestionspro-mcp.mjs" ]; then
+  SOURCE_OVERRIDE="$SCRIPT_DIR"
+fi
 
 usage() {
   cat <<'EOF'
@@ -132,7 +143,9 @@ ok "node $NODE_VERSION (18+ doğrulandı)"
 if [ -z "$SOURCE_OVERRIDE" ]; then
   command -v curl >/dev/null 2>&1 || die "curl bulunamadı. Immutable release indirmek için curl gerekli."
   command -v unzip >/dev/null 2>&1 || die "unzip bulunamadı. Immutable release açmak için unzip gerekli."
-  [ -n "$RELEASE_SHA256" ] || die "Uzak kurulumda ASKUSER_RELEASE_SHA256 zorunludur."
+  if [ -z "$RELEASE_TAG" ] || [ -z "$RELEASE_SHA256" ]; then
+    die "Uzak kurulumda ASKUSER_RELEASE_TAG ve ASKUSER_RELEASE_SHA256 zorunludur."
+  fi
   if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
     die "sha256sum veya shasum bulunamadı; release checksum doğrulanamıyor."
   fi
@@ -157,8 +170,9 @@ if [ -n "$SOURCE_OVERRIDE" ]; then
   SRC="$(cd "$SOURCE_OVERRIDE" && pwd)"
   ok "yerel kaynak hazır"
 else
-  curl -fsSL "$REPO_URL/archive/refs/tags/$RELEASE_TAG.zip" -o "$WORKDIR/repo.zip" \
-    || die "release zip indirilemedi ($REPO_URL/$RELEASE_TAG)."
+  RELEASE_ARCHIVE="AskUserQuestionsPro-${RELEASE_TAG#v}.zip"
+  curl -fsSL "$REPO_URL/releases/download/$RELEASE_TAG/$RELEASE_ARCHIVE" -o "$WORKDIR/repo.zip" \
+    || die "release zip indirilemedi ($REPO_URL/releases/download/$RELEASE_TAG/$RELEASE_ARCHIVE)."
   [ -s "$WORKDIR/repo.zip" ] || die "indirilen zip boş."
   if command -v sha256sum >/dev/null 2>&1; then
     ACTUAL_SHA256="$(sha256sum "$WORKDIR/repo.zip")"

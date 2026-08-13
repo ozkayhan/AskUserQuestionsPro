@@ -57,11 +57,25 @@ or partial verification is a release incident, not a successful release.
 
 ## Shell installer integrity
 
-The shell path is a fallback for users who cannot use npm. Publish a checksum
-file with each release archive and keep the source tag immutable. The README
-requires users to supply the expected SHA-256 value before extraction. Never
-document or recommend `curl .../main/install.sh | bash`, a mutable branch ZIP,
-or a checksum downloaded from an unrelated branch.
+The shell path is a fallback for users who cannot use npm. The release job
+publishes `AskUserQuestionsPro-<version>.tar.gz`, the matching ZIP asset, and a
+SHA-256 manifest containing both archives plus `install.sh` and `uninstall.sh`.
+Keep the source tag immutable. The README requires users to supply the
+published tar.gz SHA-256 value before extraction. After a user verifies and
+extracts that archive, the included installer must prefer its complete sibling
+source and must not require a second checksum setting.
+
+A standalone `install.sh` has no verified sibling source, so its remote
+fallback downloads the published ZIP asset and must require an explicit
+`ASKUSER_RELEASE_TAG` and the ZIP’s `ASKUSER_RELEASE_SHA256`. A standalone
+remote `reinstall.sh` must likewise require the release checksum and the
+published `install.sh` and `uninstall.sh` checksums before it begins
+uninstalling; it forwards the archive checksum to the replacement installer.
+These values belong to release metadata; do not embed a package version in
+either script or require Changesets to synchronize shell constants.
+
+Never document or recommend `curl .../main/install.sh | bash`, a mutable
+branch ZIP, or a checksum downloaded from an unrelated branch.
 
 ## Handoff
 

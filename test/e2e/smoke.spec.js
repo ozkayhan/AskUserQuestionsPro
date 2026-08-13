@@ -4,7 +4,7 @@ const AxeBuilder = require('@axe-core/playwright').default;
 test('local app exposes its identity and an accessible waiting shell', async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const health = await request.get('/health');
   expect(health.ok()).toBeTruthy();
   expect(await health.json()).toEqual(
@@ -23,5 +23,5 @@ test('local app exposes its identity and an accessible waiting shell', async ({
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.screenshot({ path: 'test-results/waiting-mobile.png', fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('waiting-mobile.png'), fullPage: true });
 });

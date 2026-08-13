@@ -35,21 +35,46 @@ the GitHub release page, then verify the archive before running the installer:
 
 ```bash
 release_tag="vX.Y.Z"
-expected_sha256="PASTE_THE_RELEASED_SHA256_HERE"
+archive_sha256="PASTE_THE_RELEASED_TAR_GZ_SHA256_HERE"
 archive="AskUserQuestionsPro-${release_tag#v}.tar.gz"
 
 curl --fail --location --output "$archive" \
-  "https://github.com/ozkayhan/AskUserQuestionsPro/archive/refs/tags/${release_tag}.tar.gz"
-printf '%s  %s\n' "$expected_sha256" "$archive" | shasum --algorithm 256 --check
+  "https://github.com/ozkayhan/AskUserQuestionsPro/releases/download/${release_tag}/$archive"
+printf '%s  %s\n' "$archive_sha256" "$archive" | shasum --algorithm 256 --check
 tar --extract --gzip --file "$archive"
 cd "AskUserQuestionsPro-${release_tag#v}"
 ./install.sh --target auto
 ```
 
 The checksum must come from the same release’s trusted maintainer-published
-checksums, not from the branch or an unverified mirror. The archive installer
-requires `curl`, `tar`, `shasum`, and Node.js. The repository’s release policy
-is documented in [`docs/release.md`](https://github.com/ozkayhan/AskUserQuestionsPro/blob/main/docs/release.md).
+`AskUserQuestionsPro-*.sha256` manifest, not from the branch or an unverified
+mirror. Once the verified archive is extracted, its sibling `install.sh`
+installs directly from that local archive and needs no second tag or checksum
+setting. Download and verification require `curl`, `tar`, and `shasum`;
+installation requires Node.js.
+
+If `install.sh` is run standalone, outside a complete extracted release, it
+uses the remote fallback and downloads the release’s ZIP asset. That mode
+fails closed unless both `ASKUSER_RELEASE_TAG` and
+`ASKUSER_RELEASE_SHA256` are explicitly set to the immutable release tag and
+the ZIP checksum from that release’s manifest (the tar.gz checksum above is a
+different file):
+
+```bash
+zip_sha256="PASTE_THE_RELEASED_ZIP_SHA256_HERE"
+ASKUSER_RELEASE_TAG="$release_tag" \
+ASKUSER_RELEASE_SHA256="$zip_sha256" \
+bash install.sh --target auto
+```
+
+Standalone remote `reinstall.sh` additionally requires
+`ASKUSER_INSTALL_SHA256` and `ASKUSER_UNINSTALL_SHA256`, copied from the same
+release manifest. It verifies those scripts before uninstalling and forwards
+the release ZIP checksum to the replacement installer, so a failed download
+cannot leave an installation removed without a verified reinstall path.
+
+The repository’s release policy is documented in
+[`docs/release.md`](https://github.com/ozkayhan/AskUserQuestionsPro/blob/main/docs/release.md).
 
 ## Hosts and capabilities
 

@@ -9,8 +9,22 @@ npm test        # node --test (whole suite)
 node --test test/bridge.test.js   # one file
 ```
 
-CI runs `npm ci && npm test` on the supported Node runtime matrix
-(`.github/workflows/ci.yml`).
+CI runs `npm ci && npm test` on the supported Node 18, 20, 22, and 24 runtime
+matrix (`.github/workflows/ci.yml`). This native suite deliberately excludes
+Playwright specs, so it does not require a browser binary and remains valid on
+the Node 18 support floor.
+
+Browser contracts live under `test/e2e/` and run separately on Node 24 after
+the requested browser binary is installed:
+
+```bash
+npx playwright install --with-deps chromium
+npm run test:playwright -- --project=chromium
+```
+
+CI repeats that command for Chromium, Firefox, and WebKit. Playwright traces
+and screenshots are ephemeral, ignored files under `test-results/`; they are
+not repository evidence or release artifacts.
 
 The maintained quality scope is defined by `package.json`: ESLint owns the
 repository lint command, while Prettier checks the explicit maintained roots
@@ -61,6 +75,12 @@ asserts that the skill explicitly teaches the invariant and its recovery path.
 | `views.test.js`                  | Question and summary view rendering behavior.                                             |
 | `workflows-ci.test.js`           | CI workflow guards.                                                                       |
 | `workflows-release.test.js`      | Release workflow guards.                                                                  |
+
+The Playwright-only `test/e2e/settings.spec.js` covers settings focus return,
+persistence, reduced motion, narrow layout, future-schema rejection, and the
+off-step scale display/confirmation/submission contract. `test/e2e/smoke.spec.js`
+covers bridge identity and the accessible waiting shell. Neither file is part
+of the native `node:test` glob or native coverage gate.
 
 The multi-host additions are deliberately split: `host-platforms.test.js`
 owns pure selection/discovery/command contracts, `cli.test.js` proves a Codex

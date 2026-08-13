@@ -6,7 +6,8 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/ozkayhan/AskUserQuestionsPro"
-RELEASE_TAG="${ASKUSER_RELEASE_TAG:-v1.4.0}"
+RELEASE_TAG="${ASKUSER_RELEASE_TAG:-}"
+RELEASE_SHA256="${ASKUSER_RELEASE_SHA256:-}"
 INSTALL_SHA256="${ASKUSER_INSTALL_SHA256:-}"
 UNINSTALL_SHA256="${ASKUSER_UNINSTALL_SHA256:-}"
 TARGET="${ASKUSER_TARGET:-auto}"
@@ -47,11 +48,14 @@ die()  { printf '%s\n' "${C_RED}✗ $*${C_RESET}" >&2; exit 1; }
 if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
   DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
-UNINSTALL_SH=""; INSTALL_SH=""
+UNINSTALL_SH=""; INSTALL_SH=""; REMOTE_MODE=0
 if [ -n "${DIR:-}" ] && [ -f "$DIR/uninstall.sh" ] && [ -f "$DIR/install.sh" ]; then
   UNINSTALL_SH="$DIR/uninstall.sh"; INSTALL_SH="$DIR/install.sh"
 else
+  REMOTE_MODE=1
   command -v curl >/dev/null 2>&1 || die "curl yok ve yerel script'ler bulunamadı."
+  [ -n "$RELEASE_TAG" ] || die "Uzak reinstall için ASKUSER_RELEASE_TAG zorunludur."
+  [ -n "$RELEASE_SHA256" ] || die "Uzak reinstall için ASKUSER_RELEASE_SHA256 zorunludur."
   [ -n "$INSTALL_SHA256" ] || die "Uzak reinstall için ASKUSER_INSTALL_SHA256 zorunludur."
   [ -n "$UNINSTALL_SHA256" ] || die "Uzak reinstall için ASKUSER_UNINSTALL_SHA256 zorunludur."
   case "$RELEASE_TAG" in
@@ -85,7 +89,17 @@ else
   printf '\n'
 fi
 
-step "Aşama 2/2 — KURULUM (immutable release $RELEASE_TAG)"
-bash "$INSTALL_SH" --target "$TARGET" || die "install başarısız — yukarıdaki hataya bakın."
+if [ -n "${DIR:-}" ] && [ "$INSTALL_SH" = "$DIR/install.sh" ]; then
+  step "Aşama 2/2 — KURULUM (yerel doğrulanmış kaynak)"
+else
+  step "Aşama 2/2 — KURULUM (immutable release $RELEASE_TAG)"
+fi
+if [ "$REMOTE_MODE" -eq 1 ]; then
+  ASKUSER_RELEASE_TAG="$RELEASE_TAG" \
+    ASKUSER_RELEASE_SHA256="$RELEASE_SHA256" \
+    bash "$INSTALL_SH" --target "$TARGET" || die "install başarısız — yukarıdaki hataya bakın."
+else
+  bash "$INSTALL_SH" --target "$TARGET" || die "install başarısız — yukarıdaki hataya bakın."
+fi
 
 printf '\n%s\n' "${C_BOLD}${C_GREEN}✓ Yeniden kurulum tamamlandı. Yeni bir Claude Code, Codex/ChatGPT Desktop veya Antigravity CLI oturumu açın.${C_RESET}"

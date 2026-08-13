@@ -82,10 +82,11 @@ function removeHook(settings, hookAbsPath) {
 
 // --- I/O sarmalayıcılar (CLI'dan çağrılır) ---
 
-function readSettings(settingsPath) {
+function readSettings(settingsPath, options = {}) {
+  const fsImpl = options.fs || options.fsImpl || fs;
   let raw;
   try {
-    raw = fs.readFileSync(settingsPath, 'utf8');
+    raw = fsImpl.readFileSync(settingsPath, 'utf8');
   } catch (err) {
     if (err.code === 'ENOENT') return {};
     throw new Error(`Cannot read settings file ${settingsPath}: ${err.message}`);
@@ -98,9 +99,11 @@ function readSettings(settingsPath) {
 }
 
 // writeSettings: atomik tmp→rename kullanır (Critical #1).
-function writeSettings(settingsPath, settings) {
-  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-  writeFileAtomic(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+function writeSettings(settingsPath, settings, options = {}) {
+  const fsImpl = options.fs || options.fsImpl || fs;
+  const atomicWrite = options.writeFileAtomic || writeFileAtomic;
+  fsImpl.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  atomicWrite(settingsPath, JSON.stringify(settings, null, 2) + '\n', { fsImpl });
 }
 
 module.exports = { addHook, removeHook, readSettings, writeSettings, hookCommand, ourEntry };
