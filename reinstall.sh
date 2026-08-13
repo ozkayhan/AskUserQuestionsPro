@@ -2,11 +2,13 @@
 # askuserquestionspro — reinstall orkestratörü.
 # ÖNCE uninstall (kesin bitene kadar bekler), SONRA install. Tek script.
 # Claude Code, Codex App/CLI ve Antigravity CLI hedefini iki aşamaya da aynen taşır.
-# Yerel sibling script'leri kullanır; yoksa (curl|bash) GitHub'dan indirir.
+# Yerel sibling script'leri kullanır; yoksa immutable release tag + SHA-256 ile indirir.
 set -euo pipefail
 
 REPO_URL="https://github.com/ozkayhan/AskUserQuestionsPro"
-BRANCH="main"
+RELEASE_TAG="${ASKUSER_RELEASE_TAG:-v1.4.0}"
+INSTALL_SHA256="${ASKUSER_INSTALL_SHA256:-}"
+UNINSTALL_SHA256="${ASKUSER_UNINSTALL_SHA256:-}"
 TARGET="${ASKUSER_TARGET:-auto}"
 
 usage() {
@@ -50,11 +52,25 @@ if [ -n "${DIR:-}" ] && [ -f "$DIR/uninstall.sh" ] && [ -f "$DIR/install.sh" ]; 
   UNINSTALL_SH="$DIR/uninstall.sh"; INSTALL_SH="$DIR/install.sh"
 else
   command -v curl >/dev/null 2>&1 || die "curl yok ve yerel script'ler bulunamadı."
+  [ -n "$INSTALL_SHA256" ] || die "Uzak reinstall için ASKUSER_INSTALL_SHA256 zorunludur."
+  [ -n "$UNINSTALL_SHA256" ] || die "Uzak reinstall için ASKUSER_UNINSTALL_SHA256 zorunludur."
+  case "$RELEASE_TAG" in
+    *[!A-Za-z0-9._-]*) die "Geçersiz release tag: $RELEASE_TAG" ;;
+  esac
+  if command -v sha256sum >/dev/null 2>&1; then
+    hash_file() { sha256sum "$1" | awk '{print $1}'; }
+  elif command -v shasum >/dev/null 2>&1; then
+    hash_file() { shasum -a 256 "$1" | awk '{print $1}'; }
+  else
+    die "sha256sum veya shasum bulunamadı."
+  fi
   WORKDIR="$(mktemp -d)"; trap 'rm -rf "$WORKDIR"' EXIT
   for s in uninstall install; do
-    curl -fsSL -o "$WORKDIR/$s.sh" "$REPO_URL/raw/$BRANCH/$s.sh" || die "$s.sh indirilemedi."
+    curl -fsSL -o "$WORKDIR/$s.sh" "$REPO_URL/raw/refs/tags/$RELEASE_TAG/$s.sh" || die "$s.sh indirilemedi."
     [ -s "$WORKDIR/$s.sh" ] || die "$s.sh boş indirildi."
   done
+  [ "$(hash_file "$WORKDIR/install.sh")" = "$INSTALL_SHA256" ] || die "install.sh checksum eşleşmedi."
+  [ "$(hash_file "$WORKDIR/uninstall.sh")" = "$UNINSTALL_SHA256" ] || die "uninstall.sh checksum eşleşmedi."
   UNINSTALL_SH="$WORKDIR/uninstall.sh"; INSTALL_SH="$WORKDIR/install.sh"
 fi
 
@@ -69,7 +85,7 @@ else
   printf '\n'
 fi
 
-step "Aşama 2/2 — KURULUM (GitHub $BRANCH'den taze)"
+step "Aşama 2/2 — KURULUM (immutable release $RELEASE_TAG)"
 bash "$INSTALL_SH" --target "$TARGET" || die "install başarısız — yukarıdaki hataya bakın."
 
 printf '\n%s\n' "${C_BOLD}${C_GREEN}✓ Yeniden kurulum tamamlandı. Yeni bir Claude Code, Codex/ChatGPT Desktop veya Antigravity CLI oturumu açın.${C_RESET}"

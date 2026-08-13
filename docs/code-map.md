@@ -15,7 +15,7 @@ Start here to navigate. Real paths; "to change X, go to Y".
 ├── skill/askpro/         host-neutral MCP usage guidance deployed per host
 ├── test/                 node:test suite (one file per module)
 ├── evals/                skill behavior cases (valid and invalid payloads)
-├── install.sh            curl|bash installer
+├── install.sh            release-archive shell installer
 ├── uninstall.sh          host-aware residue-cleaning uninstaller
 ├── reinstall.sh          host-aware uninstall + fresh install helper
 ├── package.json          npm manifest, bin entries, scripts
@@ -32,7 +32,7 @@ Start here to navigate. Real paths; "to change X, go to Y".
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `bin/cli.js`                             | CLI entry (`askuserquestionspro`). Subcommands: `init`, `install`, `uninstall`, `serve`, `mcp`, `settings`, `doctor`, `help`.                                                                                                          | Change CLI commands, install/uninstall flow, `settings` get/set/list, `doctor` health checks.  |
 | `bin/install.js`                         | Pure functions `addHook()` / `removeHook()` that mutate a `settings.json` object. Constants `MATCHER='AskUserQuestion'`, `TIMEOUT=3600`.                                                                                               | Change how the hook entry is added/removed or conflict detection.                              |
-| `install.sh`                             | Target-aware Bash installer: download → persistent copy → bundled CLI install/doctor → skill verification.                                                                                                                             | Change the `curl \| bash` install path.                                                        |
+| `install.sh`                             | Target-aware Bash installer: verified release archive → persistent copy → bundled CLI install/doctor → skill verification.                                                                                                             | Change the release-archive install path.                                                       |
 | `uninstall.sh`                           | Target-aware cleanup and residue verification for Claude/Codex/Antigravity registrations, skills, files, settings, and bridge processes.                                                                                               | Change standalone uninstall behavior.                                                          |
 | `reinstall.sh`                           | Passes the same target through uninstall and a fresh install.                                                                                                                                                                          | Change recovery/reinstall behavior.                                                            |
 | `mcp-server/askuserquestionspro-mcp.mjs` | Host-neutral JSON-RPC 2.0 stdio server. Defines `ASK_TOOL`, `RESUME_TOOL`, output schemas, annotations, server instructions, structured results, and pending-before-browser flow.                                                      | Change the `ask`/`resume` tool schema, metadata, result, or MCP protocol handling.             |
@@ -71,7 +71,7 @@ Loaded by `web/index.html` in order: vendor libs → app files (`type="text/babe
 
 ## Tests
 
-There are 32 top-level `test/*.test.js` files, run with `node --test`. Host
+The `test/` directory contains focused `node:test` files, run with `node --test`. Host
 coverage is split between `host-platforms.test.js` (selection/discovery/argv/
 paths), `cli.test.js` (Codex-only lifecycle isolation), and
 `mcp-server.test.js` (instructions, `outputSchema`, and annotations). See

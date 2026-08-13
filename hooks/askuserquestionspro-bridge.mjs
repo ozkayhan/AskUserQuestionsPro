@@ -14,6 +14,7 @@ const { buildHookOutput } = require('./hook-output.js');
 const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { adapterEnabled } = require('../lib/runtime-settings.cjs');
+const { MAX_BODY_BYTES } = require('../lib/protocol-limits.cjs');
 
 const TIMEOUT_MS = 60 * 60 * 1000;
 // stdin EOF gelmezse (parent yazma ucunu açık tutarsa) süresiz asılmamak için watchdog.
@@ -33,6 +34,7 @@ process.on('unhandledRejection', (err) => {
 function readStdin() {
   return new Promise((resolve) => {
     let d = '';
+    let size = 0;
     let done = false;
     const finish = (v) => {
       if (done) return;
@@ -42,7 +44,18 @@ function readStdin() {
     };
     // EOF hiç gelmezse boş string ile çöz → main() JSON.parse('') fail → native fallback.
     const watchdog = setTimeout(() => finish(''), STDIN_TIMEOUT_MS);
-    process.stdin.on('data', (c) => (d += c));
+    process.stdin.on('data', (c) => {
+      if (done) return;
+      size += Buffer.byteLength(c);
+      if (size > MAX_BODY_BYTES) {
+        // Oversized hook input is not sent to the bridge. Empty stdout preserves
+        // Claude's native AskUserQuestion fallback contract.
+        process.stdin.pause();
+        finish('');
+        return;
+      }
+      d += c;
+    });
     process.stdin.on('end', () => finish(d));
     // 'error'da kısmi veri taşımayı bırak — yarım payload yanlış parse'a yol açmasın.
     process.stdin.on('error', () => finish(''));

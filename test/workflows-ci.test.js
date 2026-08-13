@@ -3,6 +3,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
+const coverageConfig = require('../test/coverage-config.cjs');
 
 const ciYml = readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
 
@@ -31,10 +32,8 @@ describe('ci.yml yapısı', () => {
     assert.match(ciYml, /\blint\b/);
   });
 
-  it('test job matrix: 18, 20, 22', () => {
-    assert.match(ciYml, /18/);
-    assert.match(ciYml, /20/);
-    assert.match(ciYml, /22/);
+  it('test job matrix: 18, 20, 22, 24', () => {
+    assert.match(ciYml, /node-version:\s*\[18,\s*20,\s*22,\s*24\]/);
   });
 
   it('npm ci kullanıyor (npm install değil)', () => {
@@ -76,9 +75,48 @@ describe('ci.yml yapısı', () => {
     assert.match(ciYml, /fail-fast:\s*false/);
   });
 
+  it('separates runtime, coverage, OS, browser, and audit jobs', () => {
+    for (const job of ['test:', 'coverage:', 'os-smoke:', 'browser:', 'audit:'])
+      assert.match(ciYml, new RegExp(`\\n  ${job}`));
+    assert.match(
+      ciYml,
+      /browser:[\s\S]*matrix:[\s\S]*browser:\s*\[chromium,\s*firefox,\s*webkit\]/
+    );
+    assert.match(
+      ciYml,
+      /os-smoke:[\s\S]*matrix:[\s\S]*os:\s*\[ubuntu-latest,\s*macos-latest,\s*windows-latest\]/
+    );
+    assert.match(
+      ciYml,
+      /browser:[\s\S]*playwright install --with-deps \$\{\{ matrix\.browser \}\}/
+    );
+    assert.match(
+      ciYml,
+      /browser:[\s\S]*npm run test:playwright -- --project=\$\{\{ matrix\.browser \}\}/
+    );
+  });
+
+  it('native coverage gate uses the configured 90/80/80 thresholds', () => {
+    assert.match(ciYml, /coverage:[\s\S]*node-version:\s*24/);
+    assert.match(ciYml, /coverage:[\s\S]*node test\/coverage-runner\.cjs/);
+    assert.deepEqual(
+      {
+        lines: coverageConfig.lines,
+        branches: coverageConfig.branches,
+        functions: coverageConfig.functions,
+      },
+      { lines: 90, branches: 80, functions: 80 }
+    );
+  });
+
+  it('audit job keeps full and production-boundary high-severity gates', () => {
+    assert.match(ciYml, /audit:[\s\S]*npm audit --audit-level=high/);
+    assert.match(ciYml, /audit:[\s\S]*npm audit --audit-level=high --omit=dev/);
+  });
+
   it('shellcheck step in lint job', () => {
     assert.match(ciYml, /shellcheck/i);
-    assert.match(ciYml, /-not -path ['"]?\.\/\.codex\/\*['"]?/);
+    assert.match(ciYml, /-not -path ['"]?\.\/\.git\/\*['"]?/);
   });
 
   it('npm audit comment is accurate (no misleading js-yaml claim)', () => {

@@ -331,7 +331,7 @@ Tool input schema: see [api.md](api.md).
 
 ## Install script (`install.sh`)
 
-`curl | bash`-friendly. Accepts `--target auto|all|claude|codex|antigravity`,
+The release-archive installer accepts `--target auto|all|claude|codex|antigravity`,
 downloads/extracts the repo, copies the runtime plus `skill/` to
 `~/.local/share/askuserquestionspro/`, then delegates host registration and
 doctor verification to the bundled CLI. Claude gets its hook, MCP entry, and

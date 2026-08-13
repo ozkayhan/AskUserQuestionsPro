@@ -152,11 +152,20 @@ FAIL=0
 printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kaldırma — Claude Code + Codex + Antigravity CLI (target: $TARGET)${C_RESET}"
 
 collect_port_pids() {
+  # Only the managed AskUserQuestionsPro runtime may be terminated. A foreign
+  # process holding the same port is always preserved.
   PIDS=()
+  FOREIGN_PIDS=()
   while IFS= read -r pid; do
     case "$pid" in
       ''|*[!0-9]*) ;;
-      *) PIDS[${#PIDS[@]}]="$pid" ;;
+      *)
+        command_line=$(ps -p "$pid" -o command= 2>/dev/null || true)
+        case "$command_line" in
+          *"$INSTALL_DIR/server/server.js"*) PIDS[${#PIDS[@]}]="$pid" ;;
+          *) FOREIGN_PIDS[${#FOREIGN_PIDS[@]}]="$pid" ;;
+        esac
+        ;;
     esac
   done < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
 }
@@ -211,6 +220,9 @@ if [ "$PRESERVE_SHARED" -eq 1 ]; then
   info "  diğer host ortak bridge'i kullanabilir → süreç kapatma atlandı"
 elif command -v lsof >/dev/null 2>&1; then
   collect_port_pids
+  if [ "${#FOREIGN_PIDS[@]}" -gt 0 ]; then
+    warn "yabancı port süreci korunuyor: ${FOREIGN_PIDS[*]}"
+  fi
   if [ "${#PIDS[@]}" -gt 0 ]; then
     kill "${PIDS[@]}" 2>/dev/null && info "  SIGTERM → ${PIDS[*]}"
     for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -375,7 +387,12 @@ fi
 if [ "$PRESERVE_SHARED" -eq 1 ]; then
   info "  ortak bridge korunuyor → portun açık kalması beklenir"
 elif command -v lsof >/dev/null 2>&1; then
-  if [ -z "$(lsof -ti "tcp:$PORT" 2>/dev/null || true)" ]; then ok "port $PORT boş"; else err "port $PORT hâlâ dolu"; FAIL=1; fi
+      collect_port_pids
+      if [ "${#PIDS[@]}" -eq 0 ]; then
+        if [ "${#FOREIGN_PIDS[@]}" -gt 0 ]; then warn "port $PORT yabancı süreç tarafından tutuluyor; dokunulmadı"; else ok "port $PORT boş"; fi
+      else
+        err "AskUserQuestionsPro port süreçleri hâlâ dolu: ${PIDS[*]}"; FAIL=1
+      fi
 fi
 
 # ── Özet ─────────────────────────────────────────────────────────────────────

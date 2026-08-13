@@ -1,67 +1,72 @@
-# Release and npm publishing
+# Release runbook
 
-This repository's canonical npm publishing path is GitHub Actions. Do not
-start a release with a local `npm publish` command.
+GitHub Actions is the only normal publisher. A release is not complete because
+a local package was built: the exact source commit, npm artifact, git tag,
+checksum, provenance, and GitHub Release must agree.
 
-## Why GitHub Actions is the publisher
+## Pre-release gate
 
-[`release.yml`](../.github/workflows/release.yml) runs the Changesets release
-flow after successful CI on `main` (or after an explicitly requested manual
-dispatch). Its job has `id-token: write`, configures the npm registry, and
-invokes `changeset publish`. npm trusted publishing supplies the short-lived
-OIDC identity, so the normal repository release does not depend on a local
-npm login, authenticator code, or long-lived npm token.
+Before merging a release change, inspect the release workflow, package
+manifest and lockfile, `.changeset/`, and this runbook. Run the repository’s
+quality gates from a clean checkout:
 
-The normal lifecycle is:
+```bash
+npm ci
+npm test
+npm run lint
+npm run format:check
+npm audit --audit-level=high --omit=dev
+npm pack --dry-run --json
+git diff --check
+```
 
-1. Add a `.changeset/*.md` file with the code change.
-2. Run the quality gates, then commit and push the change.
-3. Open and merge the PR into `main`.
-4. Let the Release workflow create the Version Packages PR.
-5. Merge the Version Packages PR and wait for the resulting publish job.
-6. Verify the workflow, npm version, dist-tag, git tag, and GitHub release.
+The release workflow must run against the exact `main` SHA that passed the
+release gate. It must use the repository’s Changesets flow, Node.js 24, npm
+11.5.1 or newer, a clean npm cache policy, and npm trusted publishing through
+GitHub OIDC (`id-token: write`). A long-lived `NPM_TOKEN` is not an acceptable
+substitute. Release publication must not bypass the quality gate through a
+manual dispatch or a different ref.
 
-Manual `workflow_dispatch` is an exception for an already-versioned package
-or an operational recovery. Use it only after checking the exact ref and
-confirming that the package version is not already published.
+## Normal lifecycle
 
-## Agent and maintainer guardrails
+1. Add a focused `.changeset/*.md` file for a release-visible package change.
+2. Run the full local gate and open a pull request against `main`.
+3. Merge only after the required CI/release aggregator status is green.
+4. Let Changesets create the Version Packages pull request from the tested
+   source state, including the lockfile update.
+5. Merge the Version Packages pull request after reviewing its exact head SHA.
+6. Wait for the trusted-publishing job and verify all post-release identities.
 
-Before publishing, inspect these files in the current checkout:
+Do not start with local `npm publish`. If local publishing reports `EOTP`,
+stop; do not request an authenticator code. Route the release through the
+GitHub Actions OIDC publisher instead.
 
-- `.github/workflows/release.yml` — trigger, ref, OIDC permission, and
-  Changesets command;
-- `package.json` and `package-lock.json` — package name, version, and release
-  scripts;
-- `.changeset/` — whether the release is pending versioning or already
-  versioned;
-- `docs/tech-stack.md` — the maintained release contract.
+## Post-release verification
 
-Local `npm publish` is a fallback only when the user explicitly chooses a
-local registry publication and has confirmed the required npm credentials.
-It is not the default for this repository. In particular:
+Record the exact commit and verify, using the published package name:
 
-- `npm publish --provenance` is expected to fail on a developer machine when
-  no supported CI provenance provider is present;
-- retrying with `--provenance=false` can reach npm but may fail with `EOTP`;
-- `EOTP` means the wrong publication path was selected here. Do not ask the
-  user for an authenticator code as the first recovery. Route the release
-  through GitHub Actions trusted publishing instead.
+```bash
+npm view askuserquestionspro version dist-tags --json
+npm view askuserquestionspro dist.tarball --json
+git ls-remote --tags origin
+```
 
-Never claim a release succeeded until all of these are verified:
+Confirm that the npm version and dist-tag, git tag, GitHub Release, provenance
+attestation, and package contents all refer to the intended source. A failed
+or partial verification is a release incident, not a successful release.
 
-- the GitHub Release workflow completed successfully;
-- `npm view askuserquestionspro version dist-tags --json` shows the expected
-  version and tag;
-- the published artifact was checked with `npm pack --dry-run --json` before
-  release;
-- the working tree and pushed commit are the intended ones.
+## Shell installer integrity
 
-## Incident learning
+The shell path is a fallback for users who cannot use npm. Publish a checksum
+file with each release archive and keep the source tag immutable. The README
+requires users to supply the expected SHA-256 value before extraction. Never
+document or recommend `curl .../main/install.sh | bash`, a mutable branch ZIP,
+or a checksum downloaded from an unrelated branch.
 
-The 2026-08-03 `1.2.1` release attempt initially used local `npm publish`
-before auditing the repository's release workflow and history. That caused an
-avoidable provenance-provider error followed by an OTP prompt, even though
-the repository already had a working GitHub OIDC/trusted-publishing path.
-The durable correction is procedural: inspect the release workflow first and
-select the repository-native publisher before touching local npm credentials.
+## Handoff
+
+This repository does not publish from a developer workstation. The maintainer
+should merge the prepared pull request, allow the release workflow to publish,
+then attach the verification results to the release record. No release claim
+should rely on an unauthenticated host session or an unverified installer
+archive.

@@ -5,17 +5,21 @@ const assert = require('node:assert');
 const { validQuestions } = require('../lib/question-contract.cjs');
 
 test('question contract accepts the documented option object shape', () => {
-  assert.deepStrictEqual(
-    validQuestions([
-      {
-        question: 'Mevsim?',
-        header: 'Test',
-        type: 'single',
-        options: [{ label: 'İlkbahar' }, { label: 'Yaz' }],
-      },
-    ]),
-    { ok: true }
-  );
+  const result = validQuestions([
+    {
+      question: 'Mevsim?',
+      header: 'Test',
+      type: 'single',
+      options: [{ label: 'İlkbahar' }, { label: 'Yaz' }],
+    },
+  ]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.questions[0], {
+    question: 'Mevsim?',
+    header: 'Test',
+    type: 'single',
+    options: [{ label: 'İlkbahar' }, { label: 'Yaz' }],
+  });
 });
 
 test('question contract rejects string options with an actionable error', () => {
@@ -33,23 +37,24 @@ test('question contract rejects string options with an actionable error', () => 
 });
 
 test('question contract allows binary and scale questions without options', () => {
-  assert.deepStrictEqual(validQuestions([{ question: 'Hazır mı?', type: 'binary' }]), { ok: true });
-  assert.deepStrictEqual(validQuestions([{ question: 'Önem?', type: 'scale', min: 1, max: 5 }]), {
-    ok: true,
-  });
+  const binary = validQuestions([{ question: 'Hazır mı?', type: 'binary' }]);
+  const scale = validQuestions([{ question: 'Önem?', type: 'scale', min: 1, max: 5 }]);
+  assert.equal(binary.ok, true);
+  assert.equal(binary.questions[0].header, 'General');
+  assert.equal(scale.ok, true);
+  assert.equal(scale.questions[0].header, 'General');
 });
 
 test('question contract accepts scale options from generic MCP clients', () => {
-  assert.deepStrictEqual(
-    validQuestions([
-      {
-        question: 'Güven?',
-        type: 'scale',
-        min: 1,
-        max: 5,
-        options: [{ label: 'Düşük' }, { label: 'Yüksek' }],
-      },
-    ]),
-    { ok: true }
-  );
+  const result = validQuestions([
+    {
+      question: 'Güven?',
+      type: 'scale',
+      min: 1,
+      max: 5,
+      options: [{ label: 'Düşük' }, { label: 'Yüksek' }],
+    },
+  ]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.questions[0].options, [{ label: 'Düşük' }, { label: 'Yüksek' }]);
 });

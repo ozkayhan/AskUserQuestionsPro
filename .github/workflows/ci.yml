@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint and format
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -27,38 +27,97 @@ jobs:
           cache: npm
 
       - run: npm ci
-
       - name: Shellcheck
-        # severity=warning: SC2015 (A && B || C) gibi info-level notları geçer; bilinçli
-        # echo/true kalıpları için false-positive. Warning+ (SC2034, SC2115 vb.) yine fail eder.
         run: find . -name '*.sh' -not -path './node_modules/*' -not -path './.codex/*' -not -path './.git/*' -print0 | xargs -0 shellcheck --severity=warning
-
       - run: npm run lint
-
       - run: npm run format:check
-
-      # ponytail: --omit=dev — no production dependencies; flag prevents devDependency CVEs
-      # from triggering the high-severity gate (e.g. transitive deps of @changesets/cli).
-      - run: npm audit --audit-level=high --omit=dev
 
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [18, 20, 22, 24]
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
-
       - run: npm ci
-
       - run: npm test
+
+  coverage:
+    name: Native coverage (Node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node test/coverage-runner.cjs
+
+  audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Full dependency audit
+        run: npm audit --audit-level=high
+      - name: Production-boundary audit
+        run: npm audit --audit-level=high --omit=dev
+
+  os-smoke:
+    name: OS smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: CLI and installer smoke
+        run: node --test test/cli.test.js test/install.test.js test/shell-lifecycle.test.js
+
+  browser:
+    name: Browser contract (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run test:playwright -- --project=${{ matrix.browser }}

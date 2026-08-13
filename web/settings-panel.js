@@ -23,12 +23,12 @@ function currentSettings() {
   return value || Settings_Schema.defaults();
 }
 
-/* Sol-alt sabit ayar (dişli) butonu — her ekranda görünür. */
+/* Workspace utility control — sidebar on desktop, compact header on mobile. */
 function SettingsButton({ onOpen, buttonRef }) {
   return (
     <button
       ref={buttonRef}
-      className="settings-fab"
+      className="settings-button"
       onClick={onOpen}
       title="Settings"
       aria-label="Settings"
@@ -309,6 +309,7 @@ function SettingsDataPanel({ sessionBaseline, onSettingsChanged }) {
           <input
             ref={importRef}
             className="sr-only"
+            tabIndex={-1}
             type="file"
             accept="application/json,.json"
             onChange={handleImport}
@@ -463,7 +464,9 @@ function SettingsModal({ onClose }) {
       }
       if (e.key === 'Tab' && dialogRef.current) {
         const items = [
-          ...dialogRef.current.querySelectorAll('button:not([disabled]), input, select, textarea'),
+          ...dialogRef.current.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]):not([tabindex="-1"]):not(.sr-only), select:not([disabled]), textarea:not([disabled])'
+          ),
         ];
         if (!items.length) return;
         const first = items[0],

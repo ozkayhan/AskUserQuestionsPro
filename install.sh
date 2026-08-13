@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # askuserquestionspro — production-grade kurulum.
-# GitHub'dan TAZE çeker (git clone, fallback curl-zip), kalıcı konuma kurar,
+# GitHub'dan immutable release tag + SHA-256 ile çeker, staging dizinine kurar,
 # Claude Code, Codex ve/veya Antigravity CLI için hook + MCP kaydını bundled Node logic'iyle yapar
 # ve KESİN doğrular.
 # npm KULLANMAZ. Idempotent: tekrar tekrar çalıştırılabilir.
 set -euo pipefail
 
 REPO_URL="https://github.com/ozkayhan/AskUserQuestionsPro"
-BRANCH="main"
+RELEASE_TAG="${ASKUSER_RELEASE_TAG:-v1.4.0}"
+RELEASE_SHA256="${ASKUSER_RELEASE_SHA256:-}"
 INSTALL_DIR="$HOME/.local/share/askuserquestionspro"
 CLAUDE_SKILL_DEST="$HOME/.claude/skills/askpro"
 CODEX_SKILL_DEST="$HOME/.agents/skills/askpro"
 ANTIGRAVITY_PLUGIN_DEST="$HOME/.gemini/antigravity-cli/plugins/askuserquestionspro"
 TARGET="${ASKUSER_TARGET:-auto}"
+SOURCE_OVERRIDE="${ASKUSER_SOURCE_DIR:-}"
 
 usage() {
   cat <<'EOF'
@@ -119,45 +121,58 @@ printf '%s\n\n' "${C_BOLD}AskUserQuestionsPro kurulumu — Claude Code + Codex +
 CURRENT_STEP="ön koşul kontrolü"
 step "1/6  Ön koşullar kontrol ediliyor"
 command -v node >/dev/null 2>&1 || die "node bulunamadı. Node.js kurun: https://nodejs.org"
-ok "node $(node --version)"
-HAVE_GIT=0; command -v git >/dev/null 2>&1 && HAVE_GIT=1
-HAVE_ZIP=0; { command -v curl >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; } && HAVE_ZIP=1
-if [ "$HAVE_GIT" -eq 0 ] && [ "$HAVE_ZIP" -eq 0 ]; then
-  die "git de (curl+unzip) de yok. En az biri gerekli."
+NODE_VERSION="$(node --version)"
+NODE_MAJOR="${NODE_VERSION#v}"
+NODE_MAJOR="${NODE_MAJOR%%.*}"
+case "$NODE_MAJOR" in
+  ''|*[!0-9]*) die "Node.js sürümü okunamadı: $NODE_VERSION" ;;
+esac
+[ "$NODE_MAJOR" -ge 18 ] || die "Node.js 18+ gerekli; bulunan: $NODE_VERSION"
+ok "node $NODE_VERSION (18+ doğrulandı)"
+if [ -z "$SOURCE_OVERRIDE" ]; then
+  command -v curl >/dev/null 2>&1 || die "curl bulunamadı. Immutable release indirmek için curl gerekli."
+  command -v unzip >/dev/null 2>&1 || die "unzip bulunamadı. Immutable release açmak için unzip gerekli."
+  [ -n "$RELEASE_SHA256" ] || die "Uzak kurulumda ASKUSER_RELEASE_SHA256 zorunludur."
+  if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
+    die "sha256sum veya shasum bulunamadı; release checksum doğrulanamıyor."
+  fi
+  case "$RELEASE_TAG" in
+    *[!A-Za-z0-9._-]*) die "Geçersiz release tag: $RELEASE_TAG" ;;
+  esac
 fi
-if [ "$HAVE_GIT" -eq 1 ]; then ok "git mevcut"; else warn "git yok — curl-zip fallback kullanılacak"; fi
 
 # ── 2/6 Kaynağı GitHub'dan çek veya yerel kaynaktan kur ─────────────────────
 CURRENT_STEP="kaynağı GitHub'dan çekme"
-SOURCE_OVERRIDE="${ASKUSER_SOURCE_DIR:-}"
 if [ -n "$SOURCE_OVERRIDE" ]; then
   step "2/6  Yerel kaynak kullanılıyor ($SOURCE_OVERRIDE)"
 else
-  step "2/6  Kaynak GitHub'dan çekiliyor ($BRANCH)"
+  step "2/6  Kaynak immutable release'ten çekiliyor ($RELEASE_TAG)"
 fi
 WORKDIR="$(mktemp -d)"
-trap 'rm -rf "$WORKDIR"' EXIT
+STAGING_DIR=""
+trap 'rm -rf "$WORKDIR" "${STAGING_DIR:-}"' EXIT
 SRC=""
 if [ -n "$SOURCE_OVERRIDE" ]; then
   [ -d "$SOURCE_OVERRIDE" ] || die "yerel kaynak dizini yok: $SOURCE_OVERRIDE"
   SRC="$(cd "$SOURCE_OVERRIDE" && pwd)"
   ok "yerel kaynak hazır"
-elif [ "$HAVE_GIT" -eq 1 ]; then
-  if git clone --depth 1 --branch "$BRANCH" "$REPO_URL.git" "$WORKDIR/src" >/dev/null 2>&1; then
-    SRC="$WORKDIR/src"
-    ok "git clone tamam"
-  else
-    warn "git clone başarısız — curl-zip fallback deneniyor"
-  fi
-fi
-if [ -z "$SRC" ]; then
-  [ "$HAVE_ZIP" -eq 1 ] || die "git clone başarısız ve curl/unzip yok."
-  curl -fsSL "$REPO_URL/archive/refs/heads/$BRANCH.zip" -o "$WORKDIR/repo.zip" \
-    || die "zip indirilemedi ($REPO_URL)."
+else
+  curl -fsSL "$REPO_URL/archive/refs/tags/$RELEASE_TAG.zip" -o "$WORKDIR/repo.zip" \
+    || die "release zip indirilemedi ($REPO_URL/$RELEASE_TAG)."
   [ -s "$WORKDIR/repo.zip" ] || die "indirilen zip boş."
+  if command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL_SHA256="$(sha256sum "$WORKDIR/repo.zip")"
+    ACTUAL_SHA256="${ACTUAL_SHA256%% *}"
+  else
+    ACTUAL_SHA256="$(shasum -a 256 "$WORKDIR/repo.zip")"
+    ACTUAL_SHA256="${ACTUAL_SHA256%% *}"
+  fi
+  [ "$ACTUAL_SHA256" = "$RELEASE_SHA256" ] || die "release checksum eşleşmedi. Beklenen: $RELEASE_SHA256, bulunan: $ACTUAL_SHA256"
+  ok "release checksum doğrulandı"
   unzip -q "$WORKDIR/repo.zip" -d "$WORKDIR" || die "zip açılamadı."
-  SRC="$WORKDIR/AskUserQuestionsPro-$BRANCH"
-  ok "curl-zip tamam"
+  SRC="$WORKDIR/AskUserQuestionsPro-${RELEASE_TAG#v}"
+  [ -d "$SRC" ] || die "release arşivi beklenen kaynak dizinini içermiyor: $SRC"
+  ok "immutable release açıldı"
 fi
 
 # ── 3/6 Sağlamlık kontrolü ───────────────────────────────────────────────────
@@ -189,24 +204,40 @@ case "$INSTALL_DIR/" in
     ;;
 esac
 
-# ── 4/6 Kalıcı konuma kopyala ────────────────────────────────────────────────
+# ── 4/6 Staging + atomic swap ────────────────────────────────────────────────
 CURRENT_STEP="dosyaların kalıcı konuma kopyalanması"
-step "4/6  Dosyalar kuruluyor → $INSTALL_DIR"
-mkdir -p "$INSTALL_DIR"
-# Bayat içerik kalmasın diye kuruluma giren tüm alt dizinleri önce temizle.
+step "4/6  Bundle staging dizinine hazırlanıyor"
+INSTALL_PARENT="$(dirname "$INSTALL_DIR")"
+mkdir -p "$INSTALL_PARENT"
+STAGING_DIR="$(mktemp -d "$INSTALL_DIR.staging.XXXXXX")"
 for d in bin hooks web server lib mcp-server skill; do
-  rm -rf "${INSTALL_DIR:?}/$d"
-  [ -d "$SRC/$d" ] && cp -R "$SRC/$d" "$INSTALL_DIR/"
+  [ -d "$SRC/$d" ] && cp -R "$SRC/$d" "$STAGING_DIR/"
 done
-[ -f "$SRC/package.json" ] && cp "$SRC/package.json" "$INSTALL_DIR/"
-[ -d "$INSTALL_DIR/bin" ] || die "kopyalama başarısız: $INSTALL_DIR/bin yok"
-ok "dosyalar kopyalandı"
+[ -f "$SRC/package.json" ] && cp "$SRC/package.json" "$STAGING_DIR/"
+[ -d "$STAGING_DIR/bin" ] || die "staging kopyalama başarısız: $STAGING_DIR/bin yok"
+[ -f "$STAGING_DIR/package.json" ] || die "staging manifest eksik"
+ok "bundle staging'e kopyalandı"
+
+ROLLBACK_DIR="$INSTALL_DIR.rollback.$$"
+rm -rf "$ROLLBACK_DIR"
+if [ -e "$INSTALL_DIR" ]; then mv "$INSTALL_DIR" "$ROLLBACK_DIR"; fi
+if ! mv "$STAGING_DIR" "$INSTALL_DIR"; then
+  if [ -e "$ROLLBACK_DIR" ]; then mv "$ROLLBACK_DIR" "$INSTALL_DIR"; fi
+  die "staging bundle atomic olarak etkinleştirilemedi"
+fi
+STAGING_DIR=""
+
+rollback_install() {
+  rm -rf "$INSTALL_DIR"
+  if [ -e "$ROLLBACK_DIR" ]; then mv "$ROLLBACK_DIR" "$INSTALL_DIR"; fi
+}
 
 # ── 5/6 Hook + MCP kaydı + skill (bundled Node logic) ───────────────────────
 CURRENT_STEP="hook, MCP ve skill kaydı"
 step "5/6  Claude/Codex/Antigravity MCP, hook ve skill kaydediliyor (target: $TARGET)"
 # cli.js kendi konumuna (INSTALL_DIR) göre path kurar → kalıcı yola işaret eder.
 if ! node "$INSTALL_DIR/bin/cli.js" install --target "$TARGET"; then
+  rollback_install
   die "host kaydı başarısız. Tanı: node \"$INSTALL_DIR/bin/cli.js\" doctor --target \"$TARGET\""
 fi
 ok "bundled host kaydı tamam"
@@ -251,7 +282,11 @@ if [ "$ANTIGRAVITY_SELECTED" -eq 1 ]; then
   fi
 fi
 
-[ "$VERIFY_FAIL" -eq 0 ] || die "doğrulama başarısız — yukarıdaki ✗ satırlarına bakın."
+if [ "$VERIFY_FAIL" -ne 0 ]; then
+  rollback_install
+  die "doğrulama başarısız — önceki kurulum geri yüklendi."
+fi
+rm -rf "$ROLLBACK_DIR"
 
 # ── Özet ─────────────────────────────────────────────────────────────────────
 trap - ERR

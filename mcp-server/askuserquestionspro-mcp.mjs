@@ -8,7 +8,9 @@ const require = createRequire(import.meta.url);
 const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
 const { createProgressHeartbeat, isProgressToken } = require('../lib/mcp-progress.cjs');
-const { validQuestions } = require('../lib/question-contract.cjs');
+const { validQuestions, QUESTION_SCHEMA } = require('../lib/question-contract.cjs');
+const { MAX_BODY_BYTES } = require('../lib/protocol-limits.cjs');
+const { packageVersion } = require('../lib/bridge-protocol.cjs');
 const { adapterEnabled } = require('../lib/runtime-settings.cjs');
 
 const CURRENT_PROTOCOL_VERSION = '2025-11-25';
@@ -47,6 +49,18 @@ function shutdown(reason, exitCode = 0) {
       timer.unref?.();
     });
     await Promise.race([settle, deadline]);
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, 100);
+      try {
+        process.stdout.write('', () => {
+          clearTimeout(timer);
+          resolve();
+        });
+      } catch {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
     process.exitCode = exitCode;
     log('mcp-lifecycle', `shutdown complete: ${reason}`);
     process.exit(exitCode);
@@ -86,82 +100,7 @@ const ASK_TOOL = {
     '  • "tree"    — multi-level decision tree; SEND THE ENTIRE TREE IN ONE CALL, leaf nodes are the final answers (no children or empty children array). Max depth: 6. Returns: string[] path from root to chosen leaf.\n\n' +
     'If "type" is omitted: multiSelect:true → "multi", otherwise → "single" (backward-compatible).\n' +
     'Returns {"answers": {...}}, where the nested object maps each answered question text to its typed value.',
-  inputSchema: {
-    // $defs: özyinelemeli option (tree desteği için children içerir)
-    $defs: {
-      option: {
-        type: 'object',
-        required: ['label'],
-        properties: {
-          label: { type: 'string' },
-          description: { type: 'string' },
-          children: {
-            type: 'array',
-            items: { $ref: '#/$defs/option' },
-            description:
-              'Alt seçenekler (yalnızca tree tipinde). Yoksa/boşsa bu düğüm yaprak (nihai cevap).',
-          },
-        },
-      },
-    },
-    type: 'object',
-    required: ['questions'],
-    properties: {
-      questions: {
-        type: 'array',
-        minItems: 1,
-        description: 'The questions to ask, shown together on one screen.',
-        items: {
-          type: 'object',
-          // options artık required değil: binary ve scale options'sız olabilir
-          required: ['question', 'header'],
-          properties: {
-            question: { type: 'string', description: 'The full question text.' },
-            header: {
-              type: 'string',
-              description: 'A short section/group label (used to group questions in the UI).',
-            },
-            type: {
-              type: 'string',
-              enum: ['single', 'multi', 'binary', 'scale', 'ranking', 'tree'],
-              description: 'Soru tipi. Belirtilmezse multiSelect:true→"multi", aksi→"single".',
-            },
-            multiSelect: {
-              type: 'boolean',
-              description: 'Allow selecting multiple options (shorthand for type:"multi").',
-            },
-            // scale alanları
-            min: { type: 'number', description: 'Scale minimum değeri (scale tipinde zorunlu).' },
-            max: { type: 'number', description: 'Scale maksimum değeri (scale tipinde zorunlu).' },
-            step: { type: 'number', description: 'Scale adım büyüklüğü (varsayılan 1).' },
-            leftLabel: { type: 'string', description: 'Scale sol uç etiketi.' },
-            rightLabel: { type: 'string', description: 'Scale sağ uç etiketi.' },
-            options: {
-              type: 'array',
-              minItems: 1,
-              description:
-                'Seçenekler obje olmalıdır: [{"label":"Seçenek"}]. String dizileri geçersizdir. binary: tam 2 şık veya omit. scale: verilirse yoksayılır.',
-              // Kök seçenek şemasını inline yayınla. Bazı hostlar $ref'i
-              // çözmeden Array<unknown> gösterdiği için modelin string dizi
-              // üretmesini engeller; tree children yine recursive $defs kullanır.
-              items: {
-                type: 'object',
-                required: ['label'],
-                properties: {
-                  label: { type: 'string' },
-                  description: { type: 'string' },
-                  children: {
-                    type: 'array',
-                    items: { $ref: '#/$defs/option' },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
+  inputSchema: QUESTION_SCHEMA,
   outputSchema: {
     type: 'object',
     required: ['answers'],
@@ -351,6 +290,7 @@ async function handleAsk(args, signal, { progressToken } = {}) {
       isError: true,
     };
   }
+  const questions = validation.questions;
 
   // ESM modülü dinamik olarak içe aktar (hem hook hem MCP paylaşır).
   const { ensureServer, openBrowser, askBridge, waitForPending, createRequestId, cancelBridge } =
@@ -392,7 +332,7 @@ async function handleAsk(args, signal, { progressToken } = {}) {
       .finally(() => roundController.abort());
   };
   signal?.addEventListener('abort', cancelRound, { once: true });
-  const askPromise = askBridge(args.questions, {
+  const askPromise = askBridge(questions, {
     timeoutMs: 60 * 60 * 1000,
     signal: roundController.signal,
     requestId,
@@ -652,7 +592,7 @@ async function handleMessage(msg) {
       result: {
         protocolVersion,
         capabilities: { tools: {} },
-        serverInfo: { name: 'askuserquestionspro', version: '1.1.0' },
+        serverInfo: { name: 'askuserquestionspro', version: packageVersion },
         instructions:
           'Prefer the ask tool for structured user questions in Codex, Antigravity CLI, or Claude Code. It opens a local full-screen reviewable UI and supports grouped and rich question types. Match the user language when constructing question text and options. If a host timeout disconnects the call, use the resume tool before starting a new round. If a host cancels the call, use its native fallback. If the user asks to stop or replace an active round, use cancel_round with its exact identity before asking again. On tool failure, use the host-native user-input tool.',
       },
@@ -714,6 +654,7 @@ async function handleMessage(msg) {
 
 // STDIN'den satır satır oku; her satır bir tam JSON-RPC mesajıdır.
 let buffer = '';
+let bufferedBytes = 0;
 process.stdin.setEncoding('utf8');
 
 process.stdin.on('data', (chunk) => {
@@ -721,13 +662,26 @@ process.stdin.on('data', (chunk) => {
     transportConnected = true;
     log('mcp-lifecycle', `transport connected pid=${process.pid}`);
   }
+  const chunkBytes = Buffer.byteLength(chunk, 'utf8');
+  if (bufferedBytes + chunkBytes > MAX_BODY_BYTES) {
+    sendError(null, -32600, 'MCP input exceeds the 8 MiB message limit');
+    void shutdown('stdin_message_too_large', 1);
+    return;
+  }
   buffer += chunk;
+  bufferedBytes += chunkBytes;
   const lines = buffer.split('\n');
   // Son elemanı buffer'da tut (henüz tamamlanmamış satır olabilir).
   buffer = lines.pop();
+  bufferedBytes = Buffer.byteLength(buffer, 'utf8');
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
+    if (Buffer.byteLength(trimmed, 'utf8') > MAX_BODY_BYTES) {
+      sendError(null, -32600, 'MCP input exceeds the 8 MiB message limit');
+      void shutdown('stdin_message_too_large', 1);
+      return;
+    }
     let msg;
     try {
       msg = JSON.parse(trimmed);

@@ -1,4 +1,4 @@
-/* global React, Check, Kbd, Brand, fullOptions, AnswerMap */
+/* global React, Check, Kbd, Brand, fullOptions, AnswerMap, SettingsButton */
 /* askuseroz · views — saf sunum bileşenleri (durumu prop ile alır, callback ile bildirir) */
 const {
   useEffect: useEffectView,
@@ -55,6 +55,8 @@ function RecoveryChooser({
   handleContinueRecovery,
   handleRequestDelete,
   handleStartNewRound,
+  onRetry,
+  onClose,
 }) {
   const titleRef = useRefView(null);
   useModalFocus(titleRef, handleStartNewRound);
@@ -85,10 +87,20 @@ function RecoveryChooser({
         <p id="recovery-description">{recoveryCopy.description}</p>
         {discoveryState === 'loading' && <p>Checking for saved rounds…</p>}
         {discoveryState === 'error' && (
-          <p>
-            We couldn't load a saved round right now.
-            <br />A new round can still appear here when the agent is ready.
-          </p>
+          <>
+            <p>
+              We couldn't load a saved round right now.
+              <br />A new round can still appear here when the agent is ready.
+            </p>
+            <div className="recovery-actions">
+              <button type="button" className="btn btn--primary" onClick={onRetry}>
+                Retry recovery
+              </button>
+              <button type="button" className="btn" onClick={onClose}>
+                Close recovery
+              </button>
+            </div>
+          </>
         )}
         {uncertain && discoveryState === 'populated' && (
           <p role="status" aria-live="polite">
@@ -141,6 +153,9 @@ function RecoveryChooser({
             <button type="button" className="btn" onClick={handleStartNewRound}>
               Start a new round
             </button>
+            <button type="button" className="btn" onClick={onClose}>
+              Close recovery
+            </button>
           </div>
         )}
       </div>
@@ -177,10 +192,63 @@ function RecoveryDeleteDialog({ onConfirm, onCancel }) {
   );
 }
 
-function ReconciliationPanel({ conflict, onKeepServer, onReview, onDiscard }) {
+function conflictAnswerText(q, draft) {
+  const answer = (draft && draft[q.question]) || {};
+  if (typeof AnswerMap !== 'undefined' && AnswerMap.summaryText) {
+    return AnswerMap.summaryText(q, answer) || 'No answer yet';
+  }
+  if (answer.value != null) return String(answer.value);
+  if (Array.isArray(answer.order)) {
+    return answer.order
+      .map((index) => q.options?.[index]?.label)
+      .filter(Boolean)
+      .join(' → ');
+  }
+  if (Array.isArray(answer.path) && answer.path.length) {
+    let nodes = q.options || [];
+    let node = null;
+    for (const index of answer.path) {
+      node = nodes[index];
+      nodes = node?.children || [];
+    }
+    return node?.label || 'No answer yet';
+  }
+  const options = fullOptions(q);
+  return (
+    (answer.sel || [])
+      .map((index) => {
+        const option = options[index];
+        return option?.custom ? answer.customText : option?.label;
+      })
+      .filter(Boolean)
+      .join(', ') || 'No answer yet'
+  );
+}
+
+function ReconciliationPanel({
+  conflict,
+  questions = [],
+  onKeepServer,
+  onKeepLocal,
+  onUseSelected,
+}) {
   const titleRef = useRefView(null);
+  const [choosing, setChoosing] = useStateView(false);
+  const [selection, setSelection] = useStateView({});
   useModalFocus(titleRef, onKeepServer);
   if (!conflict) return null;
+  const rows = questions.map((q) => {
+    const local = conflictAnswerText(q, conflict.localDraft);
+    const saved = conflictAnswerText(q, conflict.serverDraft);
+    return { q, local, saved, changed: local !== saved };
+  });
+  const changedRows = rows.filter((row) => row.changed);
+  const selectedDraft = questions.reduce((draft, q) => {
+    const useLocal = selection[q.question] === 'local';
+    const source = useLocal ? conflict.localDraft : conflict.serverDraft;
+    if (source && source[q.question]) draft[q.question] = source[q.question];
+    return draft;
+  }, {});
   return (
     <div
       className="recovery-overlay"
@@ -196,16 +264,59 @@ function ReconciliationPanel({ conflict, onKeepServer, onReview, onDiscard }) {
         <p role="status">
           Server revision {conflict.serverRevision}; local revision {conflict.localRevision}.
         </p>
+        <div className="reconcile-list" aria-label="Question-level draft comparison">
+          {(changedRows.length ? changedRows : rows).map(({ q, local, saved }) => (
+            <div className="reconcile-row" key={q.question}>
+              <strong>{q.question}</strong>
+              <span>
+                <b>Local answer:</b> {local}
+              </span>
+              <span>
+                <b>Saved answer:</b> {saved}
+              </span>
+              {choosing && (
+                <div className="reconcile-row__choices">
+                  <button
+                    type="button"
+                    className="btn"
+                    aria-pressed={selection[q.question] === 'local'}
+                    onClick={() => setSelection((prev) => ({ ...prev, [q.question]: 'local' }))}
+                  >
+                    Use local
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    aria-pressed={selection[q.question] !== 'local'}
+                    onClick={() => setSelection((prev) => ({ ...prev, [q.question]: 'saved' }))}
+                  >
+                    Use saved
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
         <div className="recovery-actions">
           <button type="button" className="btn btn--primary" onClick={onKeepServer}>
-            Keep server
+            Use saved answers
           </button>
-          <button type="button" className="btn" onClick={onReview}>
-            Review differences
+          <button type="button" className="btn" onClick={onKeepLocal}>
+            Keep local answers
           </button>
-          <button type="button" className="btn btn--danger" onClick={onDiscard}>
-            Discard local draft
-          </button>
+          {!choosing ? (
+            <button type="button" className="btn" onClick={() => setChoosing(true)}>
+              Choose which to use
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => onUseSelected(selectedDraft)}
+            >
+              Use selected answers
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -213,6 +324,13 @@ function ReconciliationPanel({ conflict, onKeepServer, onReview, onDiscard }) {
 }
 
 function DeliveryPanel({ state = 'saved' }) {
+  if (state === 'delivered') {
+    return (
+      <p className="delivery-panel delivery-panel--success" role="status" aria-live="polite">
+        Answers delivered to the agent.
+      </p>
+    );
+  }
   if (state !== 'delivery-pending') return null;
   return (
     <p className="delivery-pending" role="status" aria-live="polite">
@@ -225,6 +343,10 @@ function RetiredState() {
   return (
     <main className="retired-state">
       <h1>This round is complete.</h1>
+      <p className="retired-state__result" role="status">
+        Answers delivered to the agent.
+      </p>
+      <p>Your saved answers are ready for the agent to continue.</p>
       <p>This tab is no longer waiting for new questions. You can close it when convenient.</p>
     </main>
   );
@@ -261,9 +383,9 @@ function Waiting() {
             <span className="dot" />
             Agent · clarify
           </div>
-          <h2 className="qcard__q">Waiting for a question…</h2>
+          <h1 className="qcard__q">Waiting for a question…</h1>
           <p className="qcard__meta">
-            Claude Code bir soru sorduğunda burada görünecek. Bu sekmeyi açık bırakın.
+            When the agent asks a question, it will appear here. Keep this tab open.
           </p>
         </div>
       </div>
@@ -463,6 +585,8 @@ function Sidebar({
   onJumpUnanswered,
   onSkipAll,
   searchRef,
+  onOpenSettings,
+  settingsButtonRef,
 }) {
   const useLarge = n > ACCORDION_THRESHOLD;
 
@@ -502,13 +626,18 @@ function Sidebar({
         Agent Clarification — Questions
       </h1>
       <div className="sidebar__head">
-        <div className="brand">
-          <span className="brand__mark">
-            <Brand s={20} />
-          </span>
-          <span className="brand__name">
-            Agent <span>· clarify</span>
-          </span>
+        <div className="sidebar__utility">
+          <div className="brand">
+            <span className="brand__mark">
+              <Brand s={20} />
+            </span>
+            <span className="brand__name">
+              Agent <span>· clarify</span>
+            </span>
+          </div>
+          {onOpenSettings && (
+            <SettingsButton buttonRef={settingsButtonRef} onOpen={onOpenSettings} />
+          )}
         </div>
         <div className="progress__label">
           <span>Questions</span>
@@ -617,10 +746,10 @@ function Hints({ q }) {
             <Kbd>←</Kbd>
             <Kbd>→</Kbd>
           </span>{' '}
-          Ayarla
+          Adjust
         </span>
         <span className="hint">
-          <Kbd>↵</Kbd> Onayla ve ilerle
+          <Kbd>↵</Kbd> Confirm and continue
         </span>
       </footer>
     );
@@ -633,10 +762,10 @@ function Hints({ q }) {
             <Kbd>↑</Kbd>
             <Kbd>↓</Kbd>
           </span>{' '}
-          Taşı
+          Move
         </span>
         <span className="hint">
-          <Kbd>↵</Kbd> Onayla
+          <Kbd>↵</Kbd> Confirm
         </span>
         <span className="hint__spacer" />
         <span className="hint">
@@ -656,14 +785,14 @@ function Hints({ q }) {
           <span className="kbd-group">
             <Kbd>1</Kbd>–<Kbd>9</Kbd>
           </span>{' '}
-          Seç
+          Select
         </span>
         <span className="hint">
-          <Kbd>⌫</Kbd> Geri
+          <Kbd>⌫</Kbd> Back
         </span>
         <span className="hint__spacer" />
         <span className="hint">
-          <Kbd>→</Kbd> İleri soru
+          <Kbd>→</Kbd> Next question
         </span>
       </footer>
     );
@@ -676,7 +805,7 @@ function Hints({ q }) {
             <Kbd>1</Kbd>
             <Kbd>2</Kbd>
           </span>{' '}
-          Seç
+          Select
         </span>
         <span className="hint__spacer" />
         <span className="hint">
@@ -721,6 +850,34 @@ function Hints({ q }) {
         Navigate
       </span>
     </footer>
+  );
+}
+
+function QuestionNavigation({ current, n, canContinue, onPrevious, onContinue }) {
+  return (
+    <nav className="question-navigation" aria-label="Question navigation">
+      <button
+        type="button"
+        className="btn btn--ghost"
+        onClick={onPrevious}
+        disabled={current === 0}
+        aria-label="Previous question"
+      >
+        ← Previous
+      </button>
+      <span className="question-navigation__position" aria-live="polite">
+        Question {current + 1} of {n}
+      </span>
+      <button
+        type="button"
+        className="btn btn--primary"
+        onClick={onContinue}
+        disabled={!canContinue}
+        aria-label="Continue to next question"
+      >
+        Continue →
+      </button>
+    </nav>
   );
 }
 
@@ -830,11 +987,20 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
   // cursor: hangi satır odakta (klavye ile gezilecek)
   // ponytail: use ref to avoid stale closure when grabbed+ArrowDown/Up fires before re-render
   const cursorRef = useRefView(0);
+  const rowRefs = useRefView({});
   const [cursor, setCursor] = useStateView(0);
   // grabbed: o satır "tutuldu mu" (Enter/Space ile kap/bırak)
   const [grabbed, setGrabbed] = useStateView(false);
   // aria-live announcement for screen readers
   const [liveMsg, setLiveMsg] = useStateView('');
+
+  useEffectView(() => {
+    const row = rowRefs.current[cursor];
+    if (row && typeof row.scrollIntoView === 'function') {
+      row.scrollIntoView({ block: 'nearest' });
+    }
+    if (row && typeof row.focus === 'function') row.focus();
+  }, [cursor, order.length]);
 
   const moveRank = (idx, dir) => {
     if (typeof AnswerMap !== 'undefined' && AnswerMap.moveRank) {
@@ -908,8 +1074,6 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
   return (
     <div
       className="ranking"
-      tabIndex={0}
-      autoFocus
       onKeyDown={handleKeyDown}
       role="listbox"
       aria-label={q.question}
@@ -940,6 +1104,15 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
           <div
             key={optIdx}
             className="rank-row"
+            ref={(node) => {
+              if (node) rowRefs.current[rankPos] = node;
+              else delete rowRefs.current[rankPos];
+            }}
+            tabIndex={isCursor ? 0 : -1}
+            onFocus={() => {
+              cursorRef.current = rankPos;
+              setCursor(rankPos);
+            }}
             data-cursor={isCursor}
             data-grabbed={isGrabbed}
             role="option"
@@ -961,7 +1134,7 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
                   e.stopPropagation();
                   setQ({ order: moveRank(rankPos, -1) });
                 }}
-                aria-label="Yukarı taşı"
+                aria-label="Move up"
               >
                 ↑
               </button>
@@ -974,7 +1147,7 @@ function RankingCard({ q, ans, qIndex, setQ, onConfirm }) {
                   e.stopPropagation();
                   setQ({ order: moveRank(rankPos, 1) });
                 }}
-                aria-label="Aşağı taşı"
+                aria-label="Move down"
               >
                 ↓
               </button>
@@ -1108,7 +1281,7 @@ function TreeCard({ q, ans, qIndex, setQ, onConfirm }) {
             tabIndex={-1}
             aria-label="Go back"
           >
-            ← Geri
+            ← Back
           </button>
           {crumbs.map(({ label, depth }) => (
             <button
@@ -1252,16 +1425,16 @@ function QuestionCard({ q, qIndex, ans, motion, dir, onActivate, setQ, onConfirm
   let metaText;
   switch (qType) {
     case 'binary':
-      metaText = 'Bir seçenek seçin.';
+      metaText = 'Choose one option.';
       break;
     case 'scale':
-      metaText = `${q.min ?? 0} – ${q.max ?? 10} arasında bir değer seçin.`;
+      metaText = `Choose a value from ${q.min ?? 0} to ${q.max ?? 10}.`;
       break;
     case 'ranking':
-      metaText = 'Öğeleri öncelik sırasına göre düzenleyin.';
+      metaText = 'Arrange the items in priority order.';
       break;
     case 'tree':
-      metaText = 'Bir dal seçin; yaprak düğüme ulaşınca onaylanır.';
+      metaText = 'Choose a branch; reaching a leaf confirms the answer.';
       break;
     default:
       metaText = q.multiSelect

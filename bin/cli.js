@@ -18,6 +18,12 @@ const Settings = require('../lib/settings.js');
 const { writeFileAtomic } = require('../lib/atomic-write.cjs');
 const Schema = require('../web/settings-schema.js');
 const {
+  APP_ID,
+  BRIDGE_PROTOCOL_VERSION,
+  packageVersion,
+  isCompatibleHealth,
+} = require('../lib/bridge-protocol.cjs');
+const {
   deploySkill: deployAntigravitySkill,
   hasMcp: hasAntigravityMcp,
   hasPlugin: hasAntigravityPlugin,
@@ -701,12 +707,20 @@ async function cmdDoctor(argv) {
     let r;
     try {
       r = await fetch(`${BASE}/health`, { signal: controller.signal });
+      const health = await r.json().catch(() => ({}));
+      const compatible = isCompatibleHealth(health, {
+        app: APP_ID,
+        protocolVersion: BRIDGE_PROTOCOL_VERSION,
+        packageVersion,
+      });
+      process.stdout.write(
+        compatible
+          ? `✓ Köprü çalışıyor (${BASE})\n`
+          : `· Köprü yanıt verdi ama health kimliği/protokolü uyumsuz\n`
+      );
     } finally {
       clearTimeout(timer);
     }
-    process.stdout.write(
-      r.ok ? `✓ Köprü çalışıyor (${BASE})\n` : `· Köprü yanıt verdi ama health başarısız\n`
-    );
   } catch {
     process.stdout.write(`· Köprü şu an kapalı (normal — ilk askpro çağrısında otomatik başlar)\n`);
   }

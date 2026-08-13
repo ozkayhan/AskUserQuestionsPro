@@ -41,7 +41,7 @@ test('browser recovery integration contract keeps recovery surfaces redacted and
   assert.match(live, /createRoundAcceptanceGate/);
   assert.match(live, /deleteRecoverableRound/);
   assert.doesNotMatch(views, /questionText|answerPayload|capability|filesystem|diagnostic/);
-  assert.doesNotMatch(views, /role="alert"|Retry recovery|Continue without recovery/);
+  assert.doesNotMatch(views, /role="alert"|Continue without recovery/);
   assert.match(styles, /\.app--retired/);
   assert.match(styles, /min-height: 44px/);
   assert.match(styles, /overflow-wrap: anywhere/);
@@ -63,6 +63,16 @@ test('waiting shell uses one column while active rounds retain the two-column sh
     /@media \(max-width: 760px\)\s*\{[\s\S]*?\.app,[\s\S]*?grid-template-columns:\s*1fr/
   );
   assert.match(app, /<div className="app app--retired">[\s\S]*<RetiredState \/>/);
+});
+
+test('browser UI contract keeps one aria-modal owner and explicit delivery result copy', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  const views = fs.readFileSync(path.join(__dirname, '..', 'web', 'views.js'), 'utf8');
+  assert.match(app, /showChooser && !settingsOpen && !deleteTarget/);
+  assert.match(app, /settingsOpen && !deleteTarget/);
+  assert.match(app, /settingsOpen/);
+  assert.match(views, /Answers delivered to the agent\./);
+  assert.match(views, /Your saved answers are ready for the agent to continue\./);
 });
 
 test('manual localhost boundary remains explicitly separate from source-contract evidence', () => {

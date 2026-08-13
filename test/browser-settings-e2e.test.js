@@ -7,10 +7,14 @@ const { spawn } = require('node:child_process');
 test('browser settings behavior is verified with Playwright and artifacts are preserved', async (t) => {
   let chromium;
   try {
-    ({ chromium } = require('playwright'));
+    ({ chromium } = require('@playwright/test'));
   } catch (error) {
-    t.skip('install the Playwright Node package to run browser evidence');
-    return;
+    throw new Error(
+      'The @playwright/test development dependency is required for browser evidence',
+      {
+        cause: error,
+      }
+    );
   }
   const dir = path.join(__dirname, 'artifacts', 'settings-v2');
   fs.mkdirSync(dir, { recursive: true });

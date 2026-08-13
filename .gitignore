@@ -6,3 +6,18 @@ node_modules/
 .claude/
 .codex/
 graphify-out/
+
+# Local planning, agent, and browser session state.
+.planning/
+.omo/
+.mcp.json
+.playwright-cli/
+
+# Generated verification output.
+coverage/
+test-results/
+playwright-report/
+test/artifacts/
+*.trace.zip
+*.webm
+coverage/

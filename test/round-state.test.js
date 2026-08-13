@@ -52,3 +52,20 @@ test('round-state rejects illegal and duplicate transitions without replacing re
   assert.equal(duplicate.ok, false);
   assert.strictEqual(duplicate.record, detached);
 });
+
+test('round-state rejects invalid transition metadata without mutating the record', () => {
+  const record = createRecord({ id: 1, capability: 'cap', now: 10 });
+
+  const invalidDeadline = transition(record, 'detach', {
+    now: 11,
+    deadlineOwner: 'not-a-deadline-owner',
+  });
+  assert.equal(invalidDeadline.ok, false);
+  assert.equal(invalidDeadline.code, 'invalid_deadline_owner');
+  assert.strictEqual(invalidDeadline.record, record);
+
+  const invalidTime = transition(record, 'detach', { now: 9 });
+  assert.equal(invalidTime.ok, false);
+  assert.equal(invalidTime.code, 'invalid_timestamp');
+  assert.strictEqual(invalidTime.record, record);
+});

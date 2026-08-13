@@ -1,6 +1,6 @@
 /* global React, ReactDOM, AnswerMap, DraftWriter, Settings_Schema, useLiveQuestions, postAnswers, postDraft,
    deleteRecoverableRound, getRecoverableRounds, selectRecoveryRound, fullOptions, Check, Waiting, Sidebar, Hints,
-   QuestionCard, CustomPopup, Summary, RecoveryChooser, RecoveryDeleteDialog, ReconciliationPanel, DeliveryPanel,
+   QuestionCard, QuestionNavigation, CustomPopup, Summary, RecoveryChooser, RecoveryDeleteDialog, ReconciliationPanel, DeliveryPanel,
    RetiredState, SettingsButton, SettingsModal */
 /* askuseroz · app — durum makinesi: soru akışı, klavye, gönderim. Sunum web/views.js'te. */
 const { useState, useEffect, useRef, useCallback } = React;
@@ -134,6 +134,16 @@ function App() {
     setDeleteTarget(null);
     setRecoveryError(null);
   };
+  const handleRetryRecovery = () => {
+    setRecoveryError(null);
+    loadRecoverableRounds();
+  };
+  const handleCloseRecovery = () => {
+    setRecoveryDismissed(true);
+    setRecoveryRequested(false);
+    setSelectedRecovery(null);
+    setDeleteTarget(null);
+  };
   const handleDeliveryUncertain = useCallback(() => {
     setRecoveryRequested(true);
     setRecoveryDismissed(false);
@@ -142,10 +152,15 @@ function App() {
     setDiscoveryState('loading');
   }, []);
 
+  const showChooser =
+    (id == null || recoveryRequested) && !recoveryDismissed && discoveryState !== 'empty';
   const screen =
     recoveryRequested || !questions || questions.length === 0 ? (
       <div className="app app--waiting">
         <Waiting />
+        <div className="waiting__utility">
+          <SettingsButton buttonRef={settingsFabRef} onOpen={() => setSettingsOpen(true)} />
+        </div>
       </div>
     ) : (
       <Flow
@@ -157,24 +172,24 @@ function App() {
         draftAnswers={draftAnswers}
         retireRound={retireRound}
         onDeliveryUncertain={handleDeliveryUncertain}
+        settingsOpen={settingsOpen}
+        recoveryModalOpen={showChooser || !!deleteTarget}
         key={id == null ? 'q' : 'round-' + id}
       />
     );
-  const showChooser =
-    (id == null || recoveryRequested) && !recoveryDismissed && discoveryState !== 'empty';
   return (
     <React.Fragment>
       {screen}
-      <SettingsButton buttonRef={settingsFabRef} onOpen={() => setSettingsOpen(true)} />
-      {settingsOpen && (
+      {settingsOpen && !deleteTarget && (
         <SettingsModal
           onClose={() => {
             setSettingsOpen(false);
+            settingsFabRef.current?.focus();
             setTimeout(() => settingsFabRef.current?.focus(), 0);
           }}
         />
       )}
-      {showChooser && (
+      {showChooser && !settingsOpen && !deleteTarget && (
         <RecoveryChooser
           mode={recoveryRequested ? 'uncertain' : 'interrupted'}
           discoveryState={discoveryState}
@@ -185,6 +200,8 @@ function App() {
           handleContinueRecovery={handleContinueRecovery}
           handleRequestDelete={handleRequestDelete}
           handleStartNewRound={handleStartNewRound}
+          onRetry={handleRetryRecovery}
+          onClose={handleCloseRecovery}
         />
       )}
       {deleteTarget && (
@@ -207,6 +224,8 @@ function Flow({
   draftAnswers,
   retireRound,
   onDeliveryUncertain,
+  settingsOpen,
+  recoveryModalOpen,
 }) {
   const QUESTIONS = questions;
   const n = QUESTIONS.length;
@@ -248,17 +267,30 @@ function Flow({
   const [deliveryState, setDeliveryState] = useState('saved');
   const [retired, setRetired] = useState(false);
   const [conflict, setConflict] = useState(null);
-  const [recoveryReview, setRecoveryReview] = useState(false);
   const resolvedConflictKey = useRef(null);
+  const applyConflictDraft = useCallback(
+    (nextDraft) => {
+      if (conflict)
+        resolvedConflictKey.current = `${conflict.serverRevision}:${conflict.localRevision}`;
+      setAnswers(() => createAnswerState(QUESTIONS, nextDraft));
+      if (Number.isInteger(revision)) draftRevision.current = revision;
+      if (DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
+      setConflict(null);
+    },
+    [QUESTIONS, conflict, draftWriterKey, revision]
+  );
   const applyServerDraft = useCallback(() => {
-    if (conflict)
-      resolvedConflictKey.current = `${conflict.serverRevision}:${conflict.localRevision}`;
-    setAnswers(() => createAnswerState(QUESTIONS, draftAnswers));
-    if (Number.isInteger(revision)) draftRevision.current = revision;
-    if (DraftWriter.clearPendingDrafts) DraftWriter.clearPendingDrafts(draftWriterKey);
-    setRecoveryReview(false);
-    setConflict(null);
-  }, [QUESTIONS, conflict, draftAnswers, draftWriterKey, revision]);
+    applyConflictDraft(draftAnswers);
+  }, [applyConflictDraft, draftAnswers]);
+  const applyLocalDraft = useCallback(() => {
+    applyConflictDraft(conflict?.localDraft || {});
+  }, [applyConflictDraft, conflict]);
+  const applySelectedDraft = useCallback(
+    (nextDraft) => {
+      applyConflictDraft(nextDraft);
+    },
+    [applyConflictDraft]
+  );
   useEffect(() => {
     // /draft broadcasts its new revision before the fetch response can clear
     // the matching local mirror. While that request is still pending, the
@@ -424,9 +456,29 @@ function Flow({
     if (cur >= n) return;
     const q = QUESTIONS[cur];
     const a = ref.current.answers[q.question];
+    const qtype = AnswerMap.qType(q);
+    if (qtype === 'scale') {
+      const min = q.min != null ? q.min : 0;
+      const max = q.max != null ? q.max : 10;
+      const displayValue = a.value != null ? a.value : Math.round((min + max) / 2);
+      const value =
+        typeof AnswerMap.clampScale === 'function'
+          ? AnswerMap.clampScale(q, displayValue)
+          : displayValue;
+      onConfirm(cur, { value });
+      return;
+    }
+    if (qtype === 'ranking') {
+      const order =
+        a.order ||
+        (typeof AnswerMap.initOrder === 'function'
+          ? AnswerMap.initOrder(q)
+          : q.options.map((_, index) => index));
+      onConfirm(cur, { order });
+      return;
+    }
     // AnswerMap.isAnswered ile koru (tüm tipler).
     if (!AnswerMap.isAnswered(q, a)) return;
-    const qtype = AnswerMap.qType(q);
     // single/multi: "Other" boş popup kontrolü korunur.
     if (qtype === 'single' || qtype === 'multi') {
       const opts = fullOptions(q);
@@ -438,7 +490,7 @@ function Flow({
     }
     setQ(q.question, { confirmed: true });
     advance(cur);
-  }, [n, setQ, advance, QUESTIONS]);
+  }, [n, setQ, advance, QUESTIONS, onConfirm]);
 
   const savePopup = useCallback(() => {
     const p = ref.current.popup;
@@ -649,6 +701,12 @@ function Flow({
   // "answered" = AnswerMap.isAnswered ile tüm tipler için doğru sayım (B16 + yeni tipler).
   const answered = QUESTIONS.filter((q) => AnswerMap.isAnswered(q, answers[q.question])).length;
   const canSubmit = answered > 0;
+  const currentQuestion = QUESTIONS[current];
+  const currentType = currentQuestion && AnswerMap.qType(currentQuestion);
+  const canContinue =
+    currentType === 'scale' ||
+    currentType === 'ranking' ||
+    (currentQuestion && AnswerMap.isAnswered(currentQuestion, answers[currentQuestion.question]));
 
   // qid'e bağlı setQ helper: QuestionCard'a prop olarak geçilir.
   const makeSetQ = useCallback((qid) => (patch) => setQ(qid, patch), [setQ]);
@@ -704,6 +762,8 @@ function Flow({
         onJumpUnanswered={jumpToNextUnanswered}
         onSkipAll={skipAll}
         searchRef={searchInputRef}
+        onOpenSettings={() => setSettingsOpen(true)}
+        settingsButtonRef={settingsFabRef}
       />
       <main className="inspector">
         {/* aria-live: soru kartı key ile takas edilince ekran okuyucu yeni içeriği duyursun. */}
@@ -732,9 +792,20 @@ function Flow({
             />
           )}
         </div>
-        {!isSummary && <Hints q={QUESTIONS[current]} />}
+        {!isSummary && (
+          <>
+            <QuestionNavigation
+              current={current}
+              n={n}
+              canContinue={canContinue}
+              onPrevious={goBack}
+              onContinue={confirmCurrent}
+            />
+            <Hints q={QUESTIONS[current]} />
+          </>
+        )}
       </main>
-      {popup && popupQ && (
+      {popup && popupQ && !settingsOpen && !recoveryModalOpen && (
         <CustomPopup
           q={popupQ}
           draft={popup.draft}
@@ -747,20 +818,13 @@ function Flow({
         />
       )}
       <DeliveryPanel state={deliveryState} onRetry={retryAcknowledgement} />
-      {conflict && !recoveryReview && (
+      {conflict && !popup && !settingsOpen && !recoveryModalOpen && (
         <ReconciliationPanel
           conflict={conflict}
-          onKeepServer={() => applyServerDraft()}
-          onReview={() => setRecoveryReview(true)}
-          onDiscard={applyServerDraft}
-        />
-      )}
-      {conflict && recoveryReview && (
-        <ReconciliationPanel
-          conflict={conflict}
-          onKeepServer={() => applyServerDraft()}
-          onReview={() => setRecoveryReview(false)}
-          onDiscard={applyServerDraft}
+          questions={QUESTIONS}
+          onKeepServer={applyServerDraft}
+          onKeepLocal={applyLocalDraft}
+          onUseSelected={applySelectedDraft}
         />
       )}
       {confirmArmed && (

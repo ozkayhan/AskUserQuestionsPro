@@ -220,6 +220,7 @@ function createRoundRoutes({
         sendJson(res, 400, { error: checkedQuestions.error });
         return true;
       }
+      questions = checkedQuestions.questions;
       // Senkron erken 409: zaten pending varsa close handler kaydetmeden çık. Aksi
       // halde reddedilmiş istek, sahiplenmediği turu (gec onClose ile) iptal edebilir.
       if (bridge.peek()) {

@@ -119,6 +119,6 @@ mitigation for that host boundary, while the one-hour TTL remains the local
 application deadline.
 
 For the current evidence boundary and owner/environment/next-gate fields, see
-the [v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md). Historical
+the [release evidence handoff](evidence/v1.1.1-release-handoff.md). Historical
 timeout rationale is retained in [decisions.md](decisions.md) and the archived
-v1.1 milestone sources.
+release material.

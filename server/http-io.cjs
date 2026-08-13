@@ -1,6 +1,8 @@
 'use strict';
 
-const MAX_BODY = 8e6; // 8 MB sert tavan.
+const { MAX_BODY_BYTES } = require('../lib/protocol-limits.cjs');
+
+const MAX_BODY = MAX_BODY_BYTES; // 8 MiB sert tavanı; host stdio ile aynıdır.
 
 function sendJson(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json' });

@@ -35,21 +35,14 @@ test('views: recovery copy and actions stay exact and selection-gated', () => {
   assert.equal((copy.match(/We couldn't confirm delivery\./g) || []).length, 1);
   assert.equal((copy.match(/A question round was interrupted\./g) || []).length, 1);
   assert.equal((copy.match(/Choose what to do with the saved round\./g) || []).length, 1);
-  const actionStart = chooser.indexOf('<div className="recovery-actions">');
-  const actionEnd = chooser.indexOf('</div>', actionStart);
-  assert.notEqual(actionStart, -1, 'recovery action row bulunmalı');
-  assert.notEqual(actionEnd, -1, 'recovery action row sınırı bulunmalı');
-  const actions = chooser.slice(actionStart, actionEnd);
   assert.match(chooser, /Checking for saved rounds…/);
   assert.match(chooser, /We couldn't load a saved round right now\./);
   for (const label of ['Continue this exact round', 'Cancel/Delete it', 'Start a new round']) {
-    assert.equal(
-      (actions.match(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length,
-      1
-    );
+    assert.match(chooser, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.match(chooser, /disabled=\{!selectedRecovery\}/);
-  assert.doesNotMatch(chooser, /Retry recovery|Continue without recovery/);
+  assert.match(chooser, /Retry recovery/);
+  assert.match(chooser, /Close recovery/);
 });
 
 test('views: deletion confirmation and passive delivery states are accessible', () => {
@@ -72,4 +65,53 @@ test('views: modal recovery controls retain keyboard focus ownership', () => {
   assert.match(views, /useModalFocus\(titleRef, handleStartNewRound\)/);
   assert.match(views, /useModalFocus\(titleRef, onCancel\)/);
   assert.match(views, /aria-pressed=\{identity\}/);
+});
+
+test('views: every question screen exposes visible Previous and Continue controls', () => {
+  assert.match(views, /function QuestionNavigation\(/);
+  assert.match(views, /Previous/);
+  assert.match(views, /Continue/);
+  assert.match(views, /className="question-navigation"/);
+});
+
+test('views: recovery error state offers retry and close actions', () => {
+  assert.match(views, /onRetry/);
+  assert.match(views, /Retry recovery/);
+  assert.match(views, /Close recovery/);
+});
+
+test('views: conflict dialog presents question-level local and saved values with merge action', () => {
+  assert.match(views, /Local answer/);
+  assert.match(views, /Saved answer/);
+  assert.match(views, /Choose which to use/);
+  assert.match(views, /Use selected answers/);
+});
+
+test('views: ranking uses roving row focus and keeps the active row visible', () => {
+  assert.match(views, /scrollIntoView\(\{ block: 'nearest' \}\)/);
+  assert.match(views, /tabIndex=\{isCursor \? 0 : -1\}/);
+  assert.match(views, /onFocus=\{\(\) => \{[\s\S]*setCursor\(rankPos\)/);
+});
+
+test('views: release-facing hardcoded UI copy is English', () => {
+  assert.doesNotMatch(
+    views,
+    /Bir seçenek seçin|Öğeleri öncelik sırasına göre düzenleyin|Yukarı taşı|Aşağı taşı/
+  );
+  assert.match(views, /Waiting for a question/);
+});
+
+test('views: modal owner is singular when recovery deletion is open', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'web', 'app.js'), 'utf8');
+  assert.match(app, /showChooser && !settingsOpen && !deleteTarget/);
+  assert.match(views, /aria-modal="true"/);
+});
+
+test('styles: default text contrast, visible focus, and reduced motion safeguards remain present', () => {
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'web', 'styles.css'), 'utf8');
+  const index = fs.readFileSync(path.join(__dirname, '..', 'web', 'index.html'), 'utf8');
+  assert.match(styles, /--fg-subtle:\s*#a0a0a0/);
+  assert.match(styles, /:where\([^\n]*\):focus-visible/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(index, /<html lang="en">/);
 });

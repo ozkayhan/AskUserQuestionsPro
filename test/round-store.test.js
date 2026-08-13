@@ -24,7 +24,8 @@ test('store writes private snapshots and reloads the newest record', () => {
   assert.equal(fs.statSync(path.join(root, 'rounds')).mode & 0o777, 0o700);
   const loaded = new RoundStore({ root, now: () => 100 }).get(created.record.roundId);
   assert.equal(loaded.ok, true);
-  assert.equal(loaded.record.revision, 0);
+  assert.equal(loaded.record.revision, 1);
+  assert.equal(loaded.record.lifecycle.state, 'detached');
 });
 
 test('store tightens existing round and quarantine directories', () => {
@@ -84,7 +85,10 @@ test('startup cleanup removes only expired records', () => {
     retentionMs: 1000,
   });
   const later = new RoundStore({ root: store.root, now: () => 102 });
-  assert.equal(later.get(expired.record.roundId).ok, false);
+  const recoveredExpired = later.get(expired.record.roundId);
+  assert.equal(recoveredExpired.ok, true);
+  assert.equal(recoveredExpired.record.lifecycle.state, 'detached');
+  assert.equal(recoveredExpired.record.expiresAt, 103);
   assert.equal(later.get(fresh.record.roundId).ok, true);
 });
 
@@ -109,4 +113,41 @@ test('cleanup retains expired reconnecting snapshots for long-round recovery', (
   assert.deepEqual(store.cleanupExpired(), []);
   assert.equal(store.get(created.record.roundId).ok, true);
   assert.equal(store.recoverable()[0].roundId, created.record.roundId);
+});
+
+test('cleanup never removes an expired active drafting snapshot', () => {
+  let now = 0;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-round-store-drafting-'));
+  const store = new RoundStore({ root, now: () => now });
+  const created = store.create({
+    roundId: 'round_drafting_active',
+    requestId: 'drafting-active',
+    capability: 'cap',
+    questions: [{ question: 'Q?' }],
+    retentionMs: 10,
+  });
+  assert.equal(created.ok, true);
+  now = 10;
+  assert.deepEqual(store.cleanupExpired(), []);
+  assert.equal(store.get(created.record.roundId).ok, true);
+});
+
+test('restart converts ownerless drafting to detached and starts retention at restart', () => {
+  let now = 0;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'askuser-round-store-restart-'));
+  const first = new RoundStore({ root, now: () => now });
+  const created = first.create({
+    roundId: 'round_restart_drafting',
+    requestId: 'restart-drafting',
+    capability: 'cap',
+    questions: [{ question: 'Q?' }],
+    retentionMs: 100,
+  });
+  assert.equal(created.ok, true);
+  now = 50;
+  const restarted = new RoundStore({ root, now: () => now });
+  const recovered = restarted.get(created.record.roundId);
+  assert.equal(recovered.ok, true);
+  assert.equal(recovered.record.lifecycle.state, 'detached');
+  assert.equal(recovered.record.expiresAt, 150);
 });

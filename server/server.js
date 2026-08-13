@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Bridge, DEFAULT_DETACHED_TTL_MS, terminalReason } = require('./bridge.js');
 const { RoundStore } = require('../lib/round-store.cjs');
-const APP_ID = require('../lib/app-id.cjs');
+const { healthPayload } = require('../lib/bridge-protocol.cjs');
 const Settings = require('../lib/settings.js');
 const { log } = require('../lib/log.cjs');
 const { createLifecycle } = require('../lib/round-lifecycle.cjs');
@@ -37,9 +37,9 @@ const bridge = new Bridge({
 // Retention is enforced both before recovery hydration and periodically while
 // the daemon is idle. The interval is bounded and unref'd so it never keeps a
 // CLI process alive.
-const cleanupTimer = setInterval(() => bridge._store?.cleanupExpired(), 60 * 1000);
+const cleanupTimer = setInterval(() => bridge.cleanupExpired(), 60 * 1000);
 cleanupTimer.unref?.();
-bridge._store?.cleanupExpired();
+bridge.cleanupExpired();
 const MIME = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -137,8 +137,7 @@ async function handleRequest(req, res) {
   const url = req.url.split('?')[0];
 
   // app kimliği: eski/yabancı bir server'ın bu portu kapıp /health'e ok demesini ayırt etmek için
-  if (req.method === 'GET' && url === '/health')
-    return sendJson(res, 200, { ok: true, app: APP_ID });
+  if (req.method === 'GET' && url === '/health') return sendJson(res, 200, healthPayload());
   if (await roundRoutes.handle(req, res, url)) return;
 
   if (await settingsRoutes.handle(req, res, url)) return;

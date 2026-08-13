@@ -89,8 +89,9 @@ Step by step (both entry paths are identical after `bridge-client`):
   reuse `lib/bridge-client.mjs`.
 
 - **Zero deps, no build step.** React/Babel are vendored and JSX is compiled
-  in the browser. The server is raw `node:http`. This keeps install trivial
-  (`npx` / `curl | bash`) and the package self-contained.
+  in the browser. The server is raw `node:http`. The npm package is the
+  primary install path; the shell fallback is documented as an immutable,
+  checksum-verified release archive.
 
 - **Localhost-only with bounded recovery.** Bound to `127.0.0.1`; the active
   coordinator is in memory, while recoverable per-round lifecycle, draft, and

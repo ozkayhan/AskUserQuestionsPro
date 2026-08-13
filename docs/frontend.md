@@ -259,7 +259,7 @@ direction-aware slide animations gated on `prefers-reduced-motion`).
 ## Settings v2 browser evidence
 
 Run `node --test test/settings-panel.test.js test/views-a11y.test.js test/browser-settings.test.js test/browser-settings-e2e.test.js`.
-The Playwright CLI harness starts an isolated loopback server, captures 320px and desktop screenshots, and
-writes `test/artifacts/settings-v2/assertions.log` during the run. The modal owns Tab/Escape while open,
+The Playwright CLI harness starts an isolated loopback server and captures
+ephemeral screenshots outside the tracked source tree. The modal owns Tab/Escape while open,
 returns focus to its FAB, announces save/error outcomes, exposes descriptions/current values/effect timing,
 and honors reduced-motion and narrow viewport rules.

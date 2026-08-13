@@ -5,8 +5,8 @@
 - `docs/*.md` is the maintained, code-verified reference surface.
 - `docs/archive/` contains historical reports and workflow specifications kept
   for provenance. Archive files are not implementation instructions.
-- `.planning/` contains GSD planning state and phase artifacts. It is not a
-  replacement for the user-facing docs index.
+- Local planning, agent sessions, MCP project settings, and browser QA output
+  are ignored and are not part of the public documentation tree.
 
 ## Naming and ownership rules
 
@@ -28,17 +28,14 @@ install/upgrade/uninstall/trust/scope evidence for any `Supported` host.
 Keep absent hosts `Researching`/`Unavailable` and Aider `Unsupported`.
 
 The current release evidence is indexed in the
-[v1.1.1 release handoff](evidence/v1.1.1-release-handoff.md), with source links
-to the archived Phase 14–19 artifacts. v1.2.0 adds the browser-lifecycle and
-recovery corrections; its audit keeps the seven host/browser/AT lanes explicitly
-human-needed rather than presenting source contracts as runtime proof.
+[release handoff](evidence/v1.1.1-release-handoff.md). Host/browser/AT lanes
+remain explicitly evidence-gated rather than being presented as runtime proof
+based only on source contracts.
 
 Durable rationale remains in [decisions.md](decisions.md), the [timeout
-runbook](timeout-runbook.md), and the v1.1 milestone [audit](../.planning/milestones/v1.1-MILESTONE-AUDIT.md)
-and [integration check](../.planning/milestones/v1.1-INTEGRATION-CHECK.md).
-The v1.2.0 audit and Phase 19 UAT are archived under
-`../.planning/milestones/` and are the authority for the latest lifecycle
-evidence boundary.
+runbook](timeout-runbook.md), and the historical reports under `archive/`.
+Maintained documents, source, and tests are authoritative; local planning
+artifacts are deliberately not shipped.
 
 Add a link to `docs/README.md` for every new maintained document. Prefer updating
 the existing owner over creating a second document with overlapping scope.

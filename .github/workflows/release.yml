@@ -1,47 +1,85 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows: [CI]
+  push:
     branches: [main]
-    types: [completed]
-  workflow_dispatch: {}
 
-# Yayını asla yarıda kesme — devam eden release bitsin.
 concurrency:
   group: release
   cancel-in-progress: false
 
-jobs:
-  release:
-    name: Release
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+permissions:
+  contents: read
 
+jobs:
+  release-gate:
+    name: Release Gate
+    if: ${{ github.ref == 'refs/heads/main' && github.sha == github.event.after }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
-      contents: write # git tag + GitHub Release
-      pull-requests: write # Version Packages PR
-      id-token: write # npm provenance
+      contents: write
+      statuses: write
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          # Changesets'in tag push edebilmesi için tam geçmiş gerekli
           fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Assert exact main SHA
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: npm
+          package-manager-cache: false
 
+      - run: npm i -g npm@11.5.1
       - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm audit --audit-level=high
+      - run: npm audit --audit-level=high --omit=dev
+      - run: npm pack --dry-run --json
+      - name: Shellcheck
+        run: find . -name '*.sh' -not -path './node_modules/*' -not -path './.git/*' -print0 | xargs -0 shellcheck --severity=warning
 
+      - name: Publish exact-SHA Release Gate status
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GATE_STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -f state="$GATE_STATE" -f context='Release Gate' -f description='Exact main SHA release checks'
+
+  release:
+    name: Publish
+    needs: release-gate
+    if: ${{ needs.release-gate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
+      - run: npm i -g npm@11.5.1
+      - run: npm ci
       - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
         with:
           version: npm run version
           publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

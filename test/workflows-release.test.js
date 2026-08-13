@@ -23,24 +23,28 @@ describe('release.yml yapısı', () => {
     ? readFileSync(path.join(wfDir, 'release.yml'), 'utf8')
     : '';
 
-  it('workflow_run CI tetikleyicisi — release yalnızca CI başarısında çalışır', () => {
-    // Must depend on CI workflow via workflow_run so all matrix legs (18/20/22) must pass
-    assert.match(releaseYml, /workflow_run/);
-    assert.match(releaseYml, /workflows:[\s\S]{0,20}CI/);
-    assert.match(releaseYml, /types:[\s\S]{0,20}completed/);
+  it('push: main tetikleyicisi kullanır; workflow_run ve manual dispatch yoktur', () => {
+    assert.match(releaseYml, /push:[\s\S]*branches:\s*\[main\]/);
+    assert.doesNotMatch(releaseYml, /workflow_run/);
+    assert.doesNotMatch(releaseYml, /workflow_dispatch/);
   });
 
-  it('release job if-guard: conclusion == success', () => {
-    // Job must only proceed when CI concluded successfully
-    assert.match(releaseYml, /conclusion.*==.*success/);
+  it('exact main SHA için Release Gate job ve status yazımı vardır', () => {
+    assert.match(releaseYml, /name:\s*Release Gate/);
+    assert.match(releaseYml, /github\.ref\s*==\s*['"]refs\/heads\/main['"]/);
+    assert.match(releaseYml, /github\.sha/);
+    assert.match(releaseYml, /git rev-parse HEAD/);
+    assert.match(releaseYml, /statuses\/\$GITHUB_SHA/);
+    assert.match(releaseYml, /context=.*Release Gate/);
   });
 
   it('concurrency cancel-in-progress: false (yayını asla kesme)', () => {
     assert.match(releaseYml, /cancel-in-progress:\s*false/);
   });
 
-  it('permissions: contents: write, pull-requests: write, id-token: write', () => {
+  it('permissions: contents/statuses/pull-requests/id-token write', () => {
     assert.match(releaseYml, /contents:\s*write/);
+    assert.match(releaseYml, /statuses:\s*write/);
     assert.match(releaseYml, /pull-requests:\s*write/);
     assert.match(releaseYml, /id-token:\s*write/);
   });
@@ -73,8 +77,9 @@ describe('release.yml yapısı', () => {
     assert.doesNotMatch(releaseYml, /run:\s*npm install/);
   });
 
-  it('NODE_AUTH_TOKEN secrets.NPM_TOKEN bağlantısı (tam pattern)', () => {
-    assert.match(releaseYml, /NODE_AUTH_TOKEN:\s*\$\{\{\s*secrets\.NPM_TOKEN\s*\}\}/);
+  it('trusted publishing için NPM_TOKEN ve NODE_AUTH_TOKEN yoktur', () => {
+    assert.doesNotMatch(releaseYml, /NPM_TOKEN|NODE_AUTH_TOKEN/);
+    assert.match(releaseYml, /id-token:\s*write/);
   });
 
   it('registry-url npmjs.org olarak ayarlı', () => {
@@ -85,13 +90,20 @@ describe('release.yml yapısı', () => {
     assert.match(releaseYml, /fetch-depth:\s*0/);
   });
 
+  it('publisher Node 24, npm 11.5.1+ ve cache kapalı kullanır', () => {
+    assert.match(releaseYml, /node-version:\s*['"]?24['"]?/);
+    assert.match(releaseYml, /npm\s+i\s+-g\s+npm@11\.5\.1/);
+    assert.match(releaseYml, /package-manager-cache:\s*false/);
+    assert.doesNotMatch(releaseYml, /cache:\s*npm/);
+  });
+
   it('timeout-minutes: 10', () => {
     assert.match(releaseYml, /timeout-minutes:\s*10/);
   });
 
-  it('release job does NOT contain redundant npm test (CI gate is sufficient)', () => {
-    // With workflow_run gate, duplicating npm test in release is unnecessary noise;
-    // the correctness invariant is enforced by CI. Assert it is removed.
-    assert.doesNotMatch(releaseYml, /run:\s*npm test/);
+  it('release gate re-runs the clean-checkout checks before publish', () => {
+    assert.match(releaseYml, /name:\s*Release Gate[\s\S]*npm test/);
+    assert.match(releaseYml, /name:\s*Release Gate[\s\S]*npm run lint/);
+    assert.match(releaseYml, /name:\s*Release Gate[\s\S]*npm pack --dry-run --json/);
   });
 });

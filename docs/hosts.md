@@ -58,7 +58,7 @@ Claude Code and Codex are Tier 1 adapters with separate framing and fallback sem
 The current route and wiring are authoritative: browser recovery uses `POST /resume`
 with an exact round selector. Older Phase 11 wording describing a different
 route is historical and superseded; the archived artifact remains unchanged.
-See [decisions](decisions.md) and the [v1.1 integration check](../.planning/milestones/v1.1-INTEGRATION-CHECK.md).
+See [decisions](decisions.md) and the [release handoff](evidence/v1.1.1-release-handoff.md).
 
 ## Authenticated acceptance procedure
 

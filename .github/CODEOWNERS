@@ -1,0 +1,10 @@
+# Default ownership for the repository.
+* @ozkayhan
+
+# Keep security-sensitive and release changes visible to the maintainer.
+/SECURITY.md @ozkayhan
+/.github/ @ozkayhan
+/docs/release.md @ozkayhan
+/install.sh @ozkayhan
+/uninstall.sh @ozkayhan
+/reinstall.sh @ozkayhan
